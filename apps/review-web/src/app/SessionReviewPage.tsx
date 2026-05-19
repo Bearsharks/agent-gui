@@ -1,4 +1,4 @@
-import type { PlanEvent, PlanSession, PlanTarget } from "@agent-gui/plan-schema";
+import type { PlanEvent, PlanSession } from "@agent-gui/plan-schema";
 import { Badge, Button, Card, Stack, tokens } from "@agent-gui/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { approveSession, createFixtureSession, fetchSession, postFeedback } from "../api/client";
@@ -14,6 +14,8 @@ export function SessionReviewPage() {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [planMessage, setPlanMessage] = useState("");
+  const [prototypeMessage, setPrototypeMessage] = useState("");
+  const [prototypePieceMessage, setPrototypePieceMessage] = useState("");
 
   async function load(id = sessionId) {
     if (!id) return;
@@ -29,11 +31,15 @@ export function SessionReviewPage() {
   useEffect(() => {
     if (!sessionId) return;
     const source = new EventSource(`/events/sessions/${sessionId}`);
+    const interval = window.setInterval(() => void load(sessionId), 1000);
     source.addEventListener("session.updated", () => void load(sessionId));
     source.addEventListener("event.created", () => void load(sessionId));
     source.addEventListener("revision.created", () => void load(sessionId));
     source.addEventListener("prototype.updated", () => void load(sessionId));
-    return () => source.close();
+    return () => {
+      window.clearInterval(interval);
+      source.close();
+    };
   }, [sessionId]);
 
   async function startFixture() {
@@ -60,8 +66,9 @@ export function SessionReviewPage() {
 
   const selectedStep = session.plan.steps.find((step) => step.id === selectedStepId) ?? session.plan.steps[0];
   const selectedPrototype = session.plan.prototypes?.[0];
-  const targetEvents = selectedStep ? eventsForTarget(session.events, { type: "step", id: selectedStep.id }) : [];
-  const prototypeEvents = selectedPrototype ? eventsForTarget(session.events, { type: "prototype", id: selectedPrototype.id }) : [];
+  const targetEvents = selectedStep ? eventsForStepReviewContext(session.events, session, selectedStep.id) : [];
+  const prototypeEvents = selectedPrototype ? eventsForPrototypeContext(session.events, selectedPrototype.id, selectedPrototype.pieces.map((piece) => piece.id)) : [];
+  const selectedPrototypePiece = selectedPrototype?.pieces.find((piece) => piece.id === "piece-approval-actions") ?? selectedPrototype?.pieces[0];
   const latestRevision = [...session.events].reverse().find((event) => event.type === "agent.revision");
 
   return (
@@ -154,6 +161,30 @@ export function SessionReviewPage() {
               <>
                 <PrototypeLinks session={session} prototypeId={selectedPrototype.id} />
                 <iframe title="prototype preview" src={`/prototype/${session.id}/${selectedPrototype.id}`} />
+                <h3>Prototype Feedback</h3>
+                <textarea value={prototypeMessage} onChange={(event) => setPrototypeMessage(event.target.value)} />
+                <Button
+                  onClick={async () => {
+                    await postFeedback(session.id, { type: "prototype", id: selectedPrototype.id }, prototypeMessage);
+                    setPrototypeMessage("");
+                  }}
+                >
+                  Add prototype feedback
+                </Button>
+                {selectedPrototypePiece ? (
+                  <>
+                    <h3>Prototype Piece Feedback</h3>
+                    <textarea value={prototypePieceMessage} onChange={(event) => setPrototypePieceMessage(event.target.value)} />
+                    <Button
+                      onClick={async () => {
+                        await postFeedback(session.id, { type: "prototype_piece", id: selectedPrototypePiece.id }, prototypePieceMessage);
+                        setPrototypePieceMessage("");
+                      }}
+                    >
+                      Add {selectedPrototypePiece.title} feedback
+                    </Button>
+                  </>
+                ) : null}
                 <Thread events={prototypeEvents} allEvents={session.events} />
               </>
             ) : (
@@ -266,6 +297,34 @@ function EventRow({ event }: { event: PlanEvent }) {
   );
 }
 
-function eventsForTarget(events: PlanEvent[], target: PlanTarget) {
-  return events.filter((event) => "target" in event && event.target.type === target.type && event.target.id === target.id);
+function eventsForPrototypeContext(events: PlanEvent[], prototypeId: string, pieceIds: string[]) {
+  return events.filter((event) => {
+    if (!("target" in event)) return false;
+    if (event.target.type === "prototype" && event.target.id === prototypeId) return true;
+    return event.target.type === "prototype_piece" && !!event.target.id && pieceIds.includes(event.target.id);
+  });
+}
+
+function eventsForStepReviewContext(events: PlanEvent[], session: PlanSession, stepId: string) {
+  const linkedPrototypeIds = new Set<string>();
+  const linkedPieceIds = new Set<string>();
+  for (const prototype of session.plan.prototypes ?? []) {
+    if (prototype.links.some((link) => link.target.type === "step" && link.target.id === stepId)) {
+      linkedPrototypeIds.add(prototype.id);
+    }
+    for (const piece of prototype.pieces) {
+      if (piece.links.some((link) => link.target.type === "step" && link.target.id === stepId)) {
+        linkedPrototypeIds.add(prototype.id);
+        linkedPieceIds.add(piece.id);
+      }
+    }
+  }
+
+  return events.filter((event) => {
+    if (!("target" in event)) return false;
+    if (event.target.type === "step" && event.target.id === stepId) return true;
+    if (event.target.type === "prototype" && !!event.target.id) return linkedPrototypeIds.has(event.target.id);
+    if (event.target.type === "prototype_piece" && !!event.target.id) return linkedPieceIds.has(event.target.id);
+    return false;
+  });
 }
