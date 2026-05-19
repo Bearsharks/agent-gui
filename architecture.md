@@ -212,6 +212,8 @@ The MCP layer exposes agent tools:
 
 MCP tools must call the same domain services as the web API. They must not directly mutate files or database rows.
 
+`update_plan_revision` remains the single revision update tool. It accepts an optional `target` so the agent can focus the requested change on a specific step, prototype, or prototype piece while still storing a full PlanDraft revision.
+
 ### 5.4 HTTP
 
 The HTTP layer serves:
@@ -248,6 +250,7 @@ Responsibilities:
 - load prototype and piece links that map UI artifacts to plan targets
 - import or receive the design-system bridge
 - render the prototype and selected component-like pieces in isolation
+- treat every prototype piece as an independently renderable React component, not as a fragment-only artifact
 - show runtime and compile errors inside the iframe
 - listen for session/prototype updates
 - notify the review host through `postMessage` when needed
@@ -423,9 +426,10 @@ The POC is local-first and does not attempt full production-grade untrusted code
 9. `apps/prototype-runtime` React preview app
 10. design-system bridge
 11. prototype update and immediate iframe refresh/re-render
-12. Codex MCP server registration
-13. user-requested Codex session restart
-14. registered-MCP fixture project E2E scenario
+12. complete implementation and local non-registered checks
+13. Codex MCP server registration
+14. user-requested Codex session restart immediately before real scenario verification
+15. registered-MCP fixture project E2E scenario
 
 ## 13. MCP Registration Gate
 
@@ -435,11 +439,12 @@ Expected flow:
 
 ```txt
 1. Implement the single local server and MCP endpoint.
-2. Add the MCP server to Codex MCP configuration.
-3. Ask the user to restart the Codex session.
-4. After restart, verify that the MCP tools are available.
-5. Use the registered MCP tools against fixtures/review-target-app.
-6. Complete the plan review, prototype, revision, and approval scenario.
+2. Finish the implementation and local non-registered checks.
+3. Add the MCP server to Codex MCP configuration.
+4. Ask the user to restart the Codex session immediately before real scenario verification.
+5. After restart, verify that the MCP tools are available.
+6. Use the registered MCP tools against fixtures/review-target-app.
+7. Complete the plan review, prototype, revision, and approval scenario.
 ```
 
 This gate exists because a newly implemented local MCP server may not be usable by the current Codex session until it is registered and the session is restarted.

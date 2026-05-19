@@ -194,8 +194,9 @@ Prototype mapping 요구사항:
 
 - prototype은 독립 컨텐츠가 아니라 plan revision에 속한 artifact다.
 - prototype은 한 번에 완성된 단일 화면만 의미하지 않는다.
-- prototype은 여러 component-like piece의 묶음일 수 있다.
+- prototype은 독립 실행 가능한 React component piece들의 묶음일 수 있다.
 - 각 prototype piece는 button group, panel, card, form, navigation, state view, interaction slice처럼 계획 검토에 필요한 작은 UI 단위일 수 있다.
+- prototype piece의 크기에는 별도 제약이 없다. 버튼 하나일 수도 있고 큰 UI section일 수도 있지만, 항상 독립 렌더링 가능한 React component여야 한다.
 - piece 단위로도 plan target과 연결될 수 있어야 한다.
 - 모든 prototype은 최소 하나 이상의 plan target에 연결되어야 한다.
 - 하나의 prototype은 여러 step, decision, plan target을 설명하거나 검증할 수 있다.
@@ -219,6 +220,7 @@ type PlanTarget = {
     | 'risk'
     | 'verification'
     | 'prototype'
+    | 'prototype_piece'
   id?: string
 }
 ```
@@ -415,6 +417,7 @@ type PlanTarget = {
     | 'risk'
     | 'verification'
     | 'prototype'
+    | 'prototype_piece'
   id?: string
 }
 
@@ -497,6 +500,7 @@ type UserApprovalEvent = {
 - `risk`: 특정 risk
 - `verification`: 검증 항목
 - `prototype`: prototype playground의 특정 프로토타입
+- `prototype_piece`: prototype 내부의 독립 실행 가능한 React component piece
 
 에이전트 답변은 `replyToEventId`로 사용자 피드백에 연결된다.
 
@@ -618,12 +622,15 @@ post_agent_reply(input: {
 update_plan_revision(input: {
   sessionId: string
   baseRevision: number
+  target?: PlanTarget
   plan: PlanDraft
   changeSummary: string[]
 }): PlanSession
 ```
 
 수정된 플랜 revision을 저장한다.
+
+`target`은 선택 값이다. 전체 plan을 수정할 수도 있고, 불필요한 작업과 토큰 낭비를 줄이기 위해 특정 step, prototype, prototype piece 등 수정 의도 범위를 지정할 수도 있다. revision 저장은 여전히 전체 `PlanDraft` 단위로 수행한다.
 
 ### 11.7 mark_plan_approved
 
@@ -731,6 +738,7 @@ POC는 다음 조건을 만족하면 성공으로 본다.
 - 에이전트가 새 revision과 변경 요약을 기록할 수 있다.
 - 브라우저 UI가 피드백, 에이전트 답변, 변경 요약, revision을 연결해서 보여준다.
 - prototype이 연결된 step/decision과 양방향으로 매핑되어 표시된다.
+- prototype piece가 연결된 step/decision과 양방향으로 매핑되어 표시된다.
 - prototype 변경이 plan revision과 change summary에서 추적된다.
 - 사용자가 현재 revision을 승인할 수 있다.
 
@@ -743,6 +751,9 @@ POC는 다음 조건을 만족하면 성공으로 본다.
 - plan JSON 변경 이후 웹 화면과 playground의 최신성은 즉시 반영되어야 한다.
 - playground는 React 기반 preview runtime을 가져야 하며, 동적 prototype code 변경을 즉시 렌더링해야 한다.
 - playground prototype은 지정된 design system 컴포넌트와 토큰을 사용해야 한다.
+- prototype piece는 독립 렌더링 가능한 React component여야 하며, fragment-only artifact로 취급하지 않는다.
+- prototype artifact의 실제 code/state는 session-scoped artifact로 저장하고, `PlanDraft.prototypes`는 metadata, links, codeRef를 통해 참조한다.
+- prototype만 변경되어도 plan revision은 증가한다.
 - 동적 code execution은 session boundary를 지켜야 하며, 다른 session의 plan/prototype state를 읽거나 변경할 수 없어야 한다.
 - `PlanDraft.steps`는 flat array로 유지한다.
 - `PlanPhase.stepIds`와 `PlanStep.phaseId`는 grouping을 위한 보조 정보로 사용한다.
@@ -757,6 +768,5 @@ POC는 다음 조건을 만족하면 성공으로 본다.
 
 - `UserFeedbackEvent` 자체에 처리 상태를 저장할지, `AgentReplyEvent.disposition`으로만 파생할지 결정이 필요하다.
 - `verification` target의 세부 id를 문자열로 둘지 별도 `PlanVerification` 모델을 둘지 결정이 필요하다.
-- prototype state를 서버의 plan JSON 안에 저장할지, 별도 session-scoped artifact로 저장하고 plan에서 참조할지 결정이 필요하다.
 - rejected 상태를 사용자가 직접 선택할 수 있게 할지, 승인하지 않고 종료하는 상태로만 둘지 결정이 필요하다.
 - POC에서 revision history를 얼마나 상세히 보여줄지 결정이 필요하다.
