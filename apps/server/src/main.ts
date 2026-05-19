@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { createApi } from "./http/api";
 import { createMcpHttpRoutes } from "./mcp/httpTools";
 
@@ -12,7 +13,8 @@ const app = new Hono();
 app.route("/", createApi());
 app.route("/", createMcpHttpRoutes());
 const honoListener = getRequestListener(app.fetch);
-const repoRoot = path.resolve(process.cwd(), "../..");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "../../..");
 const reviewRoot = path.join(repoRoot, "apps/review-web");
 const prototypeRoot = path.join(repoRoot, "apps/prototype-runtime");
 
