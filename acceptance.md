@@ -83,6 +83,7 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 완료 조건:
 
 - 에이전트가 `update_plan_revision`을 호출하면 revision이 증가한다.
+- `update_plan_revision`은 단일 tool이지만, 선택적으로 특정 step, prototype, prototype piece target을 지정해 수정 의도 범위를 좁힐 수 있다.
 - 변경 요약이 표시된다.
 - 이전 feedback event는 원래 revision 번호를 유지한다.
 - 최신 plan은 새 revision 기준으로 표시된다.
@@ -90,6 +91,7 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 실패 조건:
 
 - revision 증가 없이 plan만 덮어쓴다.
+- 작은 수정에도 target 없이 전체 plan 재작성을 강제한다.
 - 변경 요약이 표시되지 않는다.
 - 이전 feedback event의 revision 추적이 사라진다.
 
@@ -115,7 +117,7 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 - prototype은 design system 컴포넌트와 토큰을 사용한다.
 - prototype은 최소 하나 이상의 plan target에 연결된다.
 - prototype은 단일 완성 화면뿐 아니라 component-like piece들의 묶음으로 구성될 수 있다.
-- prototype piece는 개별 step 또는 decision에 연결될 수 있다.
+- prototype piece는 독립 실행 가능한 React component이며, 크기 제약 없이 개별 step 또는 decision에 연결될 수 있다.
 - step/detail 화면에서 연결된 prototype을 확인할 수 있다.
 - step/detail 화면에서 연결된 prototype piece를 확인할 수 있다.
 - prototype panel에서 연결된 step, decision, plan target을 확인할 수 있다.
@@ -165,8 +167,9 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 MCP 등록 게이트:
 
 - 만든 MCP server는 Codex에 등록되기 전까지 현재 에이전트 세션에서 MCP tool로 사용할 수 없을 수 있다.
-- 구현자는 MCP server 등록 절차를 완료한 뒤 사용자에게 Codex 세션 재실행을 요청해야 한다.
-- 세션 재실행 이후 에이전트는 실제 등록된 MCP tool을 사용해 fixture project 계획 시나리오를 수행해야 한다.
+- 구현자는 모든 구현을 완료한 뒤 MCP server 등록 절차를 수행해야 한다.
+- 구현자는 실제 사용자 시나리오 검증을 시작하기 직전에 사용자에게 Codex 세션 재실행을 요청해야 한다.
+- 세션 재실행 이후 에이전트는 실제 등록된 MCP tool을 사용해 fixture project 계획 시나리오를 검증해야 한다.
 
 실패 조건:
 
@@ -307,8 +310,8 @@ E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser�
 ```txt
 1. 로컬 서버를 실행한다.
 2. repository 내부 fixture project가 존재하는지 확인한다.
-3. MCP server를 Codex에 등록한다.
-4. 사용자에게 Codex 세션 재실행을 요청한다.
+3. 구현이 완료된 MCP server를 Codex에 등록한다.
+4. 실제 사용자 시나리오 검증 시작 직전에 사용자에게 Codex 세션 재실행을 요청한다.
 5. 세션 재실행 후 등록된 MCP tool을 사용할 수 있는지 확인한다.
 6. fixture project를 대상으로 MCP tool로 plan session을 생성한다.
 7. browser-use로 세션 URL을 연다.
