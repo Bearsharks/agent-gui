@@ -1,0 +1,42 @@
+{
+  "name": "agent-gui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-based plan review UI POC",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @agent-gui/server dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "planctl": "pnpm --filter @agent-gui/server planctl"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bearsharks/agent-gui.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Bearsharks/agent-gui/issues"
+  },
+  "homepage": "https://github.com/Bearsharks/agent-gui#readme",
+  "devDependencies": {
+    "@types/node": "^25.9.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.13"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.14",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "hono": "^4.12.21",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "zod": "^4.4.3"
+  }
+}
