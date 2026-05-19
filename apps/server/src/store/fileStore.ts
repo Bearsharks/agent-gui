@@ -13,8 +13,11 @@ import type {
 import { planDraftSchema, planSessionSchema, planTargetSchema } from "@agent-gui/plan-schema";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DATA_ROOT = path.resolve(process.cwd(), "../..", "data", "sessions");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "../../../..");
+const DATA_ROOT = path.join(REPO_ROOT, "data", "sessions");
 
 type CreateSessionResult = { sessionId: string; url: string; revision: number };
 
