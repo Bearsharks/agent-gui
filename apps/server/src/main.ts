@@ -1,7 +1,6 @@
 import { getRequestListener } from "@hono/node-server";
 import { Hono } from "hono";
 import { createServer as createViteServer } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -62,7 +61,6 @@ const reviewVite = await createViteServer({
   root: reviewRoot,
   server: { middlewareMode: true, hmr: { server } },
   appType: "spa",
-  plugins: [react()],
 });
 
 const prototypeVite = await createViteServer({
@@ -70,7 +68,6 @@ const prototypeVite = await createViteServer({
   base: "/prototype-vite/",
   server: { middlewareMode: true, hmr: { server } },
   appType: "spa",
-  plugins: [react()],
 });
 
 server.listen(8787, () => {

@@ -88,11 +88,20 @@ Verified locally:
 - prototype piece feedback can be stored
 - agent reply can be recorded
 - targeted `update_plan_revision` works for `prototype_piece`
+- registered MCP `create_plan_session` works in the restarted Codex session
+- `agent-browser` E2E verification completed against MCP-created fixture session `plan_88e7c898`
+- review UI renders title, goal, status, revision, decisions, steps, step detail, feedback controls, event timeline, change summary, approval control, prototype iframe, prototype render result, and prototype piece mapping
+- browser-added plan, step, and prototype piece feedback are stored with correct targets
+- `planctl notify plan_88e7c898` changed status to `needs_agent` and the browser reflected it
+- registered MCP `list_plan_events`, `post_agent_reply`, and targeted `update_plan_revision` were verified
+- revision 2 reflected status, change summary, step detail changes, and prototype piece change summary without manual page refresh
+- browser approval created a `user.approval` event for revision 2 and changed status to `approved`
+- session isolation was checked with control session `plan_ddfdf979`; B-only feedback did not appear in session A
 
 Example working session from the last run:
 
 ```txt
-http://localhost:8787/sessions/plan_a1844960
+http://localhost:8787/sessions/plan_88e7c898
 ```
 
 That session may not persist across cleanup or future runs, so create a fresh fixture session if needed:
@@ -127,7 +136,11 @@ After session restart, the MCP server is visible as tools under the `agent_gui_p
 
 Confirmed in the restarted session:
 
-- `get_plan_session` worked against `plan_a1844960`
+- `create_plan_session` created `plan_88e7c898`
+- `get_plan_session` worked against `plan_88e7c898`
+- `list_plan_events` returned feedback events with preserved targets
+- `post_agent_reply` created replies with correct `replyToEventId`
+- `update_plan_revision` created revision 2 with `fromRevision: 1`, `toRevision: 2`, targeted prototype piece metadata, and linked targets
 
 ## Browser Use Status
 
@@ -154,6 +167,12 @@ node_repl js JavaScript execution
 
 The browser-use skill requires that tool to initialize the in-app browser runtime.
 
+Current result:
+
+- Browser Use was attempted per its skill instructions, but this session still does not expose `mcp__node_repl__js` or an equivalent Node REPL `js` tool.
+- Because the in-app Browser Use runtime could not be initialized, E2E was completed with the available `agent-browser` browser automation CLI instead.
+- This verifies the actual local browser UI behavior, but it is not a literal Browser Use / Node REPL run.
+
 Web search and local plugin inspection suggest:
 
 - `mcp__node_repl__js` is not a normal user-configured MCP server.
@@ -161,35 +180,11 @@ Web search and local plugin inspection suggest:
 - It may appear only in sessions where Browser Use / in-app browser tool discovery is enabled.
 - A new session likely needs to be opened with Browser Use / Node REPL tool discovery available.
 
-## Important Uncommitted Change
+## Optional Follow-Up
 
-During investigation, `playwright-core` was added with pnpm as a possible fallback for headless browser verification.
+If a future Codex session exposes `mcp__node_repl__js` or another Node REPL `js` tool, rerun the same E2E scenario with the Browser Use in-app browser runtime for strict acceptance parity.
 
-Current uncommitted files at handoff time:
-
-```txt
-M package.json
-M pnpm-lock.yaml
-```
-
-These changes are only for the fallback Playwright approach. If the next session successfully gets `mcp__node_repl__js`, these changes can be reverted or left only if desired.
-
-Do not commit them blindly unless the team decides to keep Playwright fallback verification.
-
-## Next Goal
-
-Open a new Codex session with Browser Use / Node REPL support enabled.
-
-The next session should first verify whether one of these tools is available:
-
-```txt
-mcp__node_repl__js
-node_repl js JavaScript execution
-```
-
-If available, proceed with browser-use E2E verification.
-
-## Next Verification Plan
+## Completed Verification Plan
 
 1. Start the local server if it is not running:
 
@@ -203,7 +198,7 @@ pnpm dev
 curl -s -X POST http://localhost:8787/api/fixture-session
 ```
 
-3. Use browser-use to open:
+3. Use browser automation to open:
 
 ```txt
 http://localhost:8787/sessions/<sessionId>
@@ -228,7 +223,7 @@ http://localhost:8787/sessions/<sessionId>
 - prototype render result
 - prototype piece mapping
 
-5. Browser interaction flow:
+5. Completed browser interaction flow:
 
 - Add step feedback.
 - Add prototype or prototype piece feedback.
@@ -240,7 +235,7 @@ http://localhost:8787/sessions/<sessionId>
 - Approve the latest revision in the browser.
 - Confirm `approved` status appears.
 
-6. Data assertions:
+6. Verified data assertions:
 
 - UI revision matches `PlanSession.revision`.
 - feedback target is preserved.
