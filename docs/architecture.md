@@ -2,11 +2,11 @@
 
 ## 1. Architecture Summary
 
-POC는 단일 로컬 서버로 시작한다. 하나의 서버 프로세스가 MCP endpoint, web/API endpoint, session store, realtime update stream, prototype iframe runtime을 모두 책임진다.
+POC는 단일 로컬 서버로 시작한다. 하나의 서버 프로세스가 MCP endpoint, web/API endpoint, session store, realtime update stream, review web app을 책임진다.
 
-기술 선택의 핵심은 Vite HMR을 제품 데이터 동기화 수단으로 사용하지 않는 것이다. Plan JSON과 prototype code/state는 모두 session-scoped canonical data로 취급한다. 최신성은 서버의 session event stream과 API refetch로 보장한다.
+기술 선택의 핵심은 Vite HMR을 제품 데이터 동기화 수단으로 사용하지 않는 것이다. Plan JSON과 prototype URL tab metadata는 session-scoped canonical data로 취급한다. 최신성은 서버의 session event stream과 API refetch로 보장한다.
 
-Vite는 개발/빌드 도구와 iframe prototype runtime을 서빙하기 위한 middleware로 사용한다.
+Vite는 review web app의 개발/빌드 도구로 사용한다. Prototype iframe은 별도 runtime이 아니라 사용자가 제공한 외부 URL을 직접 띄운다.
 
 ## 2. Recommended Stack
 
@@ -34,15 +34,12 @@ Review Web App:
 - React Router
 - Project design-system tokens/components
 
-Prototype Runtime iframe:
+Prototype URL iframe:
 
-- React
-- Vite
-- TypeScript
-- sandboxed iframe
-- postMessage for host/runtime communication when needed
-- ErrorBoundary
-- project design-system package import
+- Plan-linked URL tabs
+- sandboxed iframe in review-web
+- external app owns its internal UI
+- fallback action to open selected URL in a new window
 
 Shared Packages:
 
@@ -68,9 +65,6 @@ Single Local Server :8787
   /events/sessions/:sessionId
     SSE stream for plan/prototype updates
 
-  /prototype/:sessionId/:prototypeId
-    iframe preview route
-
   /mcp
     MCP tool endpoint
 ```
@@ -86,7 +80,6 @@ agent-gui
         http/
           routes.sessions.ts
           routes.events.ts
-          routes.prototype.ts
           routes.assets.ts
         mcp/
           tools.ts
@@ -108,10 +101,6 @@ agent-gui
           planSession.ts
           revisions.ts
           feedback.ts
-        prototype/
-          vitePreview.ts
-          previewManifest.ts
-          sandboxPolicy.ts
 
     review-web/
       src/
@@ -129,13 +118,6 @@ agent-gui
           sessionEvents.ts
         state/
           sessionQuery.ts
-
-    prototype-runtime/
-      src/
-        PreviewApp.tsx
-        designSystemBridge.ts
-        prototypeLoader.ts
-        errorBoundary.tsx
 
   packages/
     plan-schema/
@@ -156,14 +138,7 @@ agent-gui
       plan_123/
         session.json
         events.jsonl
-        prototypes/
-          prototype_main.tsx
-          prototype_main.links.json
-          state.json
-          pieces/
-            filter_panel.tsx
-            filter_panel.state.json
-            filter_panel.links.json
+        prototypes are stored as metadata inside session.json
 ```
 
 ## 5. Module Boundaries
@@ -189,12 +164,7 @@ POC storage:
 ```txt
 data/sessions/:sessionId/session.json
 data/sessions/:sessionId/events.jsonl
-data/sessions/:sessionId/prototypes/:prototypeId.tsx
-data/sessions/:sessionId/prototypes/:prototypeId.links.json
-data/sessions/:sessionId/prototypes/:prototypeId.state.json
-data/sessions/:sessionId/prototypes/pieces/:pieceId.tsx
-data/sessions/:sessionId/prototypes/pieces/:pieceId.state.json
-data/sessions/:sessionId/prototypes/pieces/:pieceId.links.json
+data/sessions/:sessionId/session.json
 ```
 
 The store should be interface-driven so JSON/JSONL can later be replaced by SQLite.
@@ -212,7 +182,7 @@ The MCP layer exposes agent tools:
 
 MCP tools must call the same domain services as the web API. They must not directly mutate files or database rows.
 
-`update_plan_revision` remains the single revision update tool. It accepts an optional `target` so the agent can focus the requested change on a specific step, prototype, or prototype piece while still storing a full PlanDraft revision.
+`update_plan_revision` remains the single revision update tool. It accepts an optional `target` so the agent can focus the requested change on a specific step or prototype while still storing a full PlanDraft revision.
 
 ### 5.4 HTTP
 
@@ -222,7 +192,7 @@ The HTTP layer serves:
 - session JSON APIs
 - feedback APIs
 - approval APIs
-- prototype iframe routes
+- review web routes
 - static or Vite-powered frontend assets
 
 ### 5.5 Realtime
@@ -238,24 +208,20 @@ Events:
 
 WebSocket can be added later if bidirectional realtime collaboration becomes necessary.
 
-### 5.6 Prototype Runtime
+### 5.6 Prototype URL Preview
 
-The prototype runtime is the React app rendered inside the iframe.
+Prototype preview is rendered by the review web app as a URL-tab iframe viewer.
 
 Responsibilities:
 
-- read `sessionId` and `prototypeId` from the route
-- load prototype code/state from the local server
-- load prototype pieces and their code/state from the local server
-- load prototype and piece links that map UI artifacts to plan targets
-- import or receive the design-system bridge
-- render the prototype and selected component-like pieces in isolation
-- treat every prototype piece as an independently renderable React component, not as a fragment-only artifact
-- show runtime and compile errors inside the iframe
-- listen for session/prototype updates
-- notify the review host through `postMessage` when needed
+- read `PlanPrototype.id`, `title`, `links`, and `tabs` from the current `PlanSession`
+- show prototype identity and linked step/decision/phase badges outside the iframe
+- render tab buttons for external URLs
+- set iframe `src` to the selected tab URL
+- treat the iframe contents as owned by the external app
+- provide a timeout warning and open-in-new-window action for blocked or unavailable URLs
 
-The review web app must not execute prototype code directly.
+The review web app must not execute or inspect prototype app internals.
 
 ## 6. Data Flow
 
@@ -283,58 +249,56 @@ User
   -> Review web app updates timeline and target thread
 ```
 
-### 6.3 Prototype Code Update
+### 6.3 Prototype URL Tab Update
 
 ```txt
 Agent or user action
-  -> MCP/API writes prototype code/state
-  -> PrototypeStore persists session-scoped artifact
-  -> PrototypeStore persists prototype pieces
-  -> PrototypeStore persists prototype and piece links to plan targets
+  -> MCP/API writes full PlanDraft revision
+  -> Store persists prototype id/title/links/tabs inside session.json
   -> Realtime emits prototype.updated
-  -> Review web app and iframe runtime receive update
-  -> iframe reloads or re-renders prototype preview
-  -> linked step/decision panels update prototype and piece references
+  -> Review web app refetches session
+  -> Prototype panel updates URL tabs
+  -> linked step/decision panels update prototype references
 ```
 
 ### 6.4 Feedback-Driven Prototype Revision
 
 ```txt
-User leaves feedback on linked step/prototype/piece
+User leaves feedback on linked step/prototype
   -> user.feedback event stores target
   -> Agent reads feedback through MCP
-  -> Agent revises PlanDraft and linked PlanPrototype/PrototypePiece
+  -> Agent revises PlanDraft and linked PlanPrototype
   -> AgentRevisionEvent stores plan changeSummary and prototypeChanges
-  -> Review UI shows plan changes and prototype/piece changes separately
-  -> Prototype iframe renders updated artifacts
+  -> Review UI shows plan changes and prototype changes separately
+  -> Prototype iframe renders the selected external URL
 ```
 
 ## 7. Iframe Responsibility
 
-The iframe content is owned by `apps/prototype-runtime`.
+The iframe content is owned by the external URL web app.
 
 ```txt
 Review Web App
   - renders iframe
-  - passes session/prototype route context
+  - displays prototype id/title and linked plan targets
+  - renders URL tabs
   - shows feedback/revision UI
 
-Prototype Runtime
-  - runs inside iframe
-  - loads code/state
-  - renders preview with design system
-  - isolates prototype errors from review UI
+External Prototype App
+  - runs on its own localhost or HTTPS URL
+  - owns all internal UI and state
+  - may be any web app that allows iframe embedding
 
 Single Local Server
-  - serves both apps
-  - stores canonical session/prototype data
+  - serves review app
+  - stores canonical session/prototype URL metadata
   - emits update events
 ```
 
 Example iframe:
 
 ```tsx
-<iframe src={`/prototype/${sessionId}/${prototypeId}`} />
+<iframe src={selectedPrototypeTab.url} />
 ```
 
 ## 8. Vite Usage
@@ -342,43 +306,26 @@ Example iframe:
 Vite should be used for:
 
 - local development of the review web app
-- local development of the prototype runtime app
 - middleware mode inside the single local server
 - frontend bundling
 
-Vite should not be used as the product-level data synchronization mechanism for plan JSON or prototype state.
+Vite should not be used as the product-level data synchronization mechanism for plan JSON or prototype URL metadata.
 
 Plan/prototype freshness is handled by:
 
 - session APIs
 - SSE event stream
 - explicit refetch
-- iframe runtime reload/re-render
+- iframe `src` update when a selected tab changes
 
-## 9. Design System Strategy
+## 9. Prototype Boundary
 
-Prototype code must use the project design system.
+Plan GUI does not own prototype internals. It owns only:
 
-Recommended POC approach:
-
-```tsx
-export default function Prototype({ ds, state }) {
-  return (
-    <ds.Card>
-      <ds.Button>Approve</ds.Button>
-    </ds.Card>
-  )
-}
-```
-
-The runtime provides a controlled `ds` bridge rather than allowing arbitrary imports by default.
-
-Benefits:
-
-- easier sandboxing
-- fewer dependency resolution problems
-- consistent prototype visual language
-- easier future validation of generated prototype code
+- prototype identity (`id`, `title`, `summary`)
+- plan-target links (`links`)
+- URL tabs (`tabs`)
+- iframe shell behavior
 
 ## 10. Persistence Strategy
 
@@ -386,18 +333,13 @@ POC:
 
 - `session.json` stores latest `PlanSession` shape or latest `PlanDraft` plus metadata
 - `events.jsonl` stores append-only `PlanEvent` rows
-- `prototypes/*.tsx` stores prototype code artifacts
-- `prototypes/*.links.json` stores prototype-to-plan-target mappings
-- `prototypes/*.state.json` stores prototype state
-- `prototypes/pieces/*.tsx` stores component-like prototype pieces
-- `prototypes/pieces/*.links.json` stores piece-to-plan-target mappings
-- `prototypes/pieces/*.state.json` stores piece state
+- `PlanDraft.prototypes[]` stores prototype ids, plan links, and URL tabs
 
 Later:
 
 - SQLite `sessions` table
 - SQLite `events` table
-- SQLite `prototype_artifacts` table
+- SQLite `prototype_tabs` or `prototype_artifacts` table if metadata grows
 - optional file/blob storage for larger prototype artifacts
 
 ## 11. Security and Isolation
@@ -405,11 +347,10 @@ Later:
 POC isolation requirements:
 
 - every read/write is scoped by `sessionId`
-- iframe runs prototype code separately from review UI
-- review web app does not execute prototype code
-- dynamic prototype code cannot access other session state through normal APIs
+- iframe loads external URL content separately from review UI
+- review web app does not execute or inspect external prototype code
+- external prototype code cannot access Agent GUI session state through normal APIs
 - iframe uses sandbox attributes where practical
-- host/iframe communication uses explicit `postMessage` messages
 
 The POC is local-first and does not attempt full production-grade untrusted code execution isolation.
 
@@ -422,14 +363,12 @@ The POC is local-first and does not attempt full production-grade untrusted code
 5. `fixtures/review-target-app`
 6. review web session page
 7. SSE session event stream
-8. prototype iframe route
-9. `apps/prototype-runtime` React preview app
-10. design-system bridge
-11. prototype update and immediate iframe refresh/re-render
-12. complete implementation and local non-registered checks
-13. Codex MCP server registration
-14. user-requested Codex session restart immediately before real scenario verification
-15. registered-MCP fixture project E2E scenario
+8. prototype URL tab iframe viewer
+9. prototype update and immediate iframe `src` refresh
+10. complete implementation and local non-registered checks
+11. Codex MCP server registration
+12. user-requested Codex session restart immediately before real scenario verification
+13. registered-MCP fixture project E2E scenario
 
 ## 13. MCP Registration Gate
 

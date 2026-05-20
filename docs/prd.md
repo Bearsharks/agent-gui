@@ -174,17 +174,16 @@ POC에서 playground의 목적은 production UI builder가 아니라, 플랜의 
 
 기술적 필수 요구사항:
 
-- playground는 React runtime 위에서 동작해야 한다.
-- playground에서 렌더링되는 프로토타입은 프로젝트가 지정한 design system 컴포넌트와 토큰을 사용해야 한다.
-- 동적으로 생성되는 prototype code는 저장 후 새로고침을 기다리지 않고 즉시 preview에 반영되어야 한다.
-- code update와 preview update 사이의 지연은 사용자가 실시간 편집으로 인식할 수 있을 정도로 짧아야 한다.
-- plan JSON이 갱신되면 playground가 참조하는 plan, step, decision, prototype state도 즉시 최신 기준으로 갱신되어야 한다.
-- playground는 현재 sessionId와 revision을 기준으로 prototype state를 격리해야 한다.
+- playground는 plan에 연결된 prototype URL tabs를 표시해야 한다.
+- 선택된 URL tab은 sandboxed iframe의 `src`로 직접 렌더링된다.
+- URL 내부의 UI 구성과 상태는 외부 웹앱이 책임진다.
+- plan JSON이 갱신되면 playground가 참조하는 plan, step, decision, prototype tabs도 즉시 최신 기준으로 갱신되어야 한다.
+- playground는 현재 sessionId와 revision을 기준으로 prototype metadata를 격리해야 한다.
 
 요구사항:
 
 - UX 관련 step 또는 decision에 연결된다.
-- 현재 세션과 revision에 속한 prototype state를 표시한다.
+- 현재 세션과 revision에 속한 prototype id, linked plan targets, URL tabs를 표시한다.
 - plan JSON이 갱신되면 playground가 참조하는 step, decision, revision도 최신 기준으로 갱신된다.
 - 사용자는 prototype에 대한 피드백을 남길 수 있다.
 - prototype 피드백은 일반 피드백과 동일하게 `PlanEvent`로 저장되며 target을 가진다.
@@ -193,16 +192,12 @@ POC에서 playground의 목적은 production UI builder가 아니라, 플랜의 
 Prototype mapping 요구사항:
 
 - prototype은 독립 컨텐츠가 아니라 plan revision에 속한 artifact다.
-- prototype은 한 번에 완성된 단일 화면만 의미하지 않는다.
-- prototype은 독립 실행 가능한 React component piece들의 묶음일 수 있다.
-- 각 prototype piece는 button group, panel, card, form, navigation, state view, interaction slice처럼 계획 검토에 필요한 작은 UI 단위일 수 있다.
-- prototype piece의 크기에는 별도 제약이 없다. 버튼 하나일 수도 있고 큰 UI section일 수도 있지만, 항상 독립 렌더링 가능한 React component여야 한다.
-- piece 단위로도 plan target과 연결될 수 있어야 한다.
+- prototype은 하나 이상의 외부 URL tab 묶음이다.
+- prototype 내부 UI 구조는 Plan GUI가 모델링하지 않는다.
 - 모든 prototype은 최소 하나 이상의 plan target에 연결되어야 한다.
 - 하나의 prototype은 여러 step, decision, plan target을 설명하거나 검증할 수 있다.
 - 하나의 step 또는 decision은 여러 prototype과 연결될 수 있다.
 - step detail은 연결된 prototype 목록을 표시해야 한다.
-- step detail은 해당 step과 연결된 prototype piece 목록도 표시할 수 있어야 한다.
 - prototype panel은 연결된 step, decision, plan target을 표시해야 한다.
 - prototype feedback은 prototype target과 연결된 plan target 양쪽에서 추적 가능해야 한다.
 - plan revision이 변경될 때 prototype mapping이 여전히 유효한지 확인해야 한다.
@@ -369,37 +364,21 @@ type PlanPrototype = {
   summary?: string
   kind: 'wireframe' | 'mockup' | 'flow' | 'interaction'
   links: PrototypeLink[]
-  pieces: PrototypePiece[]
-  codeRef?: PrototypeCodeRef
+  tabs?: PrototypeTab[]
   state: Record<string, unknown>
   notes?: string[]
 }
 
-type PrototypePiece = {
+type PrototypeTab = {
   id: string
   title: string
   summary?: string
-  kind:
-    | 'component'
-    | 'panel'
-    | 'form'
-    | 'card'
-    | 'navigation'
-    | 'state_view'
-    | 'interaction_slice'
-  links: PrototypeLink[]
-  codeRef?: PrototypeCodeRef
-  state?: Record<string, unknown>
+  url: string
 }
 
 type PrototypeLink = {
   target: PlanTarget
   purpose: 'explains' | 'validates' | 'alternative' | 'final_candidate'
-}
-
-type PrototypeCodeRef = {
-  type: 'session_artifact'
-  path: string
 }
 
 type PlanEvent =
@@ -417,7 +396,6 @@ type PlanTarget = {
     | 'risk'
     | 'verification'
     | 'prototype'
-    | 'prototype_piece'
   id?: string
 }
 
@@ -556,13 +534,13 @@ Single Server
 - 즉시 반영은 Server-Sent Events, WebSocket, long polling, 짧은 주기 polling 중 하나로 구현할 수 있다.
 - 에이전트 자동 wake-up과 멀티유저 협업용 push는 구현하지 않는다.
 
-Prototype playground runtime:
+Prototype playground URL tabs:
 
-- 서버는 session-scoped prototype code/state를 저장하고 제공한다.
-- 웹 클라이언트는 React runtime에서 prototype code를 렌더링한다.
-- prototype code는 지정된 design system import와 design token 사용을 전제로 한다.
-- prototype code가 변경되면 서버 저장소와 preview runtime이 같은 session/revision 기준으로 갱신되어야 한다.
-- preview runtime은 code 변경을 즉시 반영해야 하며, 사용자가 수동 새로고침을 하지 않아야 한다.
+- 서버는 session-scoped prototype id/link/tab metadata를 저장하고 제공한다.
+- 웹 클라이언트는 선택된 URL tab을 iframe에 렌더링한다.
+- 외부 URL 웹앱은 자체 UI와 상태를 책임진다.
+- prototype tabs 또는 links가 변경되면 서버 저장소와 review UI가 같은 session/revision 기준으로 갱신되어야 한다.
+- URL tab 변경은 사용자가 수동 새로고침을 하지 않아도 반영되어야 한다.
 
 ### 11.2 create_plan_session
 
@@ -630,7 +608,7 @@ update_plan_revision(input: {
 
 수정된 플랜 revision을 저장한다.
 
-`target`은 선택 값이다. 전체 plan을 수정할 수도 있고, 불필요한 작업과 토큰 낭비를 줄이기 위해 특정 step, prototype, prototype piece 등 수정 의도 범위를 지정할 수도 있다. revision 저장은 여전히 전체 `PlanDraft` 단위로 수행한다.
+`target`은 선택 값이다. 전체 plan을 수정할 수도 있고, 불필요한 작업과 토큰 낭비를 줄이기 위해 특정 step 또는 prototype 등 수정 의도 범위를 지정할 수도 있다. revision 저장은 여전히 전체 `PlanDraft` 단위로 수행한다.
 
 ### 11.7 mark_plan_approved
 
@@ -738,7 +716,6 @@ POC는 다음 조건을 만족하면 성공으로 본다.
 - 에이전트가 새 revision과 변경 요약을 기록할 수 있다.
 - 브라우저 UI가 피드백, 에이전트 답변, 변경 요약, revision을 연결해서 보여준다.
 - prototype이 연결된 step/decision과 양방향으로 매핑되어 표시된다.
-- prototype piece가 연결된 step/decision과 양방향으로 매핑되어 표시된다.
 - prototype 변경이 plan revision과 change summary에서 추적된다.
 - 사용자가 현재 revision을 승인할 수 있다.
 
@@ -749,12 +726,10 @@ POC는 다음 조건을 만족하면 성공으로 본다.
 - plan JSON과 event list는 `sessionId` 기준으로 분리해서 저장한다.
 - 웹 UI는 session API를 통해 최신 `PlanSession`을 조회하고, 오래된 local snapshot을 canonical source로 사용하지 않는다.
 - plan JSON 변경 이후 웹 화면과 playground의 최신성은 즉시 반영되어야 한다.
-- playground는 React 기반 preview runtime을 가져야 하며, 동적 prototype code 변경을 즉시 렌더링해야 한다.
-- playground prototype은 지정된 design system 컴포넌트와 토큰을 사용해야 한다.
-- prototype piece는 독립 렌더링 가능한 React component여야 하며, fragment-only artifact로 취급하지 않는다.
-- prototype artifact의 실제 code/state는 session-scoped artifact로 저장하고, `PlanDraft.prototypes`는 metadata, links, codeRef를 통해 참조한다.
+- playground는 prototype URL tabs를 iframe에 렌더링해야 한다.
+- 외부 URL 내부 UI는 Plan GUI가 실행하거나 해석하지 않는다.
+- `PlanDraft.prototypes`는 id, title, links, tabs metadata를 저장한다.
 - prototype만 변경되어도 plan revision은 증가한다.
-- 동적 code execution은 session boundary를 지켜야 하며, 다른 session의 plan/prototype state를 읽거나 변경할 수 없어야 한다.
 - `PlanDraft.steps`는 flat array로 유지한다.
 - `PlanPhase.stepIds`와 `PlanStep.phaseId`는 grouping을 위한 보조 정보로 사용한다.
 - `PlanDraft.prototypes`는 UX 검토용 playground state를 저장하는 선택 필드로 둔다.

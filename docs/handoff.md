@@ -16,7 +16,6 @@ Implemented workspace structure:
 apps/
   server/
   review-web/
-  prototype-runtime/
 packages/
   plan-schema/
   design-system/

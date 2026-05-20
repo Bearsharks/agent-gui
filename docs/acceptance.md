@@ -370,7 +370,7 @@ E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser�
 
 ```txt
 1. 브라우저에 세션 화면을 열어둔다.
-2. MCP/API로 plan revision 또는 prototype code/state를 갱신한다.
+2. MCP/API로 plan revision 또는 prototype URL tab metadata를 갱신한다.
 3. 브라우저를 수동 새로고침하지 않는다.
 4. UI가 제한 시간 안에 최신 상태를 반영하는지 확인한다.
 ```
