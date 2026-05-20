@@ -48,32 +48,38 @@ export function Button({
   variant = "primary",
   onClick,
   type = "button",
+  disabled = false,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "danger";
   onClick?: () => void;
   type?: "button" | "submit";
+  disabled?: boolean;
 }) {
   const palette =
-    variant === "primary"
-      ? { background: tokens.color.accent, color: "white", border: tokens.color.accent }
-      : variant === "danger"
-        ? { background: "white", color: tokens.color.danger, border: "#f1b3b3" }
-        : { background: "white", color: tokens.color.text, border: tokens.color.border };
+    disabled
+      ? { background: "#e2e8f0", color: "#94a3b8", border: "#cbd5e1" }
+      : variant === "primary"
+        ? { background: tokens.color.accent, color: "white", border: tokens.color.accent }
+        : variant === "danger"
+          ? { background: "white", color: tokens.color.danger, border: "#f1b3b3" }
+          : { background: "white", color: tokens.color.text, border: tokens.color.border };
 
   return (
     <button
       type={type}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         ...palette,
         border: `1px solid ${palette.border}`,
         borderRadius: tokens.radius.sm,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         font: "inherit",
         fontWeight: 650,
         minHeight: 34,
         padding: "7px 11px",
+        transition: "all 0.15s ease",
       }}
     >
       {children}
