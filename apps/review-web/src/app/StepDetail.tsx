@@ -58,25 +58,28 @@ function DetailSection({ title, items, emoji }: { title: string; items?: string[
 
 function LinkedPrototypeList({ session, stepId }: { session: PlanSession; stepId: string }) {
   const prototypes = session.plan.prototypes ?? [];
-  const linked = prototypes.flatMap((prototype) =>
-    prototype.pieces
-      .filter((piece) => piece.links.some((link) => link.target.type === "step" && link.target.id === stepId))
-      .map((piece) => ({ prototype, piece })),
-  );
+  const linked = prototypes
+    .map((prototype) => ({
+      prototype,
+      links: prototype.links.filter((link) => link.target.type === "step" && link.target.id === stepId),
+    }))
+    .filter(({ links }) => links.length > 0);
   
   return (
     <div style={{ borderTop: "1px dashed #e2e8f0", paddingTop: "14px" }}>
-      <strong style={{ fontSize: "13px", color: "#334155" }}>🔗 연결된 프로토타입 컴포넌트</strong>
+      <strong style={{ fontSize: "13px", color: "#334155" }}>연결된 프로토타입</strong>
       {linked.length ? (
         <ul style={{ margin: "6px 0 0 0", paddingLeft: "20px", fontSize: "13px", color: "#0f766e" }}>
-          {linked.map(({ prototype, piece }) => (
-            <li key={piece.id} style={{ marginBottom: "2px" }}>
-              {prototype.title} / <strong>{piece.title}</strong>
+          {linked.map(({ prototype, links }) => (
+            <li key={prototype.id} style={{ marginBottom: "4px" }}>
+              <strong>{prototype.title}</strong>
+              <span style={{ color: "#64748b" }}> ({prototype.id})</span>
+              <span style={{ color: "#64748b" }}> - {links.map((link) => link.purpose).join(", ")}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p style={{ margin: "6px 0 0 0", fontSize: "13px", color: "#64748b" }}>연결된 프로토타입 컴포넌트가 없습니다.</p>
+        <p style={{ margin: "6px 0 0 0", fontSize: "13px", color: "#64748b" }}>연결된 프로토타입이 없습니다.</p>
       )}
     </div>
   );

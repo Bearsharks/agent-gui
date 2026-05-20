@@ -221,12 +221,12 @@ args = [
     "E2E 테스트 성공",
     "빌드 통과"
   ],
-  "prototypes": [ // (선택) UX/UI에 대한 모의 구현 정보
+  "prototypes": [ // (선택) 계획에 연결된 외부 URL preview 묶음
     {
       "id": "proto-main",
       "revision": 1,
-      "title": "메인 페이지 인터랙티브 프로토타입",
-      "summary": "UI 데모",
+      "title": "메인 페이지 preview",
+      "summary": "사용자가 띄운 웹앱 URL을 탭으로 보여주는 preview",
       "kind": "wireframe" | "mockup" | "flow" | "interaction",
       "links": [
         {
@@ -234,25 +234,22 @@ args = [
           "purpose": "explains" | "validates" | "alternative" | "final_candidate"
         }
       ],
-      "pieces": [
+      "tabs": [
         {
-          "id": "piece-header",
-          "title": "글로벌 네비게이션 헤더",
-          "kind": "navigation",
-          "links": [
-            { "target": { "type": "step", "id": "step-2" }, "purpose": "explains" }
-          ]
+          "id": "local-app",
+          "title": "Local app",
+          "url": "http://localhost:3000",
+          "summary": "로컬에서 실행 중인 대상 웹앱"
         }
       ],
-      "codeRef": {
-        "type": "session_artifact",
-        "path": "prototypes/proto-main.tsx"
-      },
+      "pieces": [],
       "state": {}
     }
   ]
 }
 ```
+
+Prototype은 내부 React component 구조를 표현하지 않습니다. `tabs`는 외부 URL 목록이고, 각 URL 내부의 UI 구성은 해당 웹앱이 책임집니다. 대신 prototype 자체는 계획의 산출물이므로 `id`, `title`, `links`를 유지해야 하며, `links`로 어떤 step/decision/phase를 설명하거나 검증하는지 명시합니다.
 
 ---
 

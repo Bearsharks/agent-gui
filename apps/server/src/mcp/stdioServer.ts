@@ -15,7 +15,7 @@ server.registerTool(
   "create_plan_session",
   {
     title: "Create plan session",
-    description: "Create a browser review session from a PlanDraft.",
+    description: "Create a browser review session from a PlanDraft. Prototypes may include plan-linked URL tabs.",
     inputSchema: { plan: z.record(z.string(), z.unknown()) },
   },
   async ({ plan }) => jsonResult(await store.createPlanSession(plan as PlanDraft)),
@@ -70,7 +70,7 @@ server.registerTool(
   "update_plan_revision",
   {
     title: "Update plan revision",
-    description: "Store a new full PlanDraft revision, optionally focused on a target.",
+    description: "Store a new full PlanDraft revision, optionally focused on a target. Include prototypeChanges when URL-tab prototype metadata changes.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number(),

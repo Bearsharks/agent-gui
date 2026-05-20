@@ -15,23 +15,11 @@ const honoListener = getRequestListener(app.fetch);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
 const reviewRoot = path.join(repoRoot, "apps/review-web");
-const prototypeRoot = path.join(repoRoot, "apps/prototype-runtime");
 
 const server = createServer((req, res) => {
   const url = req.url ?? "/";
   if (url.startsWith("/api/") || url.startsWith("/events/") || url.startsWith("/mcp")) {
     void honoListener(req, res);
-    return;
-  }
-  if (url.startsWith("/prototype/")) {
-    void serveIndex(req.url ?? "/", prototypeRoot, prototypeVite, res);
-    return;
-  }
-  if (url.startsWith("/prototype-vite/")) {
-    prototypeVite.middlewares(req, res, () => {
-      res.statusCode = 404;
-      res.end("Prototype asset not found");
-    });
     return;
   }
   if (url.startsWith("/sessions/")) {
@@ -59,13 +47,6 @@ const server = createServer((req, res) => {
 
 const reviewVite = await createViteServer({
   root: reviewRoot,
-  server: { middlewareMode: true, hmr: { server } },
-  appType: "spa",
-});
-
-const prototypeVite = await createViteServer({
-  root: prototypeRoot,
-  base: "/prototype-vite/",
   server: { middlewareMode: true, hmr: { server } },
   appType: "spa",
 });
