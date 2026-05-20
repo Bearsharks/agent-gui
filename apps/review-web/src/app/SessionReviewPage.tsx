@@ -18,12 +18,14 @@ export function SessionReviewPage() {
   const [sessionId, setSessionId] = useState(getSessionId());
   const [session, setSession] = useState<PlanSession | null>(null);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [selectedPrototypeId, setSelectedPrototypeId] = useState<string | null>(null);
 
   async function load(id = sessionId) {
     if (!id) return;
     const next = await fetchSession(id);
     setSession(next);
     setSelectedStepId((current) => current ?? next.plan.steps[0]?.id ?? null);
+    setSelectedPrototypeId((current) => current ?? next.plan.prototypes?.[0]?.id ?? null);
   }
 
   useEffect(() => {
@@ -117,7 +119,12 @@ export function SessionReviewPage() {
 
         {/* Right Panel: Sandbox preview and interactive feedback */}
         <div className="panel right-panel">
-          <PrototypePlayground session={session} />
+          <PrototypePlayground
+            session={session}
+            selectedPrototypeId={selectedPrototypeId}
+            onSelectPrototype={setSelectedPrototypeId}
+            onSelectStep={setSelectedStepId}
+          />
           
           <StepDetail
             session={session}
@@ -127,6 +134,7 @@ export function SessionReviewPage() {
           <FeedbackCenter
             session={session}
             selectedStepId={selectedStepId}
+            selectedPrototypeId={selectedPrototypeId}
             onRefresh={() => void load()}
           />
           

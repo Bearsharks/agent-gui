@@ -83,7 +83,7 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 완료 조건:
 
 - 에이전트가 `update_plan_revision`을 호출하면 revision이 증가한다.
-- `update_plan_revision`은 단일 tool이지만, 선택적으로 특정 step, prototype, prototype piece target을 지정해 수정 의도 범위를 좁힐 수 있다.
+- `update_plan_revision`은 단일 tool이지만, 선택적으로 특정 step 또는 prototype target을 지정해 수정 의도 범위를 좁힐 수 있다.
 - 변경 요약이 표시된다.
 - 이전 feedback event는 원래 revision 번호를 유지한다.
 - 최신 plan은 새 revision 기준으로 표시된다.
@@ -113,27 +113,21 @@ POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료�
 완료 조건:
 
 - UX 관련 step 또는 decision에 연결된 prototype이 iframe에 표시된다.
-- prototype은 React 기반 runtime에서 렌더링된다.
-- prototype은 design system 컴포넌트와 토큰을 사용한다.
+- prototype은 사용자가 제공한 URL tabs 중 선택된 URL을 iframe에 표시한다.
 - prototype은 최소 하나 이상의 plan target에 연결된다.
-- prototype은 단일 완성 화면뿐 아니라 component-like piece들의 묶음으로 구성될 수 있다.
-- prototype piece는 독립 실행 가능한 React component이며, 크기 제약 없이 개별 step 또는 decision에 연결될 수 있다.
+- prototype panel은 prototype id/title과 연결된 step, decision, plan target을 표시한다.
+- prototype 내부 UI 구성은 외부 URL 웹앱이 책임지며 Plan GUI는 해석하지 않는다.
 - step/detail 화면에서 연결된 prototype을 확인할 수 있다.
-- step/detail 화면에서 연결된 prototype piece를 확인할 수 있다.
-- prototype panel에서 연결된 step, decision, plan target을 확인할 수 있다.
 - prototype feedback은 prototype thread와 연결된 plan target thread 양쪽에서 추적 가능하다.
-- prototype code/state 변경이 iframe preview에 즉시 반영된다.
+- prototype URL tab 변경이 iframe preview에 즉시 반영된다.
 - prototype 변경은 plan revision과 change summary에서 추적된다.
 - prototype 에러가 review UI 전체를 깨뜨리지 않고 iframe 내부에 표시된다.
 
 실패 조건:
 
 - prototype iframe이 렌더링되지 않는다.
-- prototype이 design system 없이 임의 스타일로만 렌더링된다.
 - prototype이 어떤 plan target과 연결되는지 알 수 없다.
-- prototype piece가 어떤 step/decision과 연결되는지 알 수 없다.
 - step/detail에서 연결된 prototype을 찾을 수 없다.
-- step/detail에서 연결된 prototype piece를 찾을 수 없다.
 - prototype feedback이 연결된 plan target에서 추적되지 않는다.
 - prototype update 후 수동 새로고침이 필요하다.
 - iframe 에러가 review UI 전체를 깨뜨린다.
@@ -238,9 +232,9 @@ MCP 등록 게이트:
 1. plan에 UX step과 prototype artifact가 포함된다.
 2. 사용자가 해당 step을 선택한다.
 3. prototype iframe이 표시된다.
-4. iframe은 design system 기반 React prototype과 component-like pieces를 렌더링한다.
-5. 에이전트가 prototype code/state를 갱신한다.
-6. review UI와 iframe이 수동 새로고침 없이 최신 prototype을 반영한다.
+4. prototype panel은 prototype id/title과 연결된 plan target을 표시한다.
+5. 사용자가 URL tab을 선택한다.
+6. iframe은 선택된 URL의 외부 웹앱을 렌더링한다.
 7. 사용자는 prototype에 대한 피드백을 남긴다.
 8. feedback target은 prototype 또는 연결된 step으로 저장된다.
 9. 연결된 step detail에서도 prototype feedback을 추적할 수 있다.
@@ -250,10 +244,9 @@ MCP 등록 게이트:
 완료 판정:
 
 - iframe preview가 보인다.
-- prototype update가 즉시 반영된다.
+- prototype URL tab 전환이 즉시 반영된다.
 - prototype feedback이 event timeline과 target thread에 표시된다.
 - prototype과 step/decision의 양방향 mapping이 화면에 표시된다.
-- prototype piece와 step/decision의 mapping이 화면에 표시된다.
 - prototype 변경이 revision change summary에 표시된다.
 
 ### 3.5 Approval
@@ -362,9 +355,8 @@ E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser�
 - plan feedback event의 target이 `{ type: 'plan' }`이다.
 - prototype feedback event의 target이 `{ type: 'prototype', id: ... }`이거나 연결된 plan target과 함께 추적 가능하다.
 - prototype의 `links`가 하나 이상의 valid PlanTarget을 가진다.
-- prototype의 `pieces`가 component-like unit으로 존재하고, piece별 `links`가 valid PlanTarget을 가진다.
+- prototype의 `tabs`가 URL preview 목록으로 존재한다.
 - 연결된 step 또는 decision에서 해당 prototype id를 찾을 수 있다.
-- 연결된 step 또는 decision에서 해당 prototype piece id를 찾을 수 있다.
 - agent reply의 `replyToEventId`가 원래 feedback event id와 일치한다.
 - revision update 후 `AgentRevisionEvent.fromRevision`과 `toRevision`이 올바르다.
 - prototype 변경이 있는 revision은 `AgentRevisionEvent.prototypeChanges` 또는 동등한 change summary를 가진다.
@@ -400,7 +392,7 @@ POC 기준 제한 시간:
 - prototype iframe 에러가 review UI 전체를 깨뜨린다.
 - prototype이 design system 없이 임의 스타일로만 렌더링된다.
 - prototype과 plan target의 mapping이 없거나 UI에서 확인되지 않는다.
-- prototype piece와 plan target의 mapping이 없거나 UI에서 확인되지 않는다.
+- prototype과 plan target의 mapping이 없거나 UI에서 확인되지 않는다.
 - prototype 변경이 revision/change summary에 추적되지 않는다.
 - approval 후 status 또는 revision 표시가 불명확하다.
 - browser-use로 실제 화면 상태를 확인하지 않았다.

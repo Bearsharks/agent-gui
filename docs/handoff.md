@@ -40,8 +40,8 @@ Important product decisions captured in the docs:
 - `step` remains the core plan unit.
 - `phase` is optional grouping only.
 - Prototype is part of the plan review artifact.
-- Prototype is composed of independently renderable React component pieces.
-- Prototype and prototype pieces map back to plan targets.
+- Prototype preview is a plan-linked URL tab container.
+- Prototype ids and prototype-to-plan-target links are explicit; URL internals are owned by the external app.
 - `update_plan_revision` remains the single revision update tool, with optional `target` for focused updates.
 - Plan/prototype updates must be reflected immediately in the browser.
 - Actual completion requires a realistic fixture project scenario.
@@ -83,18 +83,17 @@ Verified locally:
 - `POST /api/fixture-session` creates a plan session
 - `GET /api/sessions/:sessionId` returns the plan session
 - `/sessions/:sessionId` returns review app HTML
-- `/prototype/:sessionId/:prototypeId` returns prototype runtime HTML
 - `planctl notify` changes session status to `needs_agent`
-- prototype piece feedback can be stored
+- prototype feedback can be stored
 - agent reply can be recorded
-- targeted `update_plan_revision` works for `prototype_piece`
+- targeted `update_plan_revision` works for `prototype`
 - registered MCP `create_plan_session` works in the restarted Codex session
 - `agent-browser` E2E verification completed against MCP-created fixture session `plan_88e7c898`
-- review UI renders title, goal, status, revision, decisions, steps, step detail, feedback controls, event timeline, change summary, approval control, prototype iframe, prototype render result, and prototype piece mapping
-- browser-added plan, step, and prototype piece feedback are stored with correct targets
+- review UI renders title, goal, status, revision, decisions, steps, step detail, feedback controls, event timeline, change summary, approval control, prototype URL tabs, iframe preview, and prototype-to-plan-target mapping
+- browser-added plan, step, and prototype feedback are stored with correct targets
 - `planctl notify plan_88e7c898` changed status to `needs_agent` and the browser reflected it
 - registered MCP `list_plan_events`, `post_agent_reply`, and targeted `update_plan_revision` were verified
-- revision 2 reflected status, change summary, step detail changes, and prototype piece change summary without manual page refresh
+- revision 2 reflected status, change summary, step detail changes, and prototype change summary without manual page refresh
 - browser approval created a `user.approval` event for revision 2 and changed status to `approved`
 - session isolation was checked with control session `plan_ddfdf979`; B-only feedback did not appear in session A
 
@@ -140,7 +139,7 @@ Confirmed in the restarted session:
 - `get_plan_session` worked against `plan_88e7c898`
 - `list_plan_events` returned feedback events with preserved targets
 - `post_agent_reply` created replies with correct `replyToEventId`
-- `update_plan_revision` created revision 2 with `fromRevision: 1`, `toRevision: 2`, targeted prototype piece metadata, and linked targets
+- `update_plan_revision` created revision 2 with `fromRevision: 1`, `toRevision: 2`, targeted prototype metadata, and linked targets
 
 ## Browser Use Status
 
@@ -220,17 +219,17 @@ http://localhost:8787/sessions/<sessionId>
 - change summary
 - approval button/state
 - prototype iframe
-- prototype render result
-- prototype piece mapping
+- prototype URL tabs
+- prototype-to-plan-target mapping
 
 5. Completed browser interaction flow:
 
 - Add step feedback.
-- Add prototype or prototype piece feedback.
+- Add prototype feedback.
 - Run `planctl notify <sessionId>`.
 - Use registered MCP tool `list_plan_events`.
 - Use registered MCP tool `post_agent_reply`.
-- Use registered MCP tool `update_plan_revision` with `target: { type: "prototype_piece", id: "piece-approval-actions" }`.
+- Use registered MCP tool `update_plan_revision` with `target: { type: "prototype", id: "proto-url-tabs" }`.
 - Confirm revision and prototype change summary update without manual page refresh.
 - Approve the latest revision in the browser.
 - Confirm `approved` status appears.
@@ -241,7 +240,7 @@ http://localhost:8787/sessions/<sessionId>
 - feedback target is preserved.
 - agent reply has correct `replyToEventId`.
 - `AgentRevisionEvent.fromRevision` and `toRevision` are correct.
-- prototype changes include `prototypeId`, optional `pieceId`, and linked targets.
+- prototype changes include `prototypeId` and linked targets.
 - approval event revision matches approved UI revision.
 
 ## Recent Commits

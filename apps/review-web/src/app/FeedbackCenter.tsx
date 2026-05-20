@@ -6,20 +6,21 @@ import { postFeedback, notifyAgent } from "../api/client";
 interface FeedbackCenterProps {
   session: PlanSession;
   selectedStepId: string | null;
+  selectedPrototypeId: string | null;
   onRefresh: () => void;
 }
 
-type TargetType = "plan" | "step" | "prototype" | "prototype_piece";
+type TargetType = "plan" | "step" | "prototype";
 
-export function FeedbackCenter({ session, selectedStepId, onRefresh }: FeedbackCenterProps) {
+export function FeedbackCenter({ session, selectedStepId, selectedPrototypeId, onRefresh }: FeedbackCenterProps) {
   const [message, setMessage] = useState("");
   const [targetType, setTargetType] = useState<TargetType>("step");
   const [isSending, setIsSending] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
 
   const selectedStep = session.plan.steps.find((step) => step.id === selectedStepId) ?? session.plan.steps[0];
-  const selectedPrototype = session.plan.prototypes?.[0];
-  const selectedPrototypePiece = selectedPrototype?.pieces[0];
+  const selectedPrototype =
+    session.plan.prototypes?.find((prototype) => prototype.id === selectedPrototypeId) ?? session.plan.prototypes?.[0];
 
   const targets = useMemo(() => {
     const list: { label: string; value: TargetType; targetObj: PlanTarget }[] = [
@@ -39,15 +40,8 @@ export function FeedbackCenter({ session, selectedStepId, onRefresh }: FeedbackC
         targetObj: { type: "prototype" as const, id: selectedPrototype.id },
       });
     }
-    if (selectedPrototypePiece) {
-      list.push({
-        label: `구현 컴포넌트: ${selectedPrototypePiece.title}`,
-        value: "prototype_piece",
-        targetObj: { type: "prototype_piece" as const, id: selectedPrototypePiece.id },
-      });
-    }
     return list;
-  }, [selectedStep, selectedPrototype, selectedPrototypePiece]);
+  }, [selectedStep, selectedPrototype]);
 
   const currentTargetObj = useMemo(() => {
     return targets.find((t) => t.value === targetType)?.targetObj ?? { type: "plan" as const };
@@ -60,10 +54,9 @@ export function FeedbackCenter({ session, selectedStepId, onRefresh }: FeedbackC
       if (targetType === "plan" && event.target.type === "plan") return true;
       if (targetType === "step" && event.target.type === "step" && event.target.id === selectedStep?.id) return true;
       if (targetType === "prototype" && event.target.type === "prototype" && event.target.id === selectedPrototype?.id) return true;
-      if (targetType === "prototype_piece" && event.target.type === "prototype_piece" && event.target.id === selectedPrototypePiece?.id) return true;
       return false;
     });
-  }, [session.events, targetType, selectedStep, selectedPrototype, selectedPrototypePiece]);
+  }, [session.events, targetType, selectedStep, selectedPrototype]);
 
   async function handleSend() {
     if (!message.trim() || isSending) return;
@@ -125,7 +118,7 @@ export function FeedbackCenter({ session, selectedStepId, onRefresh }: FeedbackC
                     fontWeight: isSelected ? "bold" : "normal",
                   }}
                 >
-                  {t.value === "plan" ? "계획" : t.value === "step" ? "스텝" : t.value === "prototype" ? "데모" : "컴포넌트"}
+                  {t.value === "plan" ? "계획" : t.value === "step" ? "스텝" : "프로토타입"}
                 </button>
               );
             })}

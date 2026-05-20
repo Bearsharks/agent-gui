@@ -26,6 +26,23 @@ export const prototypeCodeRefSchema = z.object({
   path: z.string(),
 });
 
+const prototypeUrlSchema = z.string().url().refine(
+  (value) => {
+    const url = new URL(value);
+    if (url.protocol === "https:") return true;
+    if (url.protocol !== "http:") return false;
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  },
+  { message: "Prototype URL must be https or local http." },
+);
+
+export const prototypeTabSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: prototypeUrlSchema,
+  summary: z.string().optional(),
+});
+
 export const prototypePieceSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -51,7 +68,8 @@ export const planPrototypeSchema = z.object({
   summary: z.string().optional(),
   kind: z.enum(["wireframe", "mockup", "flow", "interaction"]),
   links: z.array(prototypeLinkSchema),
-  pieces: z.array(prototypePieceSchema),
+  tabs: z.array(prototypeTabSchema).optional(),
+  pieces: z.array(prototypePieceSchema).default([]),
   codeRef: prototypeCodeRefSchema.optional(),
   state: z.record(z.string(), z.unknown()),
   notes: z.array(z.string()).optional(),
@@ -201,6 +219,7 @@ export const planSessionSchema = z.object({
 
 export type PrototypeLink = z.infer<typeof prototypeLinkSchema>;
 export type PrototypeCodeRef = z.infer<typeof prototypeCodeRefSchema>;
+export type PrototypeTab = z.infer<typeof prototypeTabSchema>;
 export type PrototypePiece = z.infer<typeof prototypePieceSchema>;
 export type PlanPrototype = z.infer<typeof planPrototypeSchema>;
 export type PlanDecision = z.infer<typeof planDecisionSchema>;
