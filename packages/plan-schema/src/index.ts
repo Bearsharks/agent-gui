@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export * from "./graphPlan";
+export * from "./graphPlanAdversarialFixtures";
+export * from "./graphPlanSemanticValidator";
+
 export const planTargetSchema = z.object({
   type: z.enum([
     "plan",
