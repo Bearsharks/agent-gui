@@ -1,0 +1,9 @@
+diff --git a/packages/plan-schema/src/index.ts b/packages/plan-schema/src/index.ts
+--- a/packages/plan-schema/src/index.ts
++++ b/packages/plan-schema/src/index.ts
+@@
+ import { z } from "zod";
++
++export * from "./graph.js";
+ 
+ export const planTargetSchema = z.object({
