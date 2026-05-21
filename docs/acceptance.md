@@ -4,7 +4,7 @@
 
 이 문서는 POC 완료 조건, 구체적인 사용자 시나리오, 그리고 에이전트 브라우저 스킬을 활용한 E2E 검증 방법을 정의한다.
 
-POC는 이 문서의 완료 조건과 E2E 검증 항목을 만족해야 완료된 것으로 본다.
+기존 2.x 기준은 step-based POC의 완료 조건이다. 현재 구현 로드맵은 이 baseline 위에 graph-based plan session을 추가하는 방향이며, graph plan 완료 조건은 2.11과 3.7을 따른다.
 
 ## 2. Completion Criteria
 
@@ -172,6 +172,32 @@ MCP 등록 게이트:
 - 세션 재실행이 필요한데 사용자에게 명확히 요청하지 않는다.
 - prototype playground가 fixture project의 실제 UX 계획과 연결되지 않는다.
 
+### 2.11 Graph Plan Session Integration
+
+완료 조건:
+
+- 서버가 `GraphPlanDocument` payload를 가진 plan session을 생성할 수 있다.
+- linear `PlanDraft` session과 graph plan session이 같은 서버/store/MCP surface에서 공존한다.
+- `get_plan_session` 응답은 graph session에서 graph plan payload와 validator summary를 포함한다.
+- validator summary는 stable issue code, severity, message, path를 가진다.
+- 사용자는 review UI에서 root graph, subgraph, selected node, node block list를 읽을 수 있다.
+- edge와 branch condition은 사람이 읽을 수 있는 label 또는 summary로 표시된다.
+- 사용자는 graph, node, block, edge, prototype piece, artifact range target에 feedback을 남길 수 있다.
+- 저장된 graph feedback event는 원래 target과 target breadcrumb를 보존한다.
+- `list_plan_events`만 보고 에이전트가 어떤 graph target에 대한 피드백인지 판단할 수 있다.
+- `post_agent_reply`는 graph target feedback thread 아래에 붙는다.
+- `update_plan_revision`은 graph target을 optional target으로 받아 revision event에 기록한다.
+- graph revision summary는 structure change와 content change를 구분한다.
+- prototype panel은 graph node/block target과 prototype piece mapping을 함께 표시한다.
+
+실패 조건:
+
+- graph plan을 session payload로 저장하지만 UI나 MCP에서 target을 추적할 수 없다.
+- validator issue가 API와 UI에서 서로 다른 의미로 표시된다.
+- graph feedback이 일반 plan feedback처럼 뭉개져 graph/node/block/edge 구분이 사라진다.
+- linear session 지원이 graph session 변경으로 깨진다.
+- revision 이후 기존 graph feedback thread가 잘못된 target 아래로 이동한다.
+
 ## 3. User Scenarios
 
 ### 3.1 Basic Plan Review
@@ -292,6 +318,33 @@ MCP 등록 게이트:
 - fixture project의 UX prototype이 iframe에서 표시된다.
 - 사용자의 feedback, agent reply, revision, approval이 하나의 session timeline으로 연결된다.
 
+### 3.7 Graph Plan Review Loop
+
+```txt
+1. 에이전트가 fixture project를 읽고 GraphPlanDocument 초안을 만든다.
+2. 에이전트가 create_plan_session으로 graph plan session을 생성한다.
+3. 서버가 graph schema parse와 semantic validation을 실행한다.
+4. 사용자가 반환된 URL을 연다.
+5. 사용자는 root graph overview에서 phase, branch, checkpoint를 확인한다.
+6. 사용자는 특정 node를 선택해 block list, risk, verification, artifact/prototype link를 확인한다.
+7. 사용자는 block 또는 edge condition에 feedback을 남긴다.
+8. 사용자는 prototype piece에도 feedback을 남긴다.
+9. 사용자가 planctl notify로 에이전트 확인을 요청한다.
+10. 에이전트는 list_plan_events로 graph target과 breadcrumb를 읽는다.
+11. 에이전트는 post_agent_reply로 feedback thread에 답한다.
+12. 필요하면 update_plan_revision으로 graph plan revision을 만든다.
+13. 브라우저는 revision, validator summary, graph target thread, prototype mapping을 갱신한다.
+14. 사용자는 최신 graph plan revision을 승인한다.
+```
+
+완료 판정:
+
+- graph/node/block/edge/prototype piece feedback target이 보존된다.
+- target breadcrumb가 브라우저와 MCP 응답에서 같은 의미로 표시된다.
+- validator issue가 있으면 UI와 API에서 같은 code/severity/path로 확인된다.
+- graph revision summary가 structure change와 content change를 구분한다.
+- linear fixture session과 graph fixture session이 같은 서버에서 서로 격리된다.
+
 ## 4. Browser-Skill E2E Verification
 
 E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser를 사용해 검증한다.
@@ -345,6 +398,19 @@ E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser�
 - prototype iframe
 - prototype render result
 
+Graph plan E2E에서는 추가로 다음 요소가 보여야 한다.
+
+- root graph overview
+- graph/subgraph identity
+- selected node detail
+- node block list
+- edge 또는 branch condition summary
+- graph target breadcrumb
+- graph feedback composer
+- validator summary
+- graph revision summary
+- prototype piece to graph node/block mapping
+
 ### 4.3 Required Data Assertions
 
 화면 검증과 별도로 다음 데이터를 MCP/API로 확인해야 한다.
@@ -363,6 +429,16 @@ E2E는 에이전트가 실제 로컬 서버를 띄운 뒤, Codex in-app browser�
 - approval 후 `UserApprovalEvent.revision`이 승인된 UI revision과 일치한다.
 - fixture project path가 plan session metadata 또는 plan content에서 추적 가능하다.
 - 실제 등록된 MCP tool 호출로 session/event/revision/prototype update가 수행되었다.
+
+Graph plan E2E에서는 추가로 다음 데이터를 확인해야 한다.
+
+- graph session payload가 `GraphPlanDocument` schema를 통과한다.
+- semantic validator result가 `get_plan_session` 또는 동등한 API/MCP 응답에 포함된다.
+- graph feedback event의 target이 `{ type: 'graph' }`, `{ type: 'node' }`, `{ type: 'block' }`, `{ type: 'edge' }`, `{ type: 'prototype_piece' }`, `{ type: 'artifact_range' }` 중 하나로 보존된다.
+- graph target breadcrumb가 MCP `list_plan_events`와 browser timeline에서 같은 target을 가리킨다.
+- `post_agent_reply`의 `replyToEventId`가 graph feedback event id와 일치한다.
+- graph revision event가 `fromRevision`, `toRevision`, target, change summary를 가진다.
+- linear session과 graph session의 events, revision, validator summary가 서로 섞이지 않는다.
 
 ### 4.4 Immediate Update Verification
 
@@ -390,7 +466,7 @@ POC 기준 제한 시간:
 - agent reply가 원래 feedback 아래에 붙지 않는다.
 - 세션 A의 event가 세션 B에 보인다.
 - prototype iframe 에러가 review UI 전체를 깨뜨린다.
-- prototype이 design system 없이 임의 스타일로만 렌더링된다.
+- prototype URL tab metadata가 session/revision과 분리되어 추적되지 않는다.
 - prototype과 plan target의 mapping이 없거나 UI에서 확인되지 않는다.
 - prototype과 plan target의 mapping이 없거나 UI에서 확인되지 않는다.
 - prototype 변경이 revision/change summary에 추적되지 않는다.
@@ -398,6 +474,9 @@ POC 기준 제한 시간:
 - browser-use로 실제 화면 상태를 확인하지 않았다.
 - fixture project 없이 synthetic-only scenario로 E2E를 끝낸다.
 - MCP server 등록과 Codex 세션 재실행을 거치지 않고 MCP tool 검증을 완료 처리한다.
+- graph plan feedback target이 MCP 응답에서 breadcrumb 없이 raw id만 노출되어 에이전트가 수정 범위를 판단할 수 없다.
+- graph validator issue가 존재하지만 UI 또는 API 한쪽에만 표시된다.
+- graph session 추가 후 기존 step-based fixture session E2E가 실패한다.
 
 ## 5. Completion Rule
 

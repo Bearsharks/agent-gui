@@ -24,8 +24,8 @@
 - MCP server와 web server를 별도 프로세스로 분리하지 않고 하나의 서버에서 제공한다.
 - 세션별 plan JSON을 격리해서 관리하고, 웹 UI는 항상 해당 세션의 최신 plan JSON을 기준으로 렌더링한다.
 - 플랜 안의 UX 영역을 빠르게 시각화하고 검토할 수 있는 prototype playground를 제공한다.
-- prototype playground는 React 기반이어야 하며, 지정된 design system을 사용해 프로토타입을 렌더링해야 한다.
-- prototype playground에서 동적으로 생성 또는 수정된 React 코드가 즉시 화면에 반영되어야 한다.
+- prototype playground는 plan-linked URL tabs를 sandboxed iframe으로 렌더링해야 한다.
+- prototype URL tab metadata 변경이 브라우저 UI와 iframe `src`에 즉시 반영되어야 한다.
 - plan JSON 갱신 여부가 브라우저 UI와 playground에 즉시 반영되어야 한다.
 
 ## 3. Non-Goals
@@ -49,7 +49,7 @@ POC는 다음 질문을 검증한다.
 
 ## 5. Recommended Product Direction
 
-기본 단위는 `step`으로 둔다. `phase`는 선택적 grouping 기능으로만 제공한다.
+Step-based POC의 기본 단위는 `step`이다. `phase`는 선택적 grouping 기능으로만 제공한다.
 
 권장 구조:
 
@@ -75,6 +75,28 @@ Plan
 ```
 
 무한 tree, nested task, phase별 독립 승인, phase별 revision은 POC 범위에 포함하지 않는다.
+
+### 5.1 Current Graph Plan Direction
+
+Step-based POC는 plan review loop를 검증하기 위한 baseline이다. 현재 제품 방향은 복잡한 계획을 `GraphPlanDocument`로 표현하고, 사용자가 graph/node/block/edge/prototype piece/artifact range 단위로 피드백을 남길 수 있게 확장하는 것이다.
+
+Graph plan은 작업 실행 엔진이 아니다. 목적은 복잡한 에이전트 계획을 사용자가 더 정확히 읽고, 특정 판단 지점에 피드백을 남기고, 에이전트가 MCP event만 보고 수정 범위를 판단할 수 있게 하는 것이다.
+
+Graph plan MVP에 포함한다:
+
+- root graph와 subgraph를 읽기 쉬운 overview로 표시한다.
+- selected node detail에서 block, risk, verification, artifact, prototype link를 보여준다.
+- edge와 branch condition을 사람이 읽을 수 있는 label로 표시한다.
+- graph target feedback과 agent reply thread를 보존한다.
+- validator summary를 API/MCP 응답과 UI에 같은 의미로 노출한다.
+- revision summary에서 structure change와 content change를 구분한다.
+
+Graph plan MVP에 포함하지 않는다:
+
+- full visual graph editor
+- arbitrary workflow execution engine
+- 복잡한 expression language
+- PM tool 수준의 scheduling/assignment 기능
 
 ## 6. User Flow
 
@@ -216,9 +238,16 @@ type PlanTarget = {
     | 'verification'
     | 'prototype'
     | 'prototype_piece'
+    | 'graph'
+    | 'node'
+    | 'block'
+    | 'edge'
+    | 'artifact_range'
   id?: string
 }
 ```
+
+Graph target은 단일 `id`만으로는 충분하지 않을 수 있다. 구현에서는 `graphId`, `nodeId`, `blockId`, `edgeId`, `prototypeId`, `pieceId`, artifact range metadata처럼 target kind별 필수 필드를 가진 discriminated union을 사용한다.
 
 ### 7.4 Step Card Requirements
 

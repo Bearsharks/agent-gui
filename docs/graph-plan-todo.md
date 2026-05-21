@@ -18,7 +18,7 @@
 
 ## 1. Schema And Validation
 
-- [ ] `packages/plan-schema`에서 graph plan 타입 export를 정리한다.
+- [x] `packages/plan-schema`에서 graph plan 타입 export를 확인한다.
 - [ ] 기존 `PlanDraft`와 `GraphPlanDocument`의 공존 방식을 결정한다.
 - [ ] 선형 plan을 root graph로 변환하는 adapter를 추가한다.
 - [ ] publish-ready validator 모드를 추가한다.
@@ -71,12 +71,12 @@
 
 ## 6. Documentation
 
-- [ ] `docs/prd.md`에 graph plan product direction을 반영한다.
-- [ ] `docs/architecture.md`에 graph plan session payload, validator, target resolver 경계를 추가한다.
-- [ ] `docs/acceptance.md`에 graph plan E2E 완료 조건을 추가한다.
-- [ ] `docs/planGUIMCPguide.md`에 graph target feedback/revision 예시를 추가한다.
+- [x] `docs/prd.md`에 graph plan product direction을 반영한다.
+- [x] `docs/architecture.md`에 graph plan session payload, validator, target resolver 경계를 추가한다.
+- [x] `docs/acceptance.md`에 graph plan E2E 완료 조건을 추가한다.
+- [ ] MCP guide 문서가 추가되면 graph target feedback/revision 예시를 포함한다.
 - [ ] graph plan authoring example을 추가한다.
-- [ ] Agent guidance에 graph plan을 언제 쓰고 언제 선형 plan으로 충분한지 적는다.
+- [x] Agent guidance에 현재 graph plan 구현 방향과 linear POC validation gap을 구분해 적는다.
 
 ## Milestones
 
@@ -112,13 +112,13 @@
 
 ## Immediate Next Tasks
 
-1. `packages/plan-schema/src/index.ts`에서 graph plan exports를 확인한다.
-2. graph plan validator issue code를 UI 표시용으로 정리한다.
-3. `PlanTarget` 타입에 graph/node/block/edge/artifact range target을 추가한다.
+1. graph plan validator issue code를 UI 표시용 taxonomy로 정리한다.
+2. 기존 `PlanDraft`와 `GraphPlanDocument`의 session payload 공존 방식을 결정한다.
+3. `PlanTarget` 타입과 event schema에 graph/node/block/edge/prototype piece/artifact range target을 추가한다.
 4. `create_plan_session` 입력 스키마에 graph plan payload를 추가한다.
-5. graph plan fixture session 생성 route를 만든다.
-6. Review UI에 read-only graph overview를 붙인다.
-7. selected graph/node state를 URL 또는 route param으로 설계한다.
-8. graph target feedback 저장 API를 확장한다.
-9. MCP `list_plan_events` 출력에서 graph target breadcrumb를 확인한다.
-10. graph plan E2E acceptance scenario를 `docs/acceptance.md`에 편입한다.
+5. `get_plan_session` 응답에 graph plan과 validator summary를 포함한다.
+6. graph plan fixture session 생성 route를 만든다.
+7. Review UI에 read-only graph overview와 selected node detail을 붙인다.
+8. selected graph/node state를 URL 또는 route param으로 설계한다.
+9. graph target feedback 저장 API와 MCP `post_agent_reply` target resolver를 확장한다.
+10. MCP `list_plan_events` 출력에서 graph target breadcrumb를 확인한다.
