@@ -27,10 +27,12 @@ fixtures/review-target-app
 
 주요 문서:
 
-- [prd.md](prd.md): 제품 의도와 범위
-- [architecture.md](architecture.md): 단일 서버 구조와 모듈 경계
-- [acceptance.md](acceptance.md): 완료 조건과 E2E 시나리오
-- [handoff.md](handoff.md): 최근 검증 상태와 세션 기록
+- [prd.md](docs/prd.md): 제품 의도와 범위
+- [architecture.md](docs/architecture.md): 단일 서버 구조와 모듈 경계
+- [acceptance.md](docs/acceptance.md): 완료 조건과 E2E 시나리오
+- [handoff.md](docs/handoff.md): 최근 검증 상태와 세션 기록
+- [graph-plan-overview.md](docs/graph-plan-overview.md): 그래프 기반 플랜 목표와 모델 설명
+- [graph-plan-todo.md](docs/graph-plan-todo.md): 그래프 기반 플랜 구현 투두리스트
 
 ## Run Locally
 
