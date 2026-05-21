@@ -8,6 +8,8 @@ POC는 단일 로컬 서버로 시작한다. 하나의 서버 프로세스가 MC
 
 Vite는 review web app의 개발/빌드 도구로 사용한다. Prototype iframe은 별도 runtime이 아니라 사용자가 제공한 외부 URL을 직접 띄운다.
 
+현재 구현 로드맵은 step-based `PlanDraft` POC를 graph-based `GraphPlanDocument` 세션으로 확장하는 것이다. 기존 linear session은 compatibility baseline으로 유지하고, graph session은 같은 서버/store/MCP/realtime 경계를 통과해야 한다.
+
 ## 2. Recommended Stack
 
 Runtime:
@@ -46,7 +48,42 @@ Shared Packages:
 - `packages/plan-schema`
 - `packages/design-system`
 
-## 3. Runtime Shape
+## 3. Current Graph Plan Direction
+
+Graph plan integration의 source of truth는 `docs/graph-plan-overview.md`와 `docs/graph-plan-todo.md`이다.
+
+핵심 설계 방향:
+
+- `PlanDraft`와 `GraphPlanDocument`는 같은 session infrastructure를 공유한다.
+- session payload는 linear plan과 graph plan을 구분할 수 있어야 한다.
+- graph session은 validator summary를 API/MCP 응답에 포함한다.
+- feedback target은 기존 `plan`, `step`, `prototype`에서 `graph`, `node`, `block`, `edge`, `prototype_piece`, `artifact_range`까지 확장된다.
+- target resolver는 event 저장, reply thread 연결, revision summary, UI breadcrumb가 같은 의미를 쓰도록 서버 domain 경계에 둔다.
+- validator는 schema parse 이후 semantic validation을 실행하고, UI가 표시할 수 있는 stable issue code를 반환한다.
+
+초기 payload 형태는 다음 둘 중 하나로 결정해야 한다.
+
+```txt
+Option A: compatible optional fields
+PlanSession
+  plan?: PlanDraft
+  graphPlan?: GraphPlanDocument
+  validatorSummary?: GraphPlanValidationSummary
+```
+
+```txt
+Option B: discriminated payload
+PlanSession
+  payload:
+    type: "linear" | "graph"
+    plan?: PlanDraft
+    graphPlan?: GraphPlanDocument
+    validatorSummary?: GraphPlanValidationSummary
+```
+
+M1에서는 선택지를 문서화한 뒤 하나로 고정한다. 이후 MCP와 HTTP API는 선택된 payload shape만 소비한다.
+
+## 4. Runtime Shape
 
 ```txt
 Single Local Server :8787
@@ -54,7 +91,7 @@ Single Local Server :8787
     review web app
 
   /api/sessions/:sessionId
-    latest PlanSession JSON
+    latest PlanSession JSON, including graphPlan and validatorSummary for graph sessions
 
   /api/sessions/:sessionId/feedback
     user feedback write
@@ -69,7 +106,17 @@ Single Local Server :8787
     MCP tool endpoint
 ```
 
-## 4. Repository Structure
+Graph plan MVP에서 추가되는 route/API surface:
+
+```txt
+  /api/graph-fixture-session
+    creates a representative graph plan fixture session
+
+  /api/sessions/:sessionId/graph-targets/:targetId
+    optional target resolver/debug endpoint if needed during UI development
+```
+
+## 5. Repository Structure
 
 ```txt
 agent-gui
@@ -122,6 +169,9 @@ agent-gui
   packages/
     plan-schema/
       src/index.ts
+      src/graphPlan.ts
+      src/graphPlanSemanticValidator.ts
+      src/graphPlanFixtures.ts
     design-system/
       src/index.ts
 
@@ -141,9 +191,9 @@ agent-gui
         prototypes are stored as metadata inside session.json
 ```
 
-## 5. Module Boundaries
+## 6. Module Boundaries
 
-### 5.1 Domain
+### 6.1 Domain
 
 The domain layer owns:
 
@@ -154,8 +204,10 @@ The domain layer owns:
 - revision rules
 - feedback disposition rules
 - session status transitions
+- graph target resolution and breadcrumb labels
+- graph validator invocation and issue summary creation
 
-### 5.2 Store
+### 6.2 Store
 
 The store layer owns persistence interfaces.
 
@@ -169,7 +221,9 @@ data/sessions/:sessionId/session.json
 
 The store should be interface-driven so JSON/JSONL can later be replaced by SQLite.
 
-### 5.3 MCP
+Graph plan payloads are larger than linear plans, so revision history storage needs an explicit decision before SQLite migration. For the POC, each revision may still write the full latest session JSON, but graph revision events should include enough target and change summary metadata for the UI timeline without diffing old payloads.
+
+### 6.3 MCP
 
 The MCP layer exposes agent tools:
 
@@ -182,9 +236,17 @@ The MCP layer exposes agent tools:
 
 MCP tools must call the same domain services as the web API. They must not directly mutate files or database rows.
 
-`update_plan_revision` remains the single revision update tool. It accepts an optional `target` so the agent can focus the requested change on a specific step or prototype while still storing a full PlanDraft revision.
+`update_plan_revision` remains the single revision update tool. It accepts an optional `target` so the agent can focus the requested change on a specific step, prototype, graph node, block, edge, prototype piece, or artifact range while still storing a full plan revision.
 
-### 5.4 HTTP
+For graph sessions:
+
+- `create_plan_session` accepts either a linear plan payload or graph plan payload.
+- `get_plan_session` returns graph plan payload plus validator summary.
+- `list_plan_events` returns graph target data and a human-readable breadcrumb.
+- `post_agent_reply` resolves graph targets before attaching replies to feedback threads.
+- `mark_plan_approved` records the approved graph plan revision.
+
+### 6.4 HTTP
 
 The HTTP layer serves:
 
@@ -195,7 +257,7 @@ The HTTP layer serves:
 - review web routes
 - static or Vite-powered frontend assets
 
-### 5.5 Realtime
+### 6.5 Realtime
 
 Start with SSE.
 
@@ -205,10 +267,11 @@ Events:
 - `event.created`
 - `revision.created`
 - `prototype.updated`
+- `validator.updated`
 
 WebSocket can be added later if bidirectional realtime collaboration becomes necessary.
 
-### 5.6 Prototype URL Preview
+### 6.6 Prototype URL Preview
 
 Prototype preview is rendered by the review web app as a URL-tab iframe viewer.
 
@@ -223,9 +286,9 @@ Responsibilities:
 
 The review web app must not execute or inspect prototype app internals.
 
-## 6. Data Flow
+## 7. Data Flow
 
-### 6.1 Plan Update From Agent
+### 7.1 Plan Update From Agent
 
 ```txt
 Agent
@@ -237,7 +300,7 @@ Agent
   -> Prototype panel updates if referenced step/prototype changed
 ```
 
-### 6.2 User Feedback From Browser
+### 7.2 User Feedback From Browser
 
 ```txt
 User
@@ -249,7 +312,7 @@ User
   -> Review web app updates timeline and target thread
 ```
 
-### 6.3 Prototype URL Tab Update
+### 7.3 Prototype URL Tab Update
 
 ```txt
 Agent or user action
@@ -261,7 +324,7 @@ Agent or user action
   -> linked step/decision panels update prototype references
 ```
 
-### 6.4 Feedback-Driven Prototype Revision
+### 7.4 Feedback-Driven Prototype Revision
 
 ```txt
 User leaves feedback on linked step/prototype
@@ -273,7 +336,31 @@ User leaves feedback on linked step/prototype
   -> Prototype iframe renders the selected external URL
 ```
 
-## 7. Iframe Responsibility
+### 7.5 Graph Plan Session Creation
+
+```txt
+Agent
+  -> MCP create_plan_session with GraphPlanDocument
+  -> graphPlanDocumentSchema parse
+  -> validateGraphPlanSemantics
+  -> PlanSessionService stores graph payload and validator summary
+  -> Review web app opens session URL
+  -> Graph overview renders root graph and selected node detail
+```
+
+### 7.6 Graph Target Feedback
+
+```txt
+User
+  -> Review web app graph feedback composer
+  -> HTTP feedback API with GraphPlanTarget
+  -> TargetResolver validates graph/node/block/edge/prototype/artifact target
+  -> Store appends user.feedback event with breadcrumb metadata
+  -> Realtime emits event.created/session.updated
+  -> MCP list_plan_events returns target and breadcrumb for agent action
+```
+
+## 8. Iframe Responsibility
 
 The iframe content is owned by the external URL web app.
 
@@ -301,7 +388,7 @@ Example iframe:
 <iframe src={selectedPrototypeTab.url} />
 ```
 
-## 8. Vite Usage
+## 9. Vite Usage
 
 Vite should be used for:
 
@@ -318,7 +405,7 @@ Plan/prototype freshness is handled by:
 - explicit refetch
 - iframe `src` update when a selected tab changes
 
-## 9. Prototype Boundary
+## 10. Prototype Boundary
 
 Plan GUI does not own prototype internals. It owns only:
 
@@ -327,7 +414,7 @@ Plan GUI does not own prototype internals. It owns only:
 - URL tabs (`tabs`)
 - iframe shell behavior
 
-## 10. Persistence Strategy
+## 11. Persistence Strategy
 
 POC:
 
@@ -342,7 +429,7 @@ Later:
 - SQLite `prototype_tabs` or `prototype_artifacts` table if metadata grows
 - optional file/blob storage for larger prototype artifacts
 
-## 11. Security and Isolation
+## 12. Security and Isolation
 
 POC isolation requirements:
 
@@ -354,7 +441,7 @@ POC isolation requirements:
 
 The POC is local-first and does not attempt full production-grade untrusted code execution isolation.
 
-## 12. Minimal Build Order
+## 13. Minimal Build Order
 
 1. `packages/plan-schema`
 2. `apps/server` with Hono
@@ -370,7 +457,7 @@ The POC is local-first and does not attempt full production-grade untrusted code
 12. user-requested Codex session restart immediately before real scenario verification
 13. registered-MCP fixture project E2E scenario
 
-## 13. MCP Registration Gate
+## 14. MCP Registration Gate
 
 The implemented MCP server cannot be treated as complete until it has been registered with Codex and exercised through the registered tool surface.
 
@@ -388,7 +475,7 @@ Expected flow:
 
 This gate exists because a newly implemented local MCP server may not be usable by the current Codex session until it is registered and the session is restarted.
 
-## 14. Fixture Project
+## 15. Fixture Project
 
 The repository must include a fixture project that acts as the realistic target of the plan review flow.
 
@@ -404,14 +491,14 @@ fixtures/review-target-app
 
 The fixture project should not be a static mock only. It should be realistic enough for the agent to inspect the code, create a plan, attach a prototype to a UX-related step, respond to feedback, revise the plan, and reach approval.
 
-## 15. Expansion Path
+## 16. Expansion Path
 
 Initial:
 
 ```txt
 single local server
 review UI local
-prototype runtime local
+prototype URL iframe preview
 file-backed persistence
 ```
 
@@ -420,7 +507,7 @@ Later:
 ```txt
 external review web app
 local companion server
-local prototype runtime
+external prototype URLs loaded in sandboxed iframe
 SQLite or server persistence
 optional tunnel or local HTTPS
 ```

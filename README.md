@@ -18,7 +18,6 @@ Agent GUI는 에이전트가 만든 작업 계획을 브라우저에서 리뷰�
 ```txt
 apps/server            단일 로컬 서버, API, SSE, MCP stdio/http route, planctl
 apps/review-web        브라우저 plan review UI
-apps/prototype-runtime prototype iframe preview runtime
 packages/plan-schema   PlanSession, PlanEvent, prototype schema
 packages/design-system POC용 디자인 시스템 컴포넌트와 토큰
 fixtures/review-target-app
@@ -115,7 +114,7 @@ POC의 가치를 보려면 코드보다 먼저 실제 루프를 봐야 합니다
 
 ## Current POC Status
 
-최근 검증에서 다음이 확인됐습니다.
+Step-based POC에서는 다음이 확인됐습니다.
 
 - MCP-created session을 브라우저에서 열 수 있음
 - plan/step/prototype piece feedback 저장
@@ -125,36 +124,30 @@ POC의 가치를 보려면 코드보다 먼저 실제 루프를 봐야 합니다
 - 브라우저 approval 후 `approved` 상태와 approval event 저장
 - 별도 control session으로 session isolation 확인
 
-주의할 점:
+남은 validation gap:
 
 - Browser Use 플러그인의 Node REPL `js` tool이 현재 세션에 노출되지 않아, 엄밀한 in-app Browser Use 검증은 아직 별도 세션에서 재시도해야 합니다.
 - 실제 화면 E2E는 사용 가능한 `agent-browser` CLI로 수행했습니다.
 - persistence는 POC용 file-backed store입니다.
 
-## What To Do Next
+## Current Direction
 
-우선순위 높은 다음 작업:
+현재 구현 방향은 step-based POC 후속 개선이 아니라, graph-based plan을 실제 Plan GUI session payload로 연결하는 것입니다.
 
-1. **Strict Browser Use 재검증**
-   - `mcp__node_repl__js` 또는 equivalent Node REPL `js` tool이 보이는 세션에서 같은 E2E를 반복합니다.
+최신 source of truth:
 
-2. **Review UI 정보 구조 개선**
-   - event row에 target, revision, message preview를 표시합니다.
-   - plan-level feedback thread도 화면에서 바로 추적 가능하게 합니다.
-   - selected step과 prototype panel 사이의 linked target 관계를 더 명확히 보여줍니다.
+- [graph-plan-overview.md](docs/graph-plan-overview.md): graph plan의 목표, 모델, review loop
+- [graph-plan-todo.md](docs/graph-plan-todo.md): graph plan 구현 순서와 milestone
 
-3. **Prototype runtime 고도화**
-   - prototype state 변경이 iframe 내부에서 더 명확히 드러나게 합니다.
-   - prototype error boundary와 fallback UI를 더 눈에 띄게 검증합니다.
+바로 다음 구현 초점:
 
-4. **Persistence 개선**
-   - file-backed session store에서 SQLite로 옮길지 판단합니다.
-   - event append, revision history, prototype artifacts를 더 명확히 분리합니다.
+1. graph plan validator issue code를 UI/API가 소비하기 쉬운 taxonomy로 정리합니다.
+2. `PlanTarget`과 event schema에 graph/node/block/edge/prototype piece/artifact range target을 추가합니다.
+3. `PlanSession`이 linear `PlanDraft`와 `GraphPlanDocument`를 공존 저장할 수 있게 payload 경계를 결정합니다.
+4. `create_plan_session`, `get_plan_session`, `update_plan_revision`, `post_agent_reply`가 graph plan payload와 graph target을 다루게 확장합니다.
+5. read-only graph overview와 selected node detail을 Review UI에 붙입니다.
 
-5. **POC 판단 회의**
-   - 같은 plan을 채팅-only 방식과 Agent GUI 방식으로 각각 리뷰해봅니다.
-   - 사용자가 남긴 피드백의 target 정확도, 왕복 시간, 혼동 지점을 비교합니다.
-   - "이 UI가 있으면 실제 작업 전에 계획 품질이 올라가는가?"를 기준으로 계속 투자할지 결정합니다.
+Strict Browser Use 재검증은 기존 step-based POC의 validation gap으로 남아 있지만, 현재 주 구현 트랙과는 별도입니다.
 
 ## Completion Signal
 

@@ -1,5 +1,16 @@
 # Agent GUI Handoff
 
+## Current Direction
+
+This handoff records the completed step-based POC verification state. The current implementation roadmap has moved to graph-based plan integration.
+
+Authoritative current docs:
+
+- `docs/graph-plan-overview.md`
+- `docs/graph-plan-todo.md`
+
+The strict Browser Use rerun remains a validation gap for the original step-based POC. It is not the primary next implementation task. The next implementation track is connecting `GraphPlanDocument` to Plan GUI session payloads, graph targets, MCP tools, and a read-only graph review UI.
+
 ## Current State
 
 This repository now contains a POC implementation for the browser-based plan review UI.
@@ -9,6 +20,8 @@ Core documents:
 - `prd.md`: product requirements
 - `architecture.md`: technical architecture
 - `acceptance.md`: completion criteria and E2E scenarios
+- `graph-plan-overview.md`: graph-based plan direction
+- `graph-plan-todo.md`: graph-based plan implementation roadmap
 
 Implemented workspace structure:
 
@@ -182,6 +195,8 @@ Web search and local plugin inspection suggest:
 
 If a future Codex session exposes `mcp__node_repl__js` or another Node REPL `js` tool, rerun the same E2E scenario with the Browser Use in-app browser runtime for strict acceptance parity.
 
+This is a validation follow-up for the original step-based POC. For current implementation work, start with the graph plan tasks in `docs/graph-plan-todo.md`.
+
 ## Completed Verification Plan
 
 1. Start the local server if it is not running:
@@ -245,11 +260,12 @@ http://localhost:8787/sessions/<sessionId>
 ## Recent Commits
 
 ```txt
-cb95d43 fix: resolve session storage paths from source
-d1b5033 chore: ignore generated session data
-cce886e feat: scaffold plan review server and UI
-b2cd08a docs: clarify prototype revision workflow
-1fff668 docs: define plan review poc
+eae6b01 Document graph plan implementation roadmap
+639ed6f Add graph plan model research artifacts
+a514da4 실험결과 저장
+52d9d8f Remove prototype runtime app
+c6a57e5 Add URL tab prototype previews
+1c17344 feat: refactor review-web to decouple components, change layout to side-by-side, translate UI to Korean, move StepDetail to the right panel, and reorganize docs and agent skills
 ```
 
 ## Notes For Next Agent

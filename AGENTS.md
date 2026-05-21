@@ -10,7 +10,6 @@ Agent GUI는 에이전트가 만든 작업 계획을 브라우저에서 리뷰�
 ```txt
 apps/server            단일 로컬 서버, API, SSE, MCP stdio/http route, planctl
 apps/review-web        브라우저 plan review UI
-apps/prototype-runtime prototype iframe preview runtime
 packages/plan-schema   PlanSession, PlanEvent, prototype schema
 packages/design-system POC용 디자인 시스템 컴포넌트와 토큰
 fixtures/review-target-app
@@ -19,10 +18,12 @@ fixtures/review-target-app
 
 주요 문서:
 
-- [prd.md](prd.md): 제품 의도와 범위
-- [architecture.md](architecture.md): 단일 서버 구조와 모듈 경계
-- [acceptance.md](acceptance.md): 완료 조건과 E2E 시나리오
-- [handoff.md](handoff.md): 최근 검증 상태와 세션 기록
+- [prd.md](docs/prd.md): 제품 의도와 범위
+- [architecture.md](docs/architecture.md): 단일 서버 구조와 모듈 경계
+- [acceptance.md](docs/acceptance.md): 완료 조건과 E2E 시나리오
+- [handoff.md](docs/handoff.md): 최근 검증 상태와 세션 기록
+- [graph-plan-overview.md](docs/graph-plan-overview.md): 그래프 기반 플랜 목표와 모델 설명
+- [graph-plan-todo.md](docs/graph-plan-todo.md): 그래프 기반 플랜 구현 투두리스트
 
 ## Run Locally
 
@@ -105,7 +106,7 @@ POC의 가치를 보려면 코드보다 먼저 실제 루프를 봐야 합니다
 
 ## Current POC Status
 
-최근 검증에서 다음이 확인됐습니다.
+Step-based POC에서는 다음이 확인됐습니다.
 
 - MCP-created session을 브라우저에서 열 수 있음
 - plan/step/prototype piece feedback 저장
@@ -115,8 +116,19 @@ POC의 가치를 보려면 코드보다 먼저 실제 루프를 봐야 합니다
 - 브라우저 approval 후 `approved` 상태와 approval event 저장
 - 별도 control session으로 session isolation 확인
 
-주의할 점:
+남은 validation gap:
 
 - Browser Use 플러그인의 Node REPL `js` tool이 현재 세션에 노출되지 않아, 엄밀한 in-app Browser Use 검증은 아직 별도 세션에서 재시도해야 합니다.
 - 실제 화면 E2E는 사용 가능한 `agent-browser` CLI로 수행했습니다.
 - persistence는 POC용 file-backed store입니다.
+
+## Current Implementation Direction
+
+현재 다음 구현 방향은 graph-based plan을 실제 Plan GUI session payload로 연결하는 것입니다. 기존 Browser Use 재검증은 step-based POC의 validation gap이며, 주 구현 트랙은 아닙니다.
+
+최신 source of truth:
+
+- [graph-plan-overview.md](docs/graph-plan-overview.md)
+- [graph-plan-todo.md](docs/graph-plan-todo.md)
+
+바로 다음 작업은 graph plan validator issue taxonomy 정리, graph target을 포함한 `PlanTarget`/event schema 확장, `create_plan_session`의 graph payload 수용, graph fixture session route, read-only graph overview UI입니다.
