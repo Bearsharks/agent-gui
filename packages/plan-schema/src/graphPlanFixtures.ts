@@ -96,28 +96,28 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
 export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
   schemaVersion: "graph-plan/v1",
   id: "fixture-prototype-review",
-  title: "Target-aware prototype review",
-  goal: "Validate prototype piece feedback with graph target context.",
+  title: "대상 맥락을 드러내는 프로토타입 리뷰",
+  goal: "프로토타입 조각 피드백이 그래프 대상 맥락과 함께 유지되는지 검증한다.",
   rootGraphId: "g-prototype-review",
   currentRevision: 1,
   graphs: [
     {
       id: "g-prototype-review",
-      title: "Prototype review",
+      title: "프로토타입 리뷰",
       layout: { mode: "linear", order: ["n-review", "n-accept"] },
       nodes: [
         {
           id: "n-review",
           kind: "review",
-          title: "Review prototype",
+          title: "프로토타입 검토",
           ownedGraphIds: ["g-prototype-states"],
           blocks: [
             {
               id: "b-review",
               type: "review_bundle",
-              prompt: "Does each prototype piece reveal the graph target it validates?",
+              prompt: "각 프로토타입 조각이 자신이 검증하는 그래프 대상을 드러내는가?",
               linkedTargets: [{ type: "node", graphId: "g-prototype-review", nodeId: "n-review" }],
-              acceptanceCriteria: [{ id: "crit-context", label: "Target context is visible" }],
+              acceptanceCriteria: [{ id: "crit-context", label: "대상 맥락이 보인다" }],
               prototypeRef: {
                 prototypeId: "proto-target-context",
                 blockId: "b-prototype",
@@ -129,11 +129,11 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
               type: "prototype",
               prototypeId: "proto-target-context",
               revision: 1,
-              tabs: [{ id: "tab-review", title: "Review UI", url: "http://localhost:8787" }],
+              tabs: [{ id: "tab-review", title: "리뷰 UI", url: "http://localhost:8787" }],
               pieces: [
                 {
                   id: "piece-target-sidebar",
-                  title: "Target sidebar",
+                  title: "대상 사이드바",
                   kind: "panel",
                   primaryTarget: { type: "block", graphId: "g-prototype-review", nodeId: "n-review", blockId: "b-review" },
                   validates: [{ type: "node", graphId: "g-prototype-review", nodeId: "n-review" }],
@@ -153,25 +153,25 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
         {
           id: "n-accept",
           kind: "checkpoint",
-          title: "Accept prototype direction",
-          blocks: [{ id: "b-accept", type: "criteria", criteria: [{ id: "crit-thread", label: "Piece feedback thread remains attached" }] }],
+          title: "프로토타입 방향 승인",
+          blocks: [{ id: "b-accept", type: "criteria", criteria: [{ id: "crit-thread", label: "조각 피드백 대화가 대상에 유지된다" }] }],
         },
       ],
       edges: [{ id: "e-review-accept", from: "n-review", to: "n-accept", kind: "sequence" }],
     },
     {
       id: "g-prototype-states",
-      title: "Prototype states",
+      title: "프로토타입 상태",
       owner: { graphId: "g-prototype-review", nodeId: "n-review", blockId: "b-state-flow" },
       layout: { mode: "linear", order: ["n-default", "n-piece-selected", "n-commenting"] },
       nodes: [
-        { id: "n-default", kind: "artifact", title: "Default state", blocks: [{ id: "b-default", type: "text", body: "No prototype piece is selected." }] },
-        { id: "n-piece-selected", kind: "artifact", title: "Piece selected", blocks: [{ id: "b-selected", type: "text", body: "Sidebar displays the piece target path." }] },
-        { id: "n-commenting", kind: "review", title: "Commenting state", blocks: [{ id: "b-commenting", type: "text", body: "Feedback composer targets the prototype piece." }] },
+        { id: "n-default", kind: "artifact", title: "기본 상태", blocks: [{ id: "b-default", type: "text", body: "선택된 프로토타입 조각이 없다." }] },
+        { id: "n-piece-selected", kind: "artifact", title: "조각 선택 상태", blocks: [{ id: "b-selected", type: "text", body: "사이드바가 조각의 대상 경로를 표시한다." }] },
+        { id: "n-commenting", kind: "review", title: "댓글 작성 상태", blocks: [{ id: "b-commenting", type: "text", body: "피드백 작성기가 프로토타입 조각을 대상으로 삼는다." }] },
       ],
       edges: [
-        { id: "e-default-selected", from: "n-default", to: "n-piece-selected", kind: "conditional", label: "piece clicked" },
-        { id: "e-selected-commenting", from: "n-piece-selected", to: "n-commenting", kind: "conditional", label: "comment opened" },
+        { id: "e-default-selected", from: "n-default", to: "n-piece-selected", kind: "conditional", label: "조각 클릭" },
+        { id: "e-selected-commenting", from: "n-piece-selected", to: "n-commenting", kind: "conditional", label: "댓글 열림" },
       ],
     },
   ],
