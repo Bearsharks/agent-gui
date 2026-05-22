@@ -1,11 +1,12 @@
 import { graphPlanDocumentSchema, type GraphPlanDocument } from "./graphPlan";
 import { validateGraphPlanSemantics, type GraphPlanValidationIssue } from "./graphPlanSemanticValidator";
+import type { GraphPlanIssueCode } from "./graphPlanValidation";
 
 export type AdversarialGraphPlanFixture = {
   id: string;
   title: string;
   document: GraphPlanDocument;
-  expectedIssueCodes: string[];
+  expectedIssueCodes: GraphPlanIssueCode[];
   note: string;
 };
 

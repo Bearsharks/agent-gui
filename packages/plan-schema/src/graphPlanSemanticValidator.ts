@@ -8,13 +8,16 @@ import type {
   GraphPlanRuntimeState,
   GraphPlanTarget,
 } from "./graphPlan";
+import {
+  categoryForGraphPlanIssue,
+  summarizeGraphPlanValidation,
+  type GraphPlanIssueCode,
+  type GraphPlanValidationIssue,
+  type GraphPlanValidationMode,
+  type GraphPlanValidationSummary,
+} from "./graphPlanValidation";
 
-export type GraphPlanValidationIssue = {
-  severity: "error" | "warning";
-  code: string;
-  message: string;
-  path: string;
-};
+export type { GraphPlanValidationIssue, GraphPlanValidationMode, GraphPlanValidationSummary } from "./graphPlanValidation";
 
 type ValidationIndex = {
   graphs: Map<string, GraphPlanGraph>;
@@ -31,12 +34,7 @@ export function validateGraphPlanSemantics(document: GraphPlanDocument): GraphPl
   const index = buildIndex(document, issues);
 
   if (!index.graphs.has(document.rootGraphId)) {
-    issues.push({
-      severity: "error",
-      code: "missing_root_graph",
-      message: `Root graph '${document.rootGraphId}' does not exist.`,
-      path: "rootGraphId",
-    });
+    addIssue(issues, "error", "missing_root_graph", `Root graph '${document.rootGraphId}' does not exist.`, "rootGraphId");
   }
 
   for (const graph of document.graphs) {
@@ -44,6 +42,10 @@ export function validateGraphPlanSemantics(document: GraphPlanDocument): GraphPl
   }
 
   return issues;
+}
+
+export function validateGraphPlan(document: GraphPlanDocument, options: { mode?: GraphPlanValidationMode; checkedAt?: string } = {}): GraphPlanValidationSummary {
+  return summarizeGraphPlanValidation(validateGraphPlanSemantics(document), options.mode ?? "draft", options.checkedAt);
 }
 
 export function assertGraphPlanSemantics(document: GraphPlanDocument): void {
@@ -712,44 +714,44 @@ function validateTarget(target: GraphPlanTarget | undefined, index: ValidationIn
     case "plan":
       return;
     case "graph":
-      if (!index.graphs.has(target.graphId)) addIssue(issues, severity, "missing_target_graph", `Target graph '${target.graphId}' does not exist.`, path);
+      if (!index.graphs.has(target.graphId)) addIssue(issues, severity, "missing_target_graph", `Target graph '${target.graphId}' does not exist.`, path, { target });
       return;
     case "node":
-      if (!index.nodes.has(nodeKeyFor(target.graphId, target.nodeId))) addIssue(issues, severity, "missing_target_node", `Target node '${target.graphId}/${target.nodeId}' does not exist.`, path);
+      if (!index.nodes.has(nodeKeyFor(target.graphId, target.nodeId))) addIssue(issues, severity, "missing_target_node", `Target node '${target.graphId}/${target.nodeId}' does not exist.`, path, { target });
       return;
     case "block":
-      if (!index.blocks.has(blockKeyFor(target.graphId, target.nodeId, target.blockId))) addIssue(issues, severity, "missing_target_block", `Target block '${target.graphId}/${target.nodeId}/${target.blockId}' does not exist.`, path);
+      if (!index.blocks.has(blockKeyFor(target.graphId, target.nodeId, target.blockId))) addIssue(issues, severity, "missing_target_block", `Target block '${target.graphId}/${target.nodeId}/${target.blockId}' does not exist.`, path, { target });
       return;
     case "artifact_range":
       if (!index.blockItems.has(blockItemKeyFor(target.graphId, target.nodeId, target.blockId, target.artifactId))) {
-        addIssue(issues, severity, "missing_target_artifact_range", `Target artifact range '${target.graphId}/${target.nodeId}/${target.blockId}/${target.artifactId}' does not exist.`, path);
+        addIssue(issues, severity, "missing_target_artifact_range", `Target artifact range '${target.graphId}/${target.nodeId}/${target.blockId}/${target.artifactId}' does not exist.`, path, { target });
       }
       validateArtifactRangePath(target, index, issues, path);
       if (target.lineStart && target.lineEnd && target.lineEnd < target.lineStart) {
-        addIssue(issues, "error", "invalid_artifact_line_range", "Artifact range lineEnd must be greater than or equal to lineStart.", path);
+        addIssue(issues, "error", "invalid_artifact_line_range", "Artifact range lineEnd must be greater than or equal to lineStart.", path, { target });
       }
       if (target.charStart !== undefined && target.charEnd !== undefined && target.charEnd < target.charStart) {
-        addIssue(issues, "error", "invalid_artifact_char_range", "Artifact range charEnd must be greater than or equal to charStart.", path);
+        addIssue(issues, "error", "invalid_artifact_char_range", "Artifact range charEnd must be greater than or equal to charStart.", path, { target });
       }
       return;
     case "block_item":
       if (!index.blockItems.has(blockItemKeyFor(target.graphId, target.nodeId, target.blockId, target.itemId))) {
-        addIssue(issues, severity, "missing_target_block_item", `Target block item '${target.graphId}/${target.nodeId}/${target.blockId}/${target.itemId}' does not exist.`, path);
+        addIssue(issues, severity, "missing_target_block_item", `Target block item '${target.graphId}/${target.nodeId}/${target.blockId}/${target.itemId}' does not exist.`, path, { target });
         return;
       }
       if (target.itemType) {
         const item = index.blockItems.get(blockItemKeyFor(target.graphId, target.nodeId, target.blockId, target.itemId));
         if (item?.type && item.type !== target.itemType && !(item.type === "prototype_piece" && target.itemType === "artifact")) {
-          addIssue(issues, "warning", "target_block_item_type_mismatch", `Target item type '${target.itemType}' does not match indexed item type '${item.type}'.`, path);
+          addIssue(issues, "warning", "target_block_item_type_mismatch", `Target item type '${target.itemType}' does not match indexed item type '${item.type}'.`, path, { target });
         }
       }
       return;
     case "edge":
-      if (!index.edges.has(edgeKeyFor(target.graphId, target.edgeId))) addIssue(issues, severity, "missing_target_edge", `Target edge '${target.graphId}/${target.edgeId}' does not exist.`, path);
+      if (!index.edges.has(edgeKeyFor(target.graphId, target.edgeId))) addIssue(issues, severity, "missing_target_edge", `Target edge '${target.graphId}/${target.edgeId}' does not exist.`, path, { target });
       return;
     case "prototype_piece":
       if (!index.prototypePieces.has(prototypePieceKeyFor(target.graphId, target.nodeId, target.blockId, target.prototypeId, target.pieceId))) {
-        addIssue(issues, severity, "missing_target_prototype_piece", `Target prototype piece '${target.prototypeId}/${target.pieceId}' does not exist.`, path);
+        addIssue(issues, severity, "missing_target_prototype_piece", `Target prototype piece '${target.prototypeId}/${target.pieceId}' does not exist.`, path, { target });
       }
       return;
   }
@@ -773,6 +775,7 @@ function validateArtifactRangePath(
       "artifact_range_path_mismatch",
       `Artifact range path '${target.path}' does not match artifact ref '${artifact.ref}'.`,
       path,
+      { target },
     );
   }
 }
@@ -780,14 +783,14 @@ function validateArtifactRangePath(
 function validatePointer(pointer: GraphPlanPointer | undefined, index: ValidationIndex, issues: GraphPlanValidationIssue[], path: string): void {
   if (!pointer) return;
   if (!pointerExists(pointer, index)) {
-    addIssue(issues, "error", "missing_pointer", "Pointer does not resolve.", path);
+    addIssue(issues, "error", "missing_pointer", "Pointer does not resolve.", path, { pointer });
     return;
   }
   if (pointer.outputKey && pointer.graphId && pointer.nodeId && pointer.blockId) {
     const blockKey = blockKeyFor(pointer.graphId, pointer.nodeId, pointer.blockId);
     const outputs = index.blockOutputs.get(blockKey);
     if (outputs && !outputs.has(pointer.outputKey)) {
-      addIssue(issues, "error", "missing_output_definition", `Pointer outputKey '${pointer.outputKey}' is not defined by the source block.`, path);
+      addIssue(issues, "error", "missing_output_definition", `Pointer outputKey '${pointer.outputKey}' is not defined by the source block.`, path, { pointer });
     }
   }
 }
@@ -800,8 +803,15 @@ function pointerExists(pointer: GraphPlanPointer, index: ValidationIndex): boole
   return true;
 }
 
-function addIssue(issues: GraphPlanValidationIssue[], severity: "error" | "warning", code: string, message: string, path: string): void {
-  issues.push({ severity, code, message, path });
+function addIssue(
+  issues: GraphPlanValidationIssue[],
+  severity: "error" | "warning",
+  code: GraphPlanIssueCode,
+  message: string,
+  path: string,
+  refs: Pick<GraphPlanValidationIssue, "target" | "pointer"> = {},
+): void {
+  issues.push({ severity, code, category: categoryForGraphPlanIssue(code), message, path, ...refs });
 }
 
 function nodeKeyFor(graphId: string, nodeId: string): string {

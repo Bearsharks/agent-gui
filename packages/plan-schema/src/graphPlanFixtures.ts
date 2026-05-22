@@ -5,7 +5,7 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
   schemaVersion: "graph-plan/v1",
   id: "fixture-linear-phase",
   title: "Graph schema rollout",
-  goal: "Introduce graph/block plans while preserving step-based review sessions.",
+  goal: "Introduce graph/block plans as the only active review session model.",
   rootGraphId: "g-rollout",
   currentRevision: 1,
   graphs: [
@@ -18,7 +18,7 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
           id: "n-discovery",
           kind: "section",
           title: "Discovery",
-          blocks: [{ id: "b-discovery", type: "task_list", items: [{ id: "t-assumptions", label: "Map current step assumptions" }] }],
+          blocks: [{ id: "b-discovery", type: "task_list", items: [{ id: "t-assumptions", label: "Map current review assumptions to graph targets" }] }],
         },
         {
           id: "n-implementation",
@@ -251,13 +251,13 @@ export const decisionBranchGraphPlanFixture = graphPlanDocumentSchema.parse({
       owner: { graphId: "g-decision", nodeId: "n-adapter", blockId: "b-adapter-plan" },
       layout: { mode: "linear", order: ["n-map", "n-project", "n-roundtrip"] },
       nodes: [
-        { id: "n-map", kind: "action", title: "Map PlanDraft to graph", blocks: [{ id: "b-map", type: "task_list", items: [{ id: "t-step-node", label: "Map step to action node" }] }] },
-        { id: "n-project", kind: "action", title: "Project graph to current UI", blocks: [{ id: "b-project", type: "task_list", items: [{ id: "t-project", label: "Render old StepList projection" }] }] },
+        { id: "n-map", kind: "action", title: "Normalize graph targets", blocks: [{ id: "b-map", type: "task_list", items: [{ id: "t-graph-node", label: "Represent review work as graph nodes and blocks" }] }] },
+        { id: "n-project", kind: "action", title: "Project graph to review UI", blocks: [{ id: "b-project", type: "task_list", items: [{ id: "t-project", label: "Render graph overview and node detail" }] }] },
         {
           id: "n-roundtrip",
           kind: "checkpoint",
           title: "Round-trip verification",
-          blocks: [{ id: "b-roundtrip", type: "verification", checks: [{ id: "v-roundtrip", label: "Old fixture round trips", mode: "test" }] }],
+          blocks: [{ id: "b-roundtrip", type: "verification", checks: [{ id: "v-roundtrip", label: "Graph fixture round trips", mode: "test" }] }],
         },
       ],
       edges: [
