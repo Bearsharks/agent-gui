@@ -189,41 +189,57 @@ pre {
     #f3efe6;
   background-size: 24px 24px;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 14px;
   position: relative;
 }
 
-.graph-node-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  margin-top: 132px;
-}
-
-.graph-node-card {
-  align-content: start;
-  background: #fffdf8;
+.graph-canvas .react-flow {
+  background: rgba(255, 253, 248, 0.58);
   border: 1px solid #d8cfc0;
-  border-radius: 7px;
-  color: #20201d;
-  cursor: pointer;
-  display: grid;
-  gap: 8px;
-  min-height: 132px;
-  padding: 11px;
-  text-align: left;
+  border-radius: 8px;
+  height: 100%;
+  min-height: 560px;
 }
 
-.graph-node-card.selected {
-  border-color: rgba(36, 106, 168, 0.65);
+.review-flow-node {
+  border: 1px solid #d8cfc0 !important;
+  border-radius: 7px !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  width: 190px;
+}
+
+.review-flow-node.selected {
+  border-color: rgba(36, 106, 168, 0.65) !important;
   box-shadow: 0 16px 38px rgba(57, 45, 25, 0.12);
 }
 
-.graph-node-card.drillable {
+.review-flow-node.drillable {
   background:
     linear-gradient(135deg, rgba(36, 106, 168, 0.12), transparent 48%),
-    #fffdf8;
+    #fffdf8 !important;
+}
+
+.review-flow-node-body {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.review-flow-edge.selected .react-flow__edge-path {
+  stroke: #246aa8;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge-textbg {
+  fill: #fffdf8;
+  stroke: #d8cfc0;
+}
+
+.react-flow__edge-text {
+  fill: #6b665e;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .node-kind {
@@ -261,31 +277,6 @@ pre {
 .issue-chip {
   background: #fbf0da !important;
   color: #a77221 !important;
-}
-
-.graph-edge-pill {
-  align-items: center;
-  background: #fffdf8;
-  border: 1px solid #d8cfc0;
-  border-radius: 999px;
-  color: #6b665e;
-  cursor: pointer;
-  display: flex;
-  font-size: 11px;
-  gap: 8px;
-  left: 14px;
-  max-width: calc(100% - 28px);
-  padding: 5px 9px;
-  position: absolute;
-}
-
-.graph-edge-pill strong {
-  color: #20201d;
-}
-
-.graph-edge-pill.selected {
-  border-color: #246aa8;
-  color: #246aa8;
 }
 
 .scope-footer {
