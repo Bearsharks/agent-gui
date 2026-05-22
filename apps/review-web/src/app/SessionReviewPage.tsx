@@ -172,12 +172,10 @@ export function SessionReviewPage() {
   useEffect(() => {
     if (!sessionId) return;
     const source = new EventSource(`/events/sessions/${sessionId}`);
-    const interval = window.setInterval(() => void load(sessionId), 1500);
     source.addEventListener("session.updated", () => void load(sessionId));
     source.addEventListener("event.created", () => void load(sessionId));
     source.addEventListener("revision.created", () => void load(sessionId));
     return () => {
-      window.clearInterval(interval);
       source.close();
     };
   }, [sessionId]);
