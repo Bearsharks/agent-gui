@@ -175,11 +175,221 @@ Phase 5의 최소 목표:
 9. `apps/review-web` typecheck가 통과한다.
 10. 가능하면 전체 `pnpm typecheck`가 통과한다.
 
-## 권장 UI 구조
+## Phase 5 작업 순서
+
+Phase 5는 컴포넌트부터 만들지 않고, graph navigation architecture를 먼저 고정한 뒤 UI를 얹는다. 목표는 flat graph viewer가 아니라 프랙탈 graph plan을 drilldown하며 검토하는 read-only review workspace다.
+
+### 0. 기술 스택 및 아키텍처 정의
+
+현재 stack:
+
+- React 19
+- Vite 8
+- TypeScript 6
+- `@agent-gui/plan-schema`
+- `@agent-gui/design-system`
+
+Data source:
+
+- `GET /api/sessions/:sessionId`
+- `PlanSession.graphPlan`
+- `PlanSession.validation`
+- `PlanSession.events`
+
+UI architecture:
+
+- editor가 아닌 read-only review workspace다.
+- user-side graph mutation UI를 만들지 않는다.
+- graph mutation과 revision은 API/MCP로 들어온 결과를 읽고 표시한다.
+- arbitrary graph layout engine이나 full canvas editor는 Phase 5 범위가 아니다.
+
+State architecture:
+
+- server state: `PlanSession`
+- navigation state: current graph, selected node, selected block, selected edge, selected prototype piece
+- derived state: selected `GraphPlanTarget`, target breadcrumb, issue badges, graph/node/block/edge lookup map
+
+URL architecture:
+
+```txt
+?graph=
+?node=
+?block=
+?edge=
+?piece=
+```
+
+Component boundary:
+
+- graph traversal/indexing은 React component 밖 pure utility로 둔다.
+- selection to target 변환과 breadcrumb 생성도 pure utility로 둔다.
+- React components는 rendering, selection, feedback submission만 담당한다.
+
+### 1. Fractal Graph Navigation Model 확정
+
+- root graph 진입 규칙을 정한다.
+- child graph drilldown 규칙을 정한다.
+- parent graph drillup 규칙을 정한다.
+- `ownedGraphIds`, `graph_ref`, graph `owner` 관계를 어떻게 navigation에 쓸지 정한다.
+- parent context summary를 어디에 표시할지 정한다.
+- current graph scope와 selected target을 분리한다.
+
+### 2. Graph Index / Resolver Layer 구현
+
+- `GraphPlanDocument`에서 graph/node/block/edge lookup map을 만든다.
+- graph parent/child 관계를 계산한다.
+- node 또는 block이 drillable한지 판정한다.
+- validation issue를 graph element별로 group한다.
+- URL query를 selection state로 복원한다.
+- selection state 변경을 URL query에 반영한다.
+
+### 3. GraphPlanTarget / Breadcrumb Resolver 구현
+
+- selection state를 `GraphPlanTarget`으로 변환한다.
+- `GraphPlanTarget`을 사람이 읽는 breadcrumb로 변환한다.
+- validation issue target 또는 pointer를 selection state로 변환한다.
+- event target을 breadcrumb로 표시한다.
+
+지원 target:
+
+- `plan`
+- `graph`
+- `node`
+- `block`
+- `block_item`
+- `edge`
+- `prototype_piece`
+- `artifact_range`
+
+### 4. Step-Based UI Active Path 제거
+
+- `session.plan.steps` 사용을 제거한다.
+- `StepList`, `StepDetail` active path를 제거한다.
+- `PlanTarget`, `PlanPrototype`, `PrototypeTab`, top-level prototype 의존을 제거한다.
+- `SessionReviewPage`를 `session.graphPlan` 기준으로 재작성한다.
+- `session.plan` fallback을 만들지 않는다.
+
+### 5. Graph Review Shell 구성
+
+화면 shell:
+
+```txt
+Header
+  title / goal / status / revision / validation summary
+
+Left
+  graph tree / graph breadcrumb / current graph node list
+
+Center
+  current graph overview / selected node detail / block renderer / edge condition summary
+
+Right
+  selected target breadcrumb / feedback composer / validation panel / target thread / prototype piece panel
+
+Secondary
+  event timeline / revision summary
+```
+
+### 6. Drilldown Graph Explorer 구현
+
+- root graph overview를 표시한다.
+- current graph의 node/edge만 표시한다.
+- subgraph를 가진 node를 drillable하게 표시한다.
+- `graph_ref` block에서 child graph 진입 action을 제공한다.
+- parent graph로 돌아가는 action을 제공한다.
+- child graph 안에서도 parent context summary를 유지한다.
+- drillup 후 이전 entry node 또는 `graph_ref` block을 강조한다.
+
+### 7. Node Detail 구현
+
+- node title/kind/status/summary를 표시한다.
+- input/output contract를 요약한다.
+- linked targets를 표시한다.
+- owned subgraphs를 표시한다.
+- incoming/outgoing edge를 요약한다.
+- node-level validation issue badge를 표시한다.
+- node 선택 시 feedback target이 node target이 되게 한다.
+
+### 8. Block Renderer 구현
+
+공통 block shell:
+
+- title
+- type
+- status
+- selected state
+- validation issue badge
+- feedback target action
+
+지원 renderer:
+
+- `text`
+- `task_list`
+- `checklist`
+- `criteria`
+- `risk`
+- `verification`
+- `artifact`
+- `prototype`
+- `graph_ref`
+- `choice_set`
+- `changelog`
+
+지원하지 않는 block type은 fallback renderer로 `type`, `id`, `title`, `summary`, compact JSON disclosure를 표시한다.
+
+### 9. Validation Panel 연결
+
+- `errorCount`, `warningCount`, `publishReady`를 표시한다.
+- issue category/code/message/path를 표시한다.
+- issue target breadcrumb를 표시한다.
+- issue 클릭 시 가능한 경우 해당 graph scope와 element로 이동한다.
+- graph/node/block/edge badge와 issue list를 연결한다.
+
+### 10. Graph Feedback Center 전환
+
+- composer가 selected `GraphPlanTarget`으로 feedback을 전송한다.
+- node/block target을 우선 지원한다.
+- edge/prototype_piece/artifact_range target으로 확장한다.
+- target breadcrumb를 composer 위에 항상 표시한다.
+- feedback 제출 후 session을 refresh한다.
+
+### 11. Event Timeline / Revision Summary 전환
+
+- event별 graph target breadcrumb를 표시한다.
+- user feedback, agent reply, agent revision, user approval을 구분한다.
+- revision summary는 structure/content/validation change를 분리해 표시한다.
+- 이전 revision의 feedback thread가 보존되는지 확인한다.
+
+### 12. 검증
+
+검증 명령:
+
+```bash
+pnpm --dir apps/review-web typecheck
+pnpm --dir apps/review-web build
+pnpm typecheck
+```
+
+수동 검증:
+
+1. fixture session을 생성한다.
+2. review URL을 연다.
+3. root graph가 표시되는지 확인한다.
+4. child graph drilldown/drillup을 확인한다.
+5. node detail과 block renderer를 확인한다.
+6. node 또는 block feedback을 작성한다.
+7. validation issue jump를 확인한다.
+8. event timeline target breadcrumb를 확인한다.
+9. prototype piece target을 확인한다.
+10. revision summary가 structure/content/validation change를 구분하는지 확인한다.
+
+## 권장 컴포넌트 구조
 
 새 컴포넌트 후보:
 
 ```txt
+GraphReviewShell
+GraphNavigator
 GraphOverview
 GraphNodeList
 NodeDetail
@@ -191,7 +401,7 @@ GraphPrototypePanel
 RevisionSummary
 ```
 
-MVP는 canvas graph editor가 아니다. node card/list 기반의 read-only overview로 충분하다.
+MVP는 canvas graph editor가 아니다. node card/list 기반의 read-only overview로 시작하되, 프랙탈 graph plan 탐색을 위해 graph breadcrumb, graph tree, drilldown/drillup, parent context summary를 제공해야 한다.
 
 추천 화면 배치:
 
@@ -200,13 +410,16 @@ Header
   title / goal / status / revision / validation summary
 
 Left
-  graph selector / node list
+  graph tree / graph breadcrumb / current graph node list
 
 Center
-  selected graph overview / selected node detail / block renderer
+  current graph overview / selected node detail / block renderer / edge condition summary
 
 Right
-  target breadcrumb / feedback composer / validation panel / event timeline
+  target breadcrumb / feedback composer / validation panel / target thread / prototype piece panel
+
+Secondary
+  event timeline / revision summary
 ```
 
 ## Target 선택 정책
@@ -325,4 +538,3 @@ Phase 3/4 변경 파일:
 - `packages/plan-schema/src/index.ts`
 
 이미 이전 커밋에는 Phase 1/2와 설계 문서가 들어갔다.
-

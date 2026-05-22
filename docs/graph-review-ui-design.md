@@ -48,6 +48,56 @@ Bottom or Secondary Panel
   revision summary
 ```
 
+## Fractal Graph Navigation UX
+
+Graph Review UI의 탐색 경험은 단순한 flat graph visualization이 아니라, 프랙탈 그래프 구조를 단계적으로 읽는 drilldown workspace여야 한다.
+
+사용자는 root graph에서 전체 plan의 큰 구조를 보고, 복잡한 node나 `graph_ref` block을 선택해 child graph로 내려간다. child graph 안에서도 동일하게 node, block, edge, prototype piece를 검토하고 피드백을 남길 수 있어야 한다.
+
+핵심 원칙:
+
+1. 현재 scope를 명확히 보여준다.
+   - 사용자는 자신이 root graph를 보는지, 특정 node의 child graph를 보는지 항상 알아야 한다.
+   - breadcrumb는 plan, graph, node, block, prototype piece까지 이어지는 위치를 표시한다.
+
+2. drilldown은 graph scope 전환이다.
+   - 화면 확대/축소로 모든 node를 한 canvas에 밀어 넣지 않는다.
+   - drilldown 시 current graph가 child graph로 바뀌고, center panel은 그 graph 안의 node/edge만 보여준다.
+
+3. parent context를 유지한다.
+   - child graph에 들어가도 parent graph, parent node, entry block 또는 edge condition을 잃지 않게 한다.
+   - parent context summary는 right panel 또는 center 상단에 compact하게 표시한다.
+
+4. drillup은 이전 entry point를 보존한다.
+   - 상위 graph로 돌아가면 사용자가 들어갔던 node나 `graph_ref` block을 강조한다.
+
+5. feedback target은 current scope와 selected element에서 자동 결정한다.
+   - 사용자가 raw target JSON을 직접 고르지 않게 한다.
+   - node, block, edge, prototype piece 선택이 composer target을 바꾼다.
+
+권장 탐색 요소:
+
+- graph breadcrumb
+- graph tree 또는 subgraph navigator
+- current graph title/goal/contract summary
+- parent context summary
+- drillable node badge
+- `graph_ref` block의 child graph 진입 action
+- selected target breadcrumb
+- validation issue에서 해당 graph scope로 이동하는 jump action
+
+권장 URL state:
+
+```txt
+?graph=g-root
+?graph=g-root&node=n-review
+?graph=g-root&node=n-review&block=b-risk
+?graph=g-child&node=n-verify&edge=e-verify-to-fix
+?graph=g-child&node=n-ux&block=b-prototype&piece=piece-sidebar
+```
+
+URL state는 공유 가능한 review location이어야 한다. 없는 id가 들어오면 root graph의 첫 node 또는 graph target으로 안전하게 fallback한다.
+
 ## 주요 컴포넌트
 
 ### `GraphOverview`
@@ -63,6 +113,8 @@ MVP에서는 복잡한 canvas editor가 아니라 다음 정보 중심으로 시
 - incoming/outgoing edge labels
 - branch condition summary
 - validation issue badge
+- drillable node badge
+- child graph entry point
 
 ### `GraphNodeList`
 
@@ -76,6 +128,7 @@ MVP에서는 복잡한 canvas editor가 아니라 다음 정보 중심으로 시
 - block count
 - issue count
 - selected state
+- drillable state
 
 ### `NodeDetail`
 
@@ -90,6 +143,8 @@ MVP에서는 복잡한 canvas editor가 아니라 다음 정보 중심으로 시
 - linked targets
 - blocks
 - owned subgraphs
+- incoming/outgoing edge summary
+- validation issue badge
 
 ### `BlockRenderer`
 
@@ -110,6 +165,31 @@ MVP에서 우선 지원할 block:
 - `changelog`
 
 알 수 없는 block type은 fallback renderer로 JSON summary를 표시한다.
+
+공통 block shell:
+
+- title
+- block type
+- status
+- issue badge
+- selected state
+- feedback target action
+
+Block renderer는 block 전체 target과 block item target을 구분해야 한다. 예를 들어 risk 목록에서 특정 risk row를 선택하면 block target이 아니라 `block_item` target을 만들 수 있어야 한다.
+
+Type별 렌더링:
+
+- `text`: 제목, 요약, 본문을 문서형으로 표시한다. 긴 본문은 disclosure로 접는다.
+- `task_list`: task별 row, status, dependency, issue badge를 표시한다.
+- `checklist`: read-only checklist로 pass/fail/unknown 상태와 미충족 이유를 표시한다.
+- `criteria`: criterion별 충족 조건과 검증 방법을 함께 표시한다.
+- `risk`: severity, likelihood, mitigation을 표 형태로 표시하고 risk item target을 지원한다.
+- `verification`: command, expected result, actual result, status를 분리해서 표시한다.
+- `artifact`: artifact title/path/type을 표시하고 가능한 경우 `artifact_range` feedback으로 이어지게 한다.
+- `prototype`: preview url 또는 piece list를 표시하고 piece 선택 시 `prototype_piece` target을 만든다.
+- `graph_ref`: child graph drilldown entry로 표시한다.
+- `choice_set`: option, condition, downstream edge를 표시해 branch 판단을 돕는다.
+- `changelog`: structure/content/validation change를 그룹으로 표시한다.
 
 ### `GraphTargetBreadcrumb`
 
@@ -277,4 +357,3 @@ pnpm dev
 8. validation issue badge와 panel 확인
 9. prototype piece 선택 후 feedback target 확인
 10. API 또는 MCP mutation 후 revision/validation 갱신 확인
-

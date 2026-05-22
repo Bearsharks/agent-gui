@@ -1,4 +1,4 @@
-import type { PlanSession, PlanTarget } from "@agent-gui/plan-schema";
+import type { GraphPlanTarget, PlanSession } from "@agent-gui/plan-schema";
 
 export async function fetchSession(sessionId: string): Promise<PlanSession> {
   const response = await fetch(`/api/sessions/${sessionId}`);
@@ -12,7 +12,7 @@ export async function createFixtureSession(): Promise<{ sessionId: string; url: 
   return response.json();
 }
 
-export async function postFeedback(sessionId: string, target: PlanTarget, message: string) {
+export async function postFeedback(sessionId: string, target: GraphPlanTarget, message: string) {
   const response = await fetch(`/api/sessions/${sessionId}/feedback`, {
     method: "POST",
     headers: { "content-type": "application/json" },

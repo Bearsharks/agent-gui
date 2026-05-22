@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 5 Graph Review Keyscreen</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f2eb;
+        --surface: #fffdf8;
+        --surface-2: #f0ebe1;
+        --ink: #20201d;
+        --muted: #6b665e;
+        --line: #d8cfc0;
+        --line-strong: #9a8d79;
+        --blue: #246aa8;
+        --green: #3f7c51;
+        --red: #b64c42;
+        --amber: #a77221;
+        --focus: #151d25;
+        --shadow: 0 16px 38px rgba(57, 45, 25, 0.12);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 1200px;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      button,
+      textarea {
+        font: inherit;
+      }
+
+      .app {
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 68px minmax(0, 1fr);
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 20px;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.94);
+      }
+
+      .title-row {
+        min-width: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      .goal {
+        min-width: 0;
+        color: var(--muted);
+        font-size: 13px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .meta,
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 25px;
+        padding: 0 8px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .badge.good {
+        color: var(--green);
+        border-color: rgba(63, 124, 81, 0.32);
+        background: #edf5ee;
+      }
+
+      .badge.warn {
+        color: var(--amber);
+        border-color: rgba(167, 114, 33, 0.32);
+        background: #fbf0da;
+      }
+
+      .badge.hot {
+        color: var(--red);
+        border-color: rgba(182, 76, 66, 0.32);
+        background: #fae7e4;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(430px, 42vw) minmax(430px, 1fr) 340px;
+        min-height: 0;
+      }
+
+      .pane {
+        min-height: 0;
+        overflow: auto;
+        border-right: 1px solid var(--line);
+      }
+
+      .pane:last-child {
+        border-right: 0;
+      }
+
+      .graph-pane {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        background: #f7f4ed;
+      }
+
+      .blocks-pane {
+        background: rgba(255, 253, 248, 0.72);
+      }
+
+      .review-pane {
+        background: rgba(255, 253, 248, 0.88);
+      }
+
+      .pane-head {
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.9);
+      }
+
+      .section-title {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .crumbs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 34px;
+        align-items: center;
+      }
+
+      .crumb {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .crumb strong {
+        color: var(--ink);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 31px;
+        padding: 0 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .btn.primary {
+        border-color: var(--focus);
+        background: var(--focus);
+        color: #fff;
+      }
+
+      .btn:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+
+      .graph-canvas {
+        position: relative;
+        min-height: 0;
+        padding: 18px;
+        background:
+          linear-gradient(90deg, rgba(32, 32, 29, 0.055) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(32, 32, 29, 0.055) 1px, transparent 1px),
+          #f3efe6;
+        background-size: 24px 24px;
+      }
+
+      .flow-stage {
+        position: relative;
+        height: 100%;
+        min-height: 560px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.68);
+        overflow: hidden;
+      }
+
+      .edge-line {
+        position: absolute;
+        height: 2px;
+        background: #aeb9c3;
+        transform-origin: left center;
+      }
+
+      .edge-line::after {
+        content: "";
+        position: absolute;
+        right: -1px;
+        top: -4px;
+        width: 0;
+        height: 0;
+        border-left: 8px solid #aeb9c3;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+      }
+
+      .edge-label {
+        position: absolute;
+        padding: 3px 6px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .node {
+        position: absolute;
+        width: 116px;
+        min-height: 116px;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+      }
+
+      .node.active {
+        border-color: rgba(36, 106, 168, 0.65);
+        box-shadow: var(--shadow);
+      }
+
+      .node.drillable {
+        background:
+          linear-gradient(135deg, rgba(36, 106, 168, 0.12), transparent 48%),
+          var(--surface);
+      }
+
+      .node-kind {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .node-title {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.22;
+      }
+
+      .node-summary {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .node-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .root-only,
+      .child-only {
+        display: contents;
+      }
+
+      .app[data-scope="root"] .child-only,
+      .app[data-scope="child"] .root-only {
+        display: none;
+      }
+
+      .graph-foot {
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.9);
+      }
+
+      .scope-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .block-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.88);
+      }
+
+      .block-header h2 {
+        margin: 0 0 5px;
+        font-size: 20px;
+        line-height: 1.2;
+      }
+
+      .block-header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .block-stack {
+        display: grid;
+        gap: 12px;
+        padding: 14px 16px 24px;
+      }
+
+      .block {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .block.selected {
+        border-color: rgba(36, 106, 168, 0.6);
+        box-shadow: inset 3px 0 0 var(--blue);
+      }
+
+      .block-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: #f8f4ec;
+      }
+
+      .block-title {
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .block-body {
+        padding: 11px 12px;
+      }
+
+      .risk-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      .risk-table th,
+      .risk-table td {
+        padding: 7px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .risk-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .risk-table th {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .check-row {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+      }
+
+      .check-row:last-child {
+        border-bottom: 0;
+      }
+
+      .check {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        border: 1px solid var(--line-strong);
+        background: #edf5ee;
+        box-shadow: inset 0 0 0 3px #fffdf8;
+      }
+
+      .graph-ref {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 11px;
+        border: 1px solid rgba(36, 106, 168, 0.26);
+        border-radius: 6px;
+        background: #edf4fa;
+      }
+
+      .graph-ref strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 13px;
+      }
+
+      .graph-ref span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .review-pane {
+        padding: 14px;
+      }
+
+      .toolbox {
+        display: grid;
+        gap: 12px;
+      }
+
+      .tool {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .tool-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 11px;
+        border-bottom: 1px solid var(--line);
+        background: #f8f4ec;
+      }
+
+      .tool-head h3 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .tool-body {
+        padding: 11px;
+      }
+
+      .path-line,
+      .issue p,
+      .event p,
+      .prototype-text {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .path-line strong {
+        color: var(--ink);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 86px;
+        resize: vertical;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fffdf8;
+        color: var(--ink);
+      }
+
+      .issue-list,
+      .timeline {
+        display: grid;
+        gap: 8px;
+      }
+
+      .issue,
+      .event {
+        padding: 9px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fffdf8;
+      }
+
+      .issue strong,
+      .event strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .prototype {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+      }
+
+      .preview {
+        height: 54px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background:
+          linear-gradient(90deg, #1f252b 0 30%, transparent 30%),
+          linear-gradient(#ccdbe7, #ccdbe7) 34px 13px / 30px 7px no-repeat,
+          linear-gradient(#dbc7a0, #dbc7a0) 34px 28px / 44px 7px no-repeat,
+          #fffdf8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" data-scope="root">
+      <header class="topbar">
+        <div class="title-row">
+          <h1>Graph Plan Review</h1>
+          <div class="goal">Fractal graph navigation: graph scope left, selected node blocks center</div>
+        </div>
+        <div class="meta">
+          <span class="badge good">Publish ready</span>
+          <span class="badge warn">2 warnings</span>
+          <span class="badge">Revision 5</span>
+          <span class="badge">needs_agent</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="pane graph-pane">
+          <div class="pane-head">
+            <div class="row" style="justify-content: space-between">
+              <div>
+                <div class="section-title">Graph scope</div>
+                <div class="crumbs" id="crumbs">
+                  <span class="crumb"><strong>Plan</strong></span>
+                  <span class="crumb">/ Root graph</span>
+                </div>
+              </div>
+              <button class="btn" id="drillUp" disabled>상위 graph</button>
+            </div>
+          </div>
+
+          <div class="graph-canvas">
+            <div class="flow-stage">
+              <div class="root-only">
+                <div class="edge-line" style="left: 146px; top: 145px; width: 47px"></div>
+                <div class="edge-line" style="left: 321px; top: 145px; width: 22px"></div>
+                <div class="edge-label" style="left: 153px; top: 120px">sequence</div>
+                <div class="edge-label" style="left: 304px; top: 120px">warn</div>
+
+                <article class="node active drillable" style="left: 30px; top: 82px" data-view="child">
+                  <div class="node-kind">action</div>
+                  <h2 class="node-title">Review API contract</h2>
+                  <p class="node-summary">Graph-only session shape and target feedback contract.</p>
+                  <div class="node-footer">
+                    <span class="badge warn">graph_ref</span>
+                    <span class="badge">4 blocks</span>
+                  </div>
+                </article>
+
+                <article class="node" style="left: 205px; top: 82px">
+                  <div class="node-kind">checkpoint</div>
+                  <h2 class="node-title">Validate payload</h2>
+                  <p class="node-summary">Validation summary appears before approval.</p>
+                  <div class="node-footer">
+                    <span class="badge good">ready</span>
+                    <span class="badge">3 blocks</span>
+                  </div>
+                </article>
+
+                <article class="node" style="left: 354px; top: 82px">
+                  <div class="node-kind">review</div>
+                  <h2 class="node-title">Feedback loop</h2>
+                  <p class="node-summary">User feedback attaches to graph targets.</p>
+                  <div class="node-footer">
+                    <span class="badge hot">issue</span>
+                    <span class="badge">5 blocks</span>
+                  </div>
+                </article>
+              </div>
+
+              <div class="child-only">
+                <div class="edge-line" style="left: 146px; top: 145px; width: 47px"></div>
+                <div class="edge-line" style="left: 321px; top: 145px; width: 22px"></div>
+                <div class="edge-label" style="left: 153px; top: 120px">maps to</div>
+                <div class="edge-label" style="left: 304px; top: 120px">target</div>
+
+                <article class="node active" style="left: 30px; top: 82px">
+                  <div class="node-kind">section</div>
+                  <h2 class="node-title">Fetch session shape</h2>
+                  <p class="node-summary">Read graphPlan, validation, and events.</p>
+                  <div class="node-footer">
+                    <span class="badge good">ok</span>
+                    <span class="badge">2 blocks</span>
+                  </div>
+                </article>
+
+                <article class="node" style="left: 205px; top: 82px">
+                  <div class="node-kind">decision</div>
+                  <h2 class="node-title">Resolve target</h2>
+                  <p class="node-summary">Selection state becomes GraphPlanTarget.</p>
+                  <div class="node-footer">
+                    <span class="badge warn">warn</span>
+                    <span class="badge">4 blocks</span>
+                  </div>
+                </article>
+
+                <article class="node" style="left: 354px; top: 82px">
+                  <div class="node-kind">artifact</div>
+                  <h2 class="node-title">API client update</h2>
+                  <p class="node-summary">Feedback request sends graph targets.</p>
+                  <div class="node-footer">
+                    <span class="badge">file</span>
+                    <span class="badge">3 blocks</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <div class="graph-foot">
+            <p class="scope-note" id="scopeNote">
+              Current scope: root graph. Nested graph is represented as a `graph_ref` block in the selected node.
+            </p>
+          </div>
+        </section>
+
+        <section class="pane blocks-pane">
+          <div class="block-header">
+            <div class="section-title">Selected node blocks</div>
+            <h2 id="nodeTitle">Review API contract</h2>
+            <p id="nodeSummary">Selected node details are read in the center. Nested graph is an entry block, not an inline canvas.</p>
+          </div>
+
+          <div class="block-stack">
+            <article class="block selected">
+              <div class="block-head">
+                <span class="block-title">Risk block</span>
+                <span class="badge hot">selected block target</span>
+              </div>
+              <div class="block-body">
+                <table class="risk-table">
+                  <thead>
+                    <tr>
+                      <th>Risk</th>
+                      <th>Severity</th>
+                      <th>Mitigation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Step fallback accidentally returns</td>
+                      <td><span class="badge hot">high</span></td>
+                      <td>Reject `session.plan` reads in review-web typecheck.</td>
+                    </tr>
+                    <tr>
+                      <td>Issue target cannot jump scopes</td>
+                      <td><span class="badge warn">medium</span></td>
+                      <td>Route issue target through graph selection resolver.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="block">
+              <div class="block-head">
+                <span class="block-title">Verification block</span>
+                <span class="badge good">read-only</span>
+              </div>
+              <div class="block-body">
+                <div class="check-row">
+                  <span class="check"></span>
+                  <span>`apps/review-web` typecheck passes</span>
+                  <span class="badge">pending</span>
+                </div>
+                <div class="check-row">
+                  <span class="check"></span>
+                  <span>Feedback event shows graph breadcrumb</span>
+                  <span class="badge">manual</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="block">
+              <div class="block-head">
+                <span class="block-title">Graph ref block</span>
+                <span class="badge warn">nested graph entry</span>
+              </div>
+              <div class="block-body">
+                <div class="graph-ref">
+                  <div>
+                    <strong>Review API subgraph</strong>
+                    <span>type: graph_ref · ownership: owned · relationship: phase_detail</span>
+                  </div>
+                  <button class="btn primary" data-view="child">Drill down</button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <aside class="pane review-pane">
+          <div class="toolbox">
+            <section class="tool">
+              <div class="tool-head">
+                <h3>Selected target</h3>
+                <span class="badge">block</span>
+              </div>
+              <div class="tool-body">
+                <p class="path-line" id="targetPath">
+                  <strong>Plan</strong> / Root graph / Review API contract / Risk block
+                </p>
+                <p class="path-line">graphId: g-root · nodeId: n-review-api · blockId: b-risk</p>
+              </div>
+            </section>
+
+            <section class="tool">
+              <div class="tool-head">
+                <h3>Feedback</h3>
+                <span class="badge">GraphPlanTarget</span>
+              </div>
+              <div class="tool-body">
+                <textarea>이 risk는 API client migration과 validation jump를 분리해서 봐야 할 것 같습니다.</textarea>
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px">
+                  <button class="btn primary">Send feedback</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="tool">
+              <div class="tool-head">
+                <h3>Validation</h3>
+                <span class="badge warn">2 warnings</span>
+              </div>
+              <div class="tool-body issue-list">
+                <article class="issue">
+                  <strong>target.unresolved_block_item</strong>
+                  <p>Risk row target should resolve inside the selected block.</p>
+                </article>
+                <article class="issue">
+                  <strong>condition.missing_summary</strong>
+                  <p>Branch condition needs a readable label in the graph view.</p>
+                </article>
+              </div>
+            </section>
+
+            <section class="tool">
+              <div class="tool-head">
+                <h3>Prototype piece</h3>
+                <span class="badge">piece target</span>
+              </div>
+              <div class="tool-body prototype">
+                <div class="preview"></div>
+                <p class="prototype-text">Sidebar drill state validates graph navigator and target trail.</p>
+              </div>
+            </section>
+
+            <section class="tool">
+              <div class="tool-head">
+                <h3>Timeline</h3>
+                <span class="badge">Revision 5</span>
+              </div>
+              <div class="tool-body timeline">
+                <article class="event">
+                  <strong>User feedback</strong>
+                  <p>Root graph / Review API contract / Risk block</p>
+                </article>
+                <article class="event">
+                  <strong>Agent revision</strong>
+                  <p>structure: added child graph · validation: warning count unchanged</p>
+                </article>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      const app = document.querySelector(".app");
+      const crumbs = document.querySelector("#crumbs");
+      const drillUp = document.querySelector("#drillUp");
+      const scopeNote = document.querySelector("#scopeNote");
+      const nodeTitle = document.querySelector("#nodeTitle");
+      const nodeSummary = document.querySelector("#nodeSummary");
+      const targetPath = document.querySelector("#targetPath");
+
+      function setView(view) {
+        const child = view === "child";
+        app.dataset.scope = view;
+        drillUp.disabled = !child;
+        crumbs.innerHTML = child
+          ? '<span class="crumb"><strong>Plan</strong></span><span class="crumb">/ Root graph</span><span class="crumb">/ Review API contract</span><span class="crumb">/ <strong>Review API subgraph</strong></span>'
+          : '<span class="crumb"><strong>Plan</strong></span><span class="crumb">/ Root graph</span>';
+        scopeNote.textContent = child
+          ? "Current scope: Review API subgraph. Drill up returns to the parent node and highlights its graph_ref entry."
+          : "Current scope: root graph. Nested graph is represented as a `graph_ref` block in the selected node.";
+        nodeTitle.textContent = child ? "Fetch session shape" : "Review API contract";
+        nodeSummary.textContent = child
+          ? "The left graph has changed scope. Center still shows blocks for the selected node in that scope."
+          : "Selected node details are read in the center. Nested graph is an entry block, not an inline canvas.";
+        targetPath.innerHTML = child
+          ? "<strong>Plan</strong> / Root graph / Review API contract / Review API subgraph / Fetch session shape"
+          : "<strong>Plan</strong> / Root graph / Review API contract / Risk block";
+      }
+
+      document.addEventListener("click", (event) => {
+        const trigger = event.target.closest("[data-view]");
+        if (!trigger) return;
+        setView(trigger.dataset.view);
+      });
+
+      drillUp.addEventListener("click", () => setView("root"));
+    </script>
+  </body>
+</html>
