@@ -7,11 +7,12 @@
     <style>
       :root {
         color-scheme: light;
-        --bg: #f5f2eb;
+        --bg: #f6f3ed;
         --surface: #fffdf8;
-        --surface-2: #f0ebe1;
+        --surface-2: #f1ece3;
+        --surface-3: #e8f0f6;
         --ink: #20201d;
-        --muted: #6b665e;
+        --muted: #69645c;
         --line: #d8cfc0;
         --line-strong: #9a8d79;
         --blue: #246aa8;
@@ -19,7 +20,7 @@
         --red: #b64c42;
         --amber: #a77221;
         --focus: #151d25;
-        --shadow: 0 16px 38px rgba(57, 45, 25, 0.12);
+        --shadow: 0 16px 38px rgba(57, 45, 25, 0.13);
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
           sans-serif;
@@ -31,7 +32,7 @@
 
       body {
         margin: 0;
-        min-width: 1200px;
+        min-width: 1180px;
         background: var(--bg);
         color: var(--ink);
       }
@@ -41,27 +42,31 @@
         font: inherit;
       }
 
+      button {
+        cursor: pointer;
+      }
+
       .app {
         height: 100vh;
         display: grid;
-        grid-template-rows: 68px minmax(0, 1fr);
+        grid-template-rows: 64px 44px minmax(0, 1fr) 132px;
       }
 
       .topbar {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        gap: 20px;
-        padding: 12px 18px;
+        gap: 18px;
+        padding: 10px 18px;
         border-bottom: 1px solid var(--line);
-        background: rgba(255, 253, 248, 0.94);
+        background: rgba(255, 253, 248, 0.96);
       }
 
       .title-row {
         min-width: 0;
         display: flex;
         align-items: baseline;
-        gap: 14px;
+        gap: 13px;
       }
 
       h1 {
@@ -80,25 +85,57 @@
         text-overflow: ellipsis;
       }
 
-      .meta,
-      .row {
+      .actions,
+      .row,
+      .tabs,
+      .crumbs {
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .btn.primary {
+        border-color: var(--focus);
+        background: var(--focus);
+        color: #fff;
+      }
+
+      .btn.ghost {
+        border-color: var(--line);
+        background: transparent;
+      }
+
+      .btn:disabled {
+        cursor: default;
+        opacity: 0.45;
       }
 
       .badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 25px;
+        height: 24px;
         padding: 0 8px;
         border: 1px solid var(--line);
         border-radius: 4px;
         background: var(--surface);
         color: var(--muted);
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 750;
         white-space: nowrap;
       }
 
@@ -120,57 +157,20 @@
         background: #fae7e4;
       }
 
-      .layout {
+      .crumbbar {
         display: grid;
-        grid-template-columns: minmax(430px, 42vw) minmax(430px, 1fr) 340px;
-        min-height: 0;
-      }
-
-      .pane {
-        min-height: 0;
-        overflow: auto;
-        border-right: 1px solid var(--line);
-      }
-
-      .pane:last-child {
-        border-right: 0;
-      }
-
-      .graph-pane {
-        display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
-        background: #f7f4ed;
-      }
-
-      .blocks-pane {
-        background: rgba(255, 253, 248, 0.72);
-      }
-
-      .review-pane {
-        background: rgba(255, 253, 248, 0.88);
-      }
-
-      .pane-head {
-        padding: 14px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: center;
+        padding: 0 18px;
         border-bottom: 1px solid var(--line);
-        background: rgba(255, 253, 248, 0.9);
-      }
-
-      .section-title {
-        margin: 0 0 8px;
-        color: var(--muted);
-        font-size: 11px;
-        font-weight: 850;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
+        background: rgba(255, 253, 248, 0.83);
       }
 
       .crumbs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        min-height: 34px;
-        align-items: center;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
       }
 
       .crumb {
@@ -182,34 +182,44 @@
         color: var(--ink);
       }
 
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 31px;
+      .tab {
+        height: 30px;
         padding: 0 10px;
-        border: 1px solid var(--line-strong);
+        border: 1px solid var(--line);
         border-radius: 5px;
         background: var(--surface);
-        color: var(--ink);
+        color: var(--muted);
         font-size: 12px;
-        font-weight: 800;
-        cursor: pointer;
+        font-weight: 850;
       }
 
-      .btn.primary {
+      .tab.active {
         border-color: var(--focus);
         background: var(--focus);
         color: #fff;
       }
 
-      .btn:disabled {
-        cursor: default;
-        opacity: 0.45;
+      .workspace {
+        min-height: 0;
+        display: grid;
+        background: #f3efe6;
       }
 
-      .graph-canvas {
-        position: relative;
+      .view {
+        min-height: 0;
+        display: none;
+      }
+
+      .app[data-view="graph"] .graph-view,
+      .app[data-view="node"] .node-view {
+        display: grid;
+      }
+
+      .graph-view {
+        grid-template-columns: minmax(0, 1fr) 286px;
+      }
+
+      .canvas-wrap {
         min-height: 0;
         padding: 18px;
         background:
@@ -222,11 +232,60 @@
       .flow-stage {
         position: relative;
         height: 100%;
-        min-height: 560px;
+        min-height: 540px;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: rgba(255, 253, 248, 0.68);
         overflow: hidden;
+      }
+
+      .graph-sidebar {
+        min-height: 0;
+        padding: 16px;
+        border-left: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.88);
+        overflow: auto;
+      }
+
+      .section-title {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 850;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-title {
+        margin: 0 0 6px;
+        font-size: 18px;
+        line-height: 1.18;
+      }
+
+      .sidebar-copy,
+      .muted {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .side-stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .summary-box,
+      .block,
+      .drawer-card {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .summary-box {
+        padding: 11px;
       }
 
       .edge-line {
@@ -261,17 +320,16 @@
 
       .node {
         position: absolute;
-        width: 116px;
-        min-height: 116px;
+        width: 154px;
+        min-height: 126px;
         display: grid;
         align-content: start;
         gap: 8px;
-        padding: 11px;
+        padding: 12px;
         border: 1px solid var(--line);
         border-radius: 7px;
         background: var(--surface);
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-        cursor: pointer;
       }
 
       .node.active {
@@ -295,7 +353,7 @@
 
       .node-title {
         margin: 0;
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1.22;
       }
 
@@ -322,53 +380,41 @@
         display: none;
       }
 
-      .graph-foot {
-        padding: 12px 14px;
-        border-top: 1px solid var(--line);
-        background: rgba(255, 253, 248, 0.9);
+      .node-view {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 18px;
+        overflow: auto;
       }
 
-      .scope-note {
-        margin: 0;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
-      .block-header {
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--line);
-        background: rgba(255, 253, 248, 0.88);
-      }
-
-      .block-header h2 {
-        margin: 0 0 5px;
-        font-size: 20px;
-        line-height: 1.2;
-      }
-
-      .block-header p {
-        margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .block-stack {
+      .node-shell {
         display: grid;
-        gap: 12px;
-        padding: 14px 16px 24px;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 14px;
+        min-height: 0;
       }
 
-      .block {
+      .node-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: start;
+        padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 7px;
-        background: var(--surface);
-        overflow: hidden;
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.86);
       }
 
-      .block.selected {
-        border-color: rgba(36, 106, 168, 0.6);
-        box-shadow: inset 3px 0 0 var(--blue);
+      .node-head h2 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        line-height: 1.16;
+      }
+
+      .block-grid {
+        display: grid;
+        grid-template-columns: 430px minmax(0, 1fr);
+        gap: 14px;
+        align-content: start;
       }
 
       .block-head {
@@ -437,81 +483,89 @@
         box-shadow: inset 0 0 0 3px #fffdf8;
       }
 
-      .graph-ref {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 12px;
-        align-items: center;
-        padding: 11px;
-        border: 1px solid rgba(36, 106, 168, 0.26);
-        border-radius: 6px;
-        background: #edf4fa;
+      .nested-graph-block {
+        grid-column: 2;
+        grid-row: 1 / span 4;
       }
 
-      .graph-ref strong {
-        display: block;
-        margin-bottom: 3px;
-        font-size: 13px;
-      }
-
-      .graph-ref span {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .review-pane {
-        padding: 14px;
-      }
-
-      .toolbox {
-        display: grid;
-        gap: 12px;
-      }
-
-      .tool {
-        border: 1px solid var(--line);
+      .nested-graph-preview {
+        position: relative;
+        height: 100%;
+        min-height: 430px;
+        border: 1px solid rgba(36, 106, 168, 0.3);
         border-radius: 7px;
-        background: var(--surface);
+        background:
+          linear-gradient(90deg, rgba(36, 106, 168, 0.07) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(36, 106, 168, 0.07) 1px, transparent 1px),
+          #edf4fa;
+        background-size: 22px 22px;
         overflow: hidden;
       }
 
-      .tool-head {
+      .mini-node {
+        position: absolute;
+        width: 132px;
+        padding: 10px;
+        border: 1px solid rgba(36, 106, 168, 0.3);
+        border-radius: 6px;
+        background: #fffdf8;
+      }
+
+      .mini-node strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+      }
+
+      .mini-node span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .mini-edge {
+        position: absolute;
+        height: 2px;
+        background: rgba(36, 106, 168, 0.5);
+      }
+
+      .mini-edge::after {
+        content: "";
+        position: absolute;
+        right: -1px;
+        top: -4px;
+        width: 0;
+        height: 0;
+        border-left: 8px solid rgba(36, 106, 168, 0.5);
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+      }
+
+      .nested-overlay {
+        position: absolute;
+        right: 12px;
+        top: 12px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 10px 11px;
-        border-bottom: 1px solid var(--line);
-        background: #f8f4ec;
+        gap: 8px;
+        padding: 9px;
+        border: 1px solid rgba(36, 106, 168, 0.26);
+        border-radius: 6px;
+        background: rgba(255, 253, 248, 0.92);
       }
 
-      .tool-head h3 {
-        margin: 0;
-        font-size: 14px;
-      }
-
-      .tool-body {
-        padding: 11px;
-      }
-
-      .path-line,
-      .issue p,
-      .event p,
-      .prototype-text {
-        margin: 0;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
-      .path-line strong {
-        color: var(--ink);
+      .feedback-bar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 160px;
+        gap: 12px;
+        padding: 14px 18px;
+        border-top: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.96);
       }
 
       textarea {
         width: 100%;
-        min-height: 86px;
-        resize: vertical;
+        height: 86px;
+        resize: none;
         padding: 10px;
         border: 1px solid var(--line);
         border-radius: 6px;
@@ -519,95 +573,127 @@
         color: var(--ink);
       }
 
-      .issue-list,
-      .timeline {
+      .feedback-side {
         display: grid;
         gap: 8px;
+        align-content: start;
       }
 
-      .issue,
-      .event {
-        padding: 9px;
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        background: #fffdf8;
-      }
-
-      .issue strong,
-      .event strong {
-        display: block;
-        margin-bottom: 4px;
-        font-size: 12px;
-      }
-
-      .prototype {
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 390px;
+        height: 100vh;
         display: grid;
-        grid-template-columns: 76px minmax(0, 1fr);
-        gap: 10px;
-        align-items: center;
+        grid-template-rows: auto minmax(0, 1fr);
+        border-left: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.98);
+        box-shadow: -18px 0 40px rgba(32, 32, 29, 0.14);
+        transform: translateX(104%);
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          transform 160ms ease,
+          visibility 0s linear 160ms;
+        z-index: 10;
       }
 
-      .preview {
-        height: 54px;
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        background:
-          linear-gradient(90deg, #1f252b 0 30%, transparent 30%),
-          linear-gradient(#ccdbe7, #ccdbe7) 34px 13px / 30px 7px no-repeat,
-          linear-gradient(#dbc7a0, #dbc7a0) 34px 28px / 44px 7px no-repeat,
-          #fffdf8;
+      .app[data-drawer="open"] .drawer {
+        transform: translateX(0);
+        visibility: visible;
+        pointer-events: auto;
+        transition:
+          transform 160ms ease,
+          visibility 0s;
+      }
+
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .drawer-body {
+        min-height: 0;
+        display: grid;
+        align-content: start;
+        gap: 12px;
+        padding: 14px;
+        overflow: auto;
+      }
+
+      .drawer-card details {
+        padding: 10px 12px;
+      }
+
+      .drawer-card summary {
+        font-size: 13px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      .drawer-card p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
       }
     </style>
   </head>
   <body>
-    <div class="app" data-scope="root">
+    <div class="app" data-view="graph" data-scope="root" data-drawer="closed">
       <header class="topbar">
         <div class="title-row">
           <h1>Graph Plan Review</h1>
-          <div class="goal">Fractal graph navigation: graph scope left, selected node blocks center</div>
+          <div class="goal">전체 그래프를 탐색하고, 선택한 노드의 모든 블록과 하위 그래프를 같은 맥락에서 검토</div>
         </div>
-        <div class="meta">
+        <div class="actions">
           <span class="badge good">Publish ready</span>
-          <span class="badge warn">2 warnings</span>
           <span class="badge">Revision 5</span>
-          <span class="badge">needs_agent</span>
+          <button class="btn ghost" id="openDrawer">리비전/검증</button>
+          <button class="btn primary">승인</button>
         </div>
       </header>
 
-      <main class="layout">
-        <section class="pane graph-pane">
-          <div class="pane-head">
-            <div class="row" style="justify-content: space-between">
-              <div>
-                <div class="section-title">Graph scope</div>
-                <div class="crumbs" id="crumbs">
-                  <span class="crumb"><strong>Plan</strong></span>
-                  <span class="crumb">/ Root graph</span>
-                </div>
-              </div>
-              <button class="btn" id="drillUp" disabled>상위 graph</button>
-            </div>
-          </div>
+      <nav class="crumbbar" aria-label="Graph breadcrumb">
+        <div class="crumbs" id="crumbs">
+          <span class="crumb"><strong>Plan</strong></span>
+          <span class="crumb">/ Root graph</span>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-view-button="graph">그래프 뷰</button>
+          <button class="tab" data-view-button="node">노드 뷰</button>
+          <button class="btn ghost" id="drillUp" disabled>상위 그래프</button>
+        </div>
+      </nav>
 
-          <div class="graph-canvas">
+      <main class="workspace">
+        <section class="view graph-view" aria-label="Graph view">
+          <div class="canvas-wrap">
             <div class="flow-stage">
               <div class="root-only">
-                <div class="edge-line" style="left: 146px; top: 145px; width: 47px"></div>
-                <div class="edge-line" style="left: 321px; top: 145px; width: 22px"></div>
-                <div class="edge-label" style="left: 153px; top: 120px">sequence</div>
-                <div class="edge-label" style="left: 304px; top: 120px">warn</div>
+                <div class="edge-line" style="left: 191px; top: 166px; width: 104px"></div>
+                <div class="edge-line" style="left: 456px; top: 166px; width: 80px"></div>
+                <div class="edge-line" style="left: 696px; top: 166px; width: 78px"></div>
+                <div class="edge-label" style="left: 218px; top: 137px">sequence</div>
+                <div class="edge-label" style="left: 463px; top: 137px">validate</div>
+                <div class="edge-label" style="left: 704px; top: 137px">feedback</div>
 
-                <article class="node active drillable" style="left: 30px; top: 82px" data-view="child">
+                <article class="node active drillable" style="left: 36px; top: 102px">
                   <div class="node-kind">action</div>
                   <h2 class="node-title">Review API contract</h2>
-                  <p class="node-summary">Graph-only session shape and target feedback contract.</p>
+                  <p class="node-summary">Graph session shape and target feedback contract.</p>
                   <div class="node-footer">
                     <span class="badge warn">graph_ref</span>
                     <span class="badge">4 blocks</span>
                   </div>
                 </article>
 
-                <article class="node" style="left: 205px; top: 82px">
+                <article class="node" style="left: 302px; top: 102px">
                   <div class="node-kind">checkpoint</div>
                   <h2 class="node-title">Validate payload</h2>
                   <p class="node-summary">Validation summary appears before approval.</p>
@@ -617,7 +703,7 @@
                   </div>
                 </article>
 
-                <article class="node" style="left: 354px; top: 82px">
+                <article class="node" style="left: 542px; top: 102px">
                   <div class="node-kind">review</div>
                   <h2 class="node-title">Feedback loop</h2>
                   <p class="node-summary">User feedback attaches to graph targets.</p>
@@ -626,15 +712,25 @@
                     <span class="badge">5 blocks</span>
                   </div>
                 </article>
+
+                <article class="node" style="left: 780px; top: 102px">
+                  <div class="node-kind">artifact</div>
+                  <h2 class="node-title">E2E handoff</h2>
+                  <p class="node-summary">Manual verification and commit evidence.</p>
+                  <div class="node-footer">
+                    <span class="badge">doc</span>
+                    <span class="badge">2 blocks</span>
+                  </div>
+                </article>
               </div>
 
               <div class="child-only">
-                <div class="edge-line" style="left: 146px; top: 145px; width: 47px"></div>
-                <div class="edge-line" style="left: 321px; top: 145px; width: 22px"></div>
-                <div class="edge-label" style="left: 153px; top: 120px">maps to</div>
-                <div class="edge-label" style="left: 304px; top: 120px">target</div>
+                <div class="edge-line" style="left: 191px; top: 166px; width: 104px"></div>
+                <div class="edge-line" style="left: 456px; top: 166px; width: 80px"></div>
+                <div class="edge-label" style="left: 218px; top: 137px">maps to</div>
+                <div class="edge-label" style="left: 463px; top: 137px">target</div>
 
-                <article class="node active" style="left: 30px; top: 82px">
+                <article class="node active" style="left: 36px; top: 102px">
                   <div class="node-kind">section</div>
                   <h2 class="node-title">Fetch session shape</h2>
                   <p class="node-summary">Read graphPlan, validation, and events.</p>
@@ -644,17 +740,17 @@
                   </div>
                 </article>
 
-                <article class="node" style="left: 205px; top: 82px">
+                <article class="node" style="left: 302px; top: 102px">
                   <div class="node-kind">decision</div>
                   <h2 class="node-title">Resolve target</h2>
-                  <p class="node-summary">Selection state becomes GraphPlanTarget.</p>
+                  <p class="node-summary">Selection becomes GraphPlanTarget.</p>
                   <div class="node-footer">
                     <span class="badge warn">warn</span>
                     <span class="badge">4 blocks</span>
                   </div>
                 </article>
 
-                <article class="node" style="left: 354px; top: 82px">
+                <article class="node" style="left: 542px; top: 102px">
                   <div class="node-kind">artifact</div>
                   <h2 class="node-title">API client update</h2>
                   <p class="node-summary">Feedback request sends graph targets.</p>
@@ -667,200 +763,258 @@
             </div>
           </div>
 
-          <div class="graph-foot">
-            <p class="scope-note" id="scopeNote">
-              Current scope: root graph. Nested graph is represented as a `graph_ref` block in the selected node.
-            </p>
-          </div>
-        </section>
-
-        <section class="pane blocks-pane">
-          <div class="block-header">
-            <div class="section-title">Selected node blocks</div>
-            <h2 id="nodeTitle">Review API contract</h2>
-            <p id="nodeSummary">Selected node details are read in the center. Nested graph is an entry block, not an inline canvas.</p>
-          </div>
-
-          <div class="block-stack">
-            <article class="block selected">
-              <div class="block-head">
-                <span class="block-title">Risk block</span>
-                <span class="badge hot">selected block target</span>
-              </div>
-              <div class="block-body">
-                <table class="risk-table">
-                  <thead>
-                    <tr>
-                      <th>Risk</th>
-                      <th>Severity</th>
-                      <th>Mitigation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Step fallback accidentally returns</td>
-                      <td><span class="badge hot">high</span></td>
-                      <td>Reject `session.plan` reads in review-web typecheck.</td>
-                    </tr>
-                    <tr>
-                      <td>Issue target cannot jump scopes</td>
-                      <td><span class="badge warn">medium</span></td>
-                      <td>Route issue target through graph selection resolver.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </article>
-
-            <article class="block">
-              <div class="block-head">
-                <span class="block-title">Verification block</span>
-                <span class="badge good">read-only</span>
-              </div>
-              <div class="block-body">
-                <div class="check-row">
-                  <span class="check"></span>
-                  <span>`apps/review-web` typecheck passes</span>
-                  <span class="badge">pending</span>
-                </div>
-                <div class="check-row">
-                  <span class="check"></span>
-                  <span>Feedback event shows graph breadcrumb</span>
-                  <span class="badge">manual</span>
-                </div>
-              </div>
-            </article>
-
-            <article class="block">
-              <div class="block-head">
-                <span class="block-title">Graph ref block</span>
-                <span class="badge warn">nested graph entry</span>
-              </div>
-              <div class="block-body">
-                <div class="graph-ref">
-                  <div>
-                    <strong>Review API subgraph</strong>
-                    <span>type: graph_ref · ownership: owned · relationship: phase_detail</span>
-                  </div>
-                  <button class="btn primary" data-view="child">Drill down</button>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <aside class="pane review-pane">
-          <div class="toolbox">
-            <section class="tool">
-              <div class="tool-head">
-                <h3>Selected target</h3>
-                <span class="badge">block</span>
-              </div>
-              <div class="tool-body">
-                <p class="path-line" id="targetPath">
-                  <strong>Plan</strong> / Root graph / Review API contract / Risk block
+          <aside class="graph-sidebar">
+            <div class="side-stack">
+              <div>
+                <div class="section-title">Selected scope</div>
+                <h2 class="sidebar-title" id="scopeTitle">Root graph</h2>
+                <p class="sidebar-copy" id="scopeCopy">
+                  현재 그래프 범위에서 노드를 선택하고, 노드 뷰로 전환하면 블록과 하위 그래프가 함께 보입니다.
                 </p>
-                <p class="path-line">graphId: g-root · nodeId: n-review-api · blockId: b-risk</p>
               </div>
-            </section>
+              <div class="summary-box">
+                <div class="section-title">Selected target</div>
+                <p class="muted" id="targetPath">
+                  <strong>Plan</strong> / Root graph / Review API contract
+                </p>
+              </div>
+              <div class="summary-box">
+                <div class="section-title">Navigation</div>
+                <p class="muted">
+                  하위 그래프는 노드 안의 graph_ref 블록으로 먼저 보이고, 클릭하면 전체 그래프 뷰로 확대됩니다.
+                </p>
+              </div>
+              <button class="btn primary" data-view-button="node">선택 노드 열기</button>
+            </div>
+          </aside>
+        </section>
 
-            <section class="tool">
-              <div class="tool-head">
-                <h3>Feedback</h3>
-                <span class="badge">GraphPlanTarget</span>
+        <section class="view node-view" aria-label="Node view">
+          <div class="node-shell">
+            <header class="node-head">
+              <div>
+                <div class="section-title">Selected node</div>
+                <h2 id="nodeTitle">Review API contract</h2>
+                <p class="muted" id="nodeSummary">
+                  이 노드의 모든 블록을 한 화면에서 확인합니다. 하위 그래프가 있으면 블록 내부에 축소 그래프로 표시합니다.
+                </p>
               </div>
-              <div class="tool-body">
-                <textarea>이 risk는 API client migration과 validation jump를 분리해서 봐야 할 것 같습니다.</textarea>
-                <div style="display: flex; justify-content: flex-end; margin-top: 8px">
-                  <button class="btn primary">Send feedback</button>
+              <button class="btn ghost" data-view-button="graph">그래프에서 보기</button>
+            </header>
+
+            <div class="block-grid">
+              <article class="block">
+                <div class="block-head">
+                  <span class="block-title">Risk block</span>
+                  <span class="badge hot">block target</span>
                 </div>
-              </div>
-            </section>
+                <div class="block-body">
+                  <table class="risk-table">
+                    <thead>
+                      <tr>
+                        <th>Risk</th>
+                        <th>Severity</th>
+                        <th>Mitigation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Step fallback accidentally returns</td>
+                        <td><span class="badge hot">high</span></td>
+                        <td>Reject `session.plan` reads in review-web typecheck.</td>
+                      </tr>
+                      <tr>
+                        <td>Issue target cannot jump scopes</td>
+                        <td><span class="badge warn">medium</span></td>
+                        <td>Route issue target through graph selection resolver.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
 
-            <section class="tool">
-              <div class="tool-head">
-                <h3>Validation</h3>
-                <span class="badge warn">2 warnings</span>
-              </div>
-              <div class="tool-body issue-list">
-                <article class="issue">
-                  <strong>target.unresolved_block_item</strong>
-                  <p>Risk row target should resolve inside the selected block.</p>
-                </article>
-                <article class="issue">
-                  <strong>condition.missing_summary</strong>
-                  <p>Branch condition needs a readable label in the graph view.</p>
-                </article>
-              </div>
-            </section>
+              <article class="block">
+                <div class="block-head">
+                  <span class="block-title">Verification block</span>
+                  <span class="badge good">read-only</span>
+                </div>
+                <div class="block-body">
+                  <div class="check-row">
+                    <span class="check"></span>
+                    <span>`apps/review-web` typecheck passes</span>
+                    <span class="badge">pending</span>
+                  </div>
+                  <div class="check-row">
+                    <span class="check"></span>
+                    <span>Feedback event shows graph breadcrumb</span>
+                    <span class="badge">manual</span>
+                  </div>
+                  <div class="check-row">
+                    <span class="check"></span>
+                    <span>Nested graph drilldown preserves parent path</span>
+                    <span class="badge">manual</span>
+                  </div>
+                </div>
+              </article>
 
-            <section class="tool">
-              <div class="tool-head">
-                <h3>Prototype piece</h3>
-                <span class="badge">piece target</span>
-              </div>
-              <div class="tool-body prototype">
-                <div class="preview"></div>
-                <p class="prototype-text">Sidebar drill state validates graph navigator and target trail.</p>
-              </div>
-            </section>
+              <article class="block">
+                <div class="block-head">
+                  <span class="block-title">Files block</span>
+                  <span class="badge">artifact</span>
+                </div>
+                <div class="block-body">
+                  <p class="muted">
+                    `apps/review-web/src/app/SessionReviewPage.tsx`, `graphReviewModel.ts`, and
+                    graph plan schema changes are listed here as reviewable artifact context.
+                  </p>
+                </div>
+              </article>
 
-            <section class="tool">
-              <div class="tool-head">
-                <h3>Timeline</h3>
-                <span class="badge">Revision 5</span>
-              </div>
-              <div class="tool-body timeline">
-                <article class="event">
-                  <strong>User feedback</strong>
-                  <p>Root graph / Review API contract / Risk block</p>
-                </article>
-                <article class="event">
-                  <strong>Agent revision</strong>
-                  <p>structure: added child graph · validation: warning count unchanged</p>
-                </article>
-              </div>
-            </section>
+              <article class="block">
+                <div class="block-head">
+                  <span class="block-title">Decision block</span>
+                  <span class="badge warn">criteria</span>
+                </div>
+                <div class="block-body">
+                  <p class="muted">
+                    A graph target must be selectable at graph, node, block, block item, edge, and artifact range levels.
+                  </p>
+                </div>
+              </article>
+
+              <article class="block nested-graph-block">
+                <div class="block-head">
+                  <span class="block-title">Nested graph block</span>
+                  <span class="badge warn">graph_ref</span>
+                </div>
+                <div class="block-body">
+                  <div class="nested-graph-preview" data-drill="child">
+                    <div class="mini-edge" style="left: 170px; top: 186px; width: 110px"></div>
+                    <div class="mini-edge" style="left: 407px; top: 186px; width: 92px"></div>
+                    <div class="mini-node" style="left: 38px; top: 144px">
+                      <strong>Fetch session shape</strong>
+                      <span>read graphPlan + validation</span>
+                    </div>
+                    <div class="mini-node" style="left: 286px; top: 144px">
+                      <strong>Resolve target</strong>
+                      <span>selection to GraphPlanTarget</span>
+                    </div>
+                    <div class="mini-node" style="left: 506px; top: 144px">
+                      <strong>API client update</strong>
+                      <span>send graph targets</span>
+                    </div>
+                    <div class="nested-overlay">
+                      <span class="badge">Review API subgraph</span>
+                      <button class="btn primary" data-drill="child">확대해서 드릴다운</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
-        </aside>
+        </section>
       </main>
+
+      <footer class="feedback-bar">
+        <textarea id="feedbackText">현재 선택 target에 피드백을 남깁니다. 노드 뷰에서는 블록까지, 그래프 뷰에서는 그래프/노드/엣지까지 target이 명확히 잡힙니다.</textarea>
+        <div class="feedback-side">
+          <span class="badge" id="feedbackTarget">target: node</span>
+          <button class="btn primary">피드백 보내기</button>
+          <button class="btn ghost">target 변경</button>
+        </div>
+      </footer>
+
+      <aside class="drawer" aria-label="Revision and validation drawer">
+        <div class="drawer-head">
+          <div>
+            <div class="section-title">Revision / Validation</div>
+            <strong>Revision 5 · publish ready</strong>
+          </div>
+          <button class="btn ghost" id="closeDrawer">닫기</button>
+        </div>
+        <div class="drawer-body">
+          <section class="drawer-card">
+            <details open>
+              <summary>리비전 요약 타임라인</summary>
+              <p>Rev 3: graph target feedback event를 추가했습니다.</p>
+              <p>Rev 4: block item evidenceRefs 경고를 제거했습니다.</p>
+              <p>Rev 5: UI 탐색 구조를 graph-first에서 graph/node 전환 구조로 정리했습니다.</p>
+            </details>
+          </section>
+          <section class="drawer-card">
+            <details>
+              <summary>검증 결과</summary>
+              <p>publish validation: error 0, warning 0.</p>
+              <p>Manual E2E: graph drilldown, node block rendering, feedback target path 확인 필요.</p>
+            </details>
+          </section>
+          <section class="drawer-card">
+            <details>
+              <summary>열린 피드백</summary>
+              <p>노드 검증 블록이 기준과 체크리스트뿐 아니라 검증 방식과 evidence mapping을 보여야 합니다.</p>
+            </details>
+          </section>
+        </div>
+      </aside>
     </div>
 
     <script>
       const app = document.querySelector(".app");
       const crumbs = document.querySelector("#crumbs");
       const drillUp = document.querySelector("#drillUp");
-      const scopeNote = document.querySelector("#scopeNote");
+      const openDrawer = document.querySelector("#openDrawer");
+      const closeDrawer = document.querySelector("#closeDrawer");
+      const scopeTitle = document.querySelector("#scopeTitle");
+      const scopeCopy = document.querySelector("#scopeCopy");
+      const targetPath = document.querySelector("#targetPath");
       const nodeTitle = document.querySelector("#nodeTitle");
       const nodeSummary = document.querySelector("#nodeSummary");
-      const targetPath = document.querySelector("#targetPath");
+      const feedbackTarget = document.querySelector("#feedbackTarget");
 
-      function setView(view) {
-        const child = view === "child";
-        app.dataset.scope = view;
+      function setActiveView(view) {
+        app.dataset.view = view;
+        document.querySelectorAll("[data-view-button]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.viewButton === view);
+        });
+        feedbackTarget.textContent = view === "graph" ? "target: graph/node/edge" : "target: node/block";
+      }
+
+      function setScope(scope) {
+        const child = scope === "child";
+        app.dataset.scope = scope;
         drillUp.disabled = !child;
         crumbs.innerHTML = child
           ? '<span class="crumb"><strong>Plan</strong></span><span class="crumb">/ Root graph</span><span class="crumb">/ Review API contract</span><span class="crumb">/ <strong>Review API subgraph</strong></span>'
           : '<span class="crumb"><strong>Plan</strong></span><span class="crumb">/ Root graph</span>';
-        scopeNote.textContent = child
-          ? "Current scope: Review API subgraph. Drill up returns to the parent node and highlights its graph_ref entry."
-          : "Current scope: root graph. Nested graph is represented as a `graph_ref` block in the selected node.";
-        nodeTitle.textContent = child ? "Fetch session shape" : "Review API contract";
-        nodeSummary.textContent = child
-          ? "The left graph has changed scope. Center still shows blocks for the selected node in that scope."
-          : "Selected node details are read in the center. Nested graph is an entry block, not an inline canvas.";
+        scopeTitle.textContent = child ? "Review API subgraph" : "Root graph";
+        scopeCopy.textContent = child
+          ? "하위 그래프가 전체 그래프 뷰로 확대되었습니다. 상위 그래프로 돌아가면 parent node의 nested graph block이 다시 기준점이 됩니다."
+          : "현재 그래프 범위에서 노드를 선택하고, 노드 뷰로 전환하면 블록과 하위 그래프가 함께 보입니다.";
         targetPath.innerHTML = child
           ? "<strong>Plan</strong> / Root graph / Review API contract / Review API subgraph / Fetch session shape"
-          : "<strong>Plan</strong> / Root graph / Review API contract / Risk block";
+          : "<strong>Plan</strong> / Root graph / Review API contract";
+        nodeTitle.textContent = child ? "Fetch session shape" : "Review API contract";
+        nodeSummary.textContent = child
+          ? "하위 그래프 안에서 선택한 노드의 블록을 표시합니다. parent path는 브레드크럼에 남아 있습니다."
+          : "이 노드의 모든 블록을 한 화면에서 확인합니다. 하위 그래프가 있으면 블록 내부에 축소 그래프로 표시합니다.";
+        setActiveView("graph");
       }
 
       document.addEventListener("click", (event) => {
-        const trigger = event.target.closest("[data-view]");
-        if (!trigger) return;
-        setView(trigger.dataset.view);
+        const viewButton = event.target.closest("[data-view-button]");
+        if (viewButton) setActiveView(viewButton.dataset.viewButton);
+
+        const drillTarget = event.target.closest("[data-drill]");
+        if (drillTarget) setScope(drillTarget.dataset.drill);
       });
 
-      drillUp.addEventListener("click", () => setView("root"));
+      drillUp.addEventListener("click", () => setScope("root"));
+      openDrawer.addEventListener("click", () => {
+        app.dataset.drawer = "open";
+      });
+      closeDrawer.addEventListener("click", () => {
+        app.dataset.drawer = "closed";
+      });
     </script>
   </body>
 </html>
