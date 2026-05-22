@@ -1,8 +1,8 @@
-import type { PlanDraft, PlanTarget } from "@agent-gui/plan-schema";
+import type { GraphPlanDocument, GraphPlanTarget, GraphPlanValidationMode } from "@agent-gui/plan-schema";
 import { Hono } from "hono";
-import { FileSessionStore } from "../store/fileStore";
+import { fixtureGraphPlan } from "../domain/samplePlan";
 import { publishSessionEvent, sessionEventStream } from "../realtime/sessionStream";
-import { fixturePlan } from "../domain/samplePlan";
+import { FileSessionStore } from "../store/fileStore";
 
 export const store = new FileSessionStore();
 
@@ -12,14 +12,14 @@ export function createApi() {
   app.get("/api/health", (c) => c.json({ ok: true }));
 
   app.post("/api/fixture-session", async (c) => {
-    const result = await store.createPlanSession(fixturePlan());
+    const result = await store.createGraphPlanSession(fixtureGraphPlan());
     publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
     return c.json(result);
   });
 
   app.post("/api/sessions", async (c) => {
-    const body = (await c.req.json()) as { plan: PlanDraft };
-    const result = await store.createPlanSession(body.plan);
+    const body = (await c.req.json()) as { graphPlan: GraphPlanDocument };
+    const result = await store.createGraphPlanSession(body.graphPlan);
     publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
     return c.json(result);
   });
@@ -34,9 +34,14 @@ export function createApi() {
     return c.json({ events: await store.listPlanEvents(sessionId, afterEventId) });
   });
 
+  app.post("/api/graph-plan/validate", async (c) => {
+    const body = (await c.req.json()) as { graphPlan: GraphPlanDocument; mode?: GraphPlanValidationMode };
+    return c.json(await store.validateGraphPlanDocument(body.graphPlan, body.mode ?? "draft"));
+  });
+
   app.post("/api/sessions/:sessionId/feedback", async (c) => {
     const sessionId = c.req.param("sessionId");
-    const body = (await c.req.json()) as { target: PlanTarget; message: string; intent?: never };
+    const body = (await c.req.json()) as { target: GraphPlanTarget; message: string; intent?: never };
     const event = await store.postUserFeedback({ sessionId, ...body });
     publishSessionEvent({ type: "event.created", sessionId, payload: event });
     publishSessionEvent({ type: "session.updated", sessionId });
@@ -59,14 +64,22 @@ export function createApi() {
     return c.json(event);
   });
 
-  app.post("/api/sessions/:sessionId/revisions", async (c) => {
+  app.put("/api/sessions/:sessionId/graph-plan", async (c) => {
     const sessionId = c.req.param("sessionId");
     const body = await c.req.json();
-    const session = await store.updatePlanRevision({ sessionId, ...body });
+    const session = await store.replaceGraphPlan({ sessionId, ...body });
     publishSessionEvent({ type: "revision.created", sessionId, payload: session.events.at(-1) });
-    publishSessionEvent({ type: "prototype.updated", sessionId });
     publishSessionEvent({ type: "session.updated", sessionId });
     return c.json(session);
+  });
+
+  app.post("/api/sessions/:sessionId/graph-plan/mutations", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const body = await c.req.json();
+    const result = await store.mutateGraphPlan({ sessionId, ...body });
+    publishSessionEvent({ type: "revision.created", sessionId, payload: result.revisionEvent });
+    publishSessionEvent({ type: "session.updated", sessionId });
+    return c.json(result);
   });
 
   app.post("/api/sessions/:sessionId/approve", async (c) => {

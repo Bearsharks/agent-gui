@@ -8,8 +8,17 @@ Authoritative current docs:
 
 - `docs/graph-plan-overview.md`
 - `docs/graph-plan-todo.md`
+- `plan.md`
+- `docs/phase5-ui-handoff.md`
 
 The strict Browser Use rerun remains a validation gap for the original step-based POC. It is not the primary next implementation task. The next implementation track is connecting `GraphPlanDocument` to Plan GUI session payloads, graph targets, MCP tools, and a read-only graph review UI.
+
+Latest implementation state:
+
+- Phase 1/2 graph validator taxonomy and graph-only contract were committed.
+- Phase 3/4 HTTP API, store, mutation helper, and MCP graph-only changes are implemented in the working tree.
+- Phase 5 remains: replace `apps/review-web` step-based UI with graph-only review UI.
+- See `docs/phase5-ui-handoff.md` before starting UI work.
 
 ## Current State
 
