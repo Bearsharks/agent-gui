@@ -1,12 +1,30 @@
-import type { PlanDraft, PlanTarget, PrototypeChangeSummary } from "@agent-gui/plan-schema";
+import type {
+  AgentReplyEvent,
+  GraphPlanDocument,
+  GraphPlanMutationInput,
+  GraphPlanMutationResult,
+  GraphPlanValidationMode,
+  GraphPlanValidationSummary,
+  PlanEvent,
+  PlanSession,
+  ReplaceGraphPlanInput,
+} from "@agent-gui/plan-schema";
+import {
+  graphPlanDocumentSchema,
+  graphPlanMutationInputSchema,
+  graphPlanValidationModeSchema,
+  replaceGraphPlanInputSchema,
+} from "@agent-gui/plan-schema";
 import { Hono } from "hono";
 import { publishSessionEvent } from "../realtime/sessionStream";
-import { store } from "../http/api";
+import { store as sessionStore } from "../http/api";
 
 type ToolRequest = {
   tool: string;
   input?: Record<string, unknown>;
 };
+
+const store = sessionStore as unknown as GraphPlanSessionStore;
 
 export function createMcpHttpRoutes() {
   const app = new Hono();
@@ -14,11 +32,13 @@ export function createMcpHttpRoutes() {
   app.get("/mcp/tools", (c) =>
     c.json({
       tools: [
-        "create_plan_session",
-        "get_plan_session",
+        "create_graph_plan_session",
+        "get_graph_plan_session",
         "list_plan_events",
         "post_agent_reply",
-        "update_plan_revision",
+        "replace_graph_plan",
+        "mutate_graph_plan",
+        "validate_graph_plan",
         "mark_plan_approved",
       ],
     }),
@@ -27,43 +47,43 @@ export function createMcpHttpRoutes() {
   app.post("/mcp/call", async (c) => {
     const { tool, input = {} } = (await c.req.json()) as ToolRequest;
     switch (tool) {
-      case "create_plan_session": {
-        const result = await store.createPlanSession(input.plan as PlanDraft);
+      case "create_graph_plan_session": {
+        const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
+        const result = await store.createGraphPlanSession(graphPlan);
         publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
         return c.json(result);
       }
-      case "get_plan_session":
+      case "get_graph_plan_session":
         return c.json(await store.getPlanSession(input.sessionId as string));
       case "list_plan_events":
-        return c.json({
-          events: await store.listPlanEvents(input.sessionId as string, input.afterEventId as string | undefined),
-        });
+        return c.json(await store.listPlanEvents(input.sessionId as string, input.afterEventId as string | undefined));
       case "post_agent_reply": {
         const event = await store.postAgentReply({
           sessionId: input.sessionId as string,
           revision: input.revision as number,
           replyToEventId: input.replyToEventId as string,
-          target: input.target as PlanTarget,
+          target: input.target,
           body: input.body as string,
-          disposition: input.disposition as never,
+          disposition: input.disposition,
         });
         publishSessionEvent({ type: "event.created", sessionId: event.sessionId, payload: event });
         publishSessionEvent({ type: "session.updated", sessionId: event.sessionId });
         return c.json(event);
       }
-      case "update_plan_revision": {
-        const session = await store.updatePlanRevision({
-          sessionId: input.sessionId as string,
-          baseRevision: input.baseRevision as number,
-          target: input.target as PlanTarget | undefined,
-          plan: input.plan as PlanDraft,
-          changeSummary: input.changeSummary as string[],
-          prototypeChanges: input.prototypeChanges as PrototypeChangeSummary[] | undefined,
-        });
-        publishSessionEvent({ type: "revision.created", sessionId: session.id, payload: session.events.at(-1) });
-        publishSessionEvent({ type: "prototype.updated", sessionId: session.id });
-        publishSessionEvent({ type: "session.updated", sessionId: session.id });
+      case "replace_graph_plan": {
+        const session = await store.replaceGraphPlan(replaceGraphPlanInputSchema.parse(input));
+        publishGraphRevisionEvents(session);
         return c.json(session);
+      }
+      case "mutate_graph_plan": {
+        const result = await store.mutateGraphPlan(graphPlanMutationInputSchema.parse(input));
+        publishGraphRevisionEvents(result.session);
+        return c.json(result);
+      }
+      case "validate_graph_plan": {
+        const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
+        const mode = graphPlanValidationModeSchema.default("draft").parse(input.mode);
+        return c.json(await store.validateGraphPlanDocument(graphPlan, mode));
       }
       case "mark_plan_approved": {
         const session = await store.markPlanApproved({
@@ -81,3 +101,36 @@ export function createMcpHttpRoutes() {
 
   return app;
 }
+
+function publishGraphRevisionEvents(session: PlanSession) {
+  publishSessionEvent({ type: "revision.created", sessionId: session.id, payload: session.events.at(-1) });
+  publishSessionEvent({ type: "session.updated", sessionId: session.id });
+}
+
+type CreateGraphPlanSessionResult = {
+  sessionId: string;
+  url: string;
+  revision: number;
+  validation: GraphPlanValidationSummary;
+};
+
+type GraphPlanSessionStore = {
+  createGraphPlanSession(graphPlan: GraphPlanDocument): Promise<CreateGraphPlanSessionResult>;
+  getPlanSession(sessionId: string): Promise<PlanSession>;
+  listPlanEvents(sessionId: string, afterEventId?: string): Promise<PlanEvent[]>;
+  postAgentReply(input: {
+    sessionId: string;
+    revision: number;
+    replyToEventId: string;
+    target: unknown;
+    body: string;
+    disposition?: unknown;
+  }): Promise<AgentReplyEvent>;
+  replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession>;
+  mutateGraphPlan(input: GraphPlanMutationInput): Promise<GraphPlanMutationResult>;
+  validateGraphPlanDocument(
+    graphPlan: GraphPlanDocument,
+    mode?: GraphPlanValidationMode,
+  ): Promise<GraphPlanValidationSummary>;
+  markPlanApproved(input: { sessionId: string; revision: number; message?: string }): Promise<PlanSession>;
+};

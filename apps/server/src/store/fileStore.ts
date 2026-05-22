@@ -1,53 +1,73 @@
 import type {
   AgentReplyEvent,
-  AgentRevisionEvent,
   FeedbackDisposition,
-  PlanDraft,
+  GraphPlanDocument,
+  GraphPlanMutationInput,
+  GraphPlanMutationResult,
+  GraphPlanTarget,
+  GraphPlanValidationMode,
   PlanEvent,
   PlanSession,
-  PlanTarget,
-  PrototypeChangeSummary,
   UserApprovalEvent,
   UserFeedbackEvent,
 } from "@agent-gui/plan-schema";
-import { planDraftSchema, planSessionSchema, planTargetSchema } from "@agent-gui/plan-schema";
+import {
+  graphPlanDocumentSchema,
+  graphPlanMutationInputSchema,
+  graphPlanTargetSchema,
+  planSessionSchema,
+  replaceGraphPlanInputSchema,
+  validateGraphPlan,
+} from "@agent-gui/plan-schema";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyGraphPlanMutations } from "../domain/graphPlanMutations";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const DATA_ROOT = path.join(REPO_ROOT, "data", "sessions");
 
-type CreateSessionResult = { sessionId: string; url: string; revision: number };
+type CreateSessionResult = {
+  sessionId: string;
+  url: string;
+  revision: number;
+  validation: PlanSession["validation"];
+};
 
-export type UpdatePlanRevisionInput = {
+export type ReplaceGraphPlanInput = {
   sessionId: string;
   baseRevision: number;
-  target?: PlanTarget;
-  plan: PlanDraft;
-  changeSummary: string[];
-  prototypeChanges?: PrototypeChangeSummary[];
+  graphPlan: GraphPlanDocument;
+  changeSummary: PlanSession["events"][number] extends infer Event
+    ? Event extends { type: "agent.revision"; changeSummary: infer Summary }
+      ? Summary
+      : never
+    : never;
+  validationPolicy?: "allow_all" | "block_errors";
+  target?: GraphPlanTarget;
 };
 
 export class FileSessionStore {
   constructor(private readonly baseUrl = "http://localhost:8787") {}
 
-  async createPlanSession(plan: PlanDraft): Promise<CreateSessionResult> {
-    const parsed = planDraftSchema.parse(plan);
+  async createGraphPlanSession(graphPlan: GraphPlanDocument): Promise<CreateSessionResult> {
+    const parsed = graphPlanDocumentSchema.parse(graphPlan);
+    const validation = validateGraphPlan(parsed);
     const sessionId = `plan_${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
     const session: PlanSession = {
       id: sessionId,
       status: "draft",
-      revision: 1,
-      plan: normalizePrototypeRevisions(parsed, 1),
+      revision: parsed.currentRevision,
+      graphPlan: parsed,
+      validation,
       events: [],
       createdAt: now,
       updatedAt: now,
     };
     await this.writeSession(session);
-    return { sessionId, url: `${this.baseUrl}/sessions/${sessionId}`, revision: session.revision };
+    return { sessionId, url: `${this.baseUrl}/sessions/${sessionId}`, revision: session.revision, validation };
   }
 
   async getPlanSession(sessionId: string): Promise<PlanSession> {
@@ -62,9 +82,13 @@ export class FileSessionStore {
     return index === -1 ? session.events : session.events.slice(index + 1);
   }
 
+  async validateGraphPlanDocument(graphPlan: GraphPlanDocument, mode: GraphPlanValidationMode = "draft"): Promise<PlanSession["validation"]> {
+    return validateGraphPlan(graphPlanDocumentSchema.parse(graphPlan), { mode });
+  }
+
   async postUserFeedback(input: {
     sessionId: string;
-    target: PlanTarget;
+    target: GraphPlanTarget;
     message: string;
     intent?: UserFeedbackEvent["intent"];
   }): Promise<UserFeedbackEvent> {
@@ -74,7 +98,7 @@ export class FileSessionStore {
       type: "user.feedback",
       sessionId: session.id,
       revision: session.revision,
-      target: planTargetSchema.parse(input.target),
+      target: graphPlanTargetSchema.parse(input.target),
       intent: input.intent,
       message: input.message,
       createdAt: new Date().toISOString(),
@@ -90,7 +114,7 @@ export class FileSessionStore {
     sessionId: string;
     revision: number;
     replyToEventId: string;
-    target: PlanTarget;
+    target: GraphPlanTarget;
     body: string;
     disposition?: FeedbackDisposition;
   }): Promise<AgentReplyEvent> {
@@ -101,7 +125,7 @@ export class FileSessionStore {
       sessionId: session.id,
       revision: input.revision,
       replyToEventId: input.replyToEventId,
-      target: planTargetSchema.parse(input.target),
+      target: graphPlanTargetSchema.parse(input.target),
       body: input.body,
       disposition: input.disposition,
       createdAt: new Date().toISOString(),
@@ -113,32 +137,57 @@ export class FileSessionStore {
     return event;
   }
 
-  async updatePlanRevision(input: UpdatePlanRevisionInput): Promise<PlanSession> {
+  async replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession> {
     const session = await this.getPlanSession(input.sessionId);
-    if (session.revision !== input.baseRevision) {
-      throw new Error(`baseRevision ${input.baseRevision} does not match current revision ${session.revision}`);
+    const parsedInput = replaceGraphPlanInputSchema.parse({
+      sessionId: input.sessionId,
+      baseRevision: input.baseRevision,
+      graphPlan: input.graphPlan,
+      changeSummary: input.changeSummary,
+      validationPolicy: input.validationPolicy ?? "block_errors",
+    });
+    if (session.revision !== parsedInput.baseRevision) {
+      throw new Error(`baseRevision ${parsedInput.baseRevision} does not match current revision ${session.revision}`);
     }
-    const nextRevision = session.revision + 1;
-    const now = new Date().toISOString();
-    const event: AgentRevisionEvent = {
-      id: eventId("revision"),
-      type: "agent.revision",
-      sessionId: session.id,
-      fromRevision: session.revision,
-      toRevision: nextRevision,
-      changeSummary: input.target
-        ? [`Targeted update: ${input.target.type}${input.target.id ? `:${input.target.id}` : ""}`, ...input.changeSummary]
-        : input.changeSummary,
-      prototypeChanges: input.prototypeChanges,
-      createdAt: now,
-    };
-    session.revision = nextRevision;
-    session.plan = normalizePrototypeRevisions(planDraftSchema.parse(input.plan), nextRevision);
-    session.events.push(event);
-    session.status = "revision_ready";
-    session.updatedAt = now;
-    await this.writeSession(session);
-    return session;
+
+    const validation = validateGraphPlan(parsedInput.graphPlan);
+    if (parsedInput.validationPolicy === "block_errors" && validation.errorCount > 0) {
+      throw validationBlockedError(validation);
+    }
+
+    return this.commitGraphPlanRevision({
+      session,
+      graphPlan: parsedInput.graphPlan,
+      changeSummary: parsedInput.changeSummary,
+      validation,
+      target: input.target,
+    });
+  }
+
+  async mutateGraphPlan(input: GraphPlanMutationInput): Promise<GraphPlanMutationResult> {
+    const session = await this.getPlanSession(input.sessionId);
+    const parsedInput = graphPlanMutationInputSchema.parse(input);
+    if (session.revision !== parsedInput.baseRevision) {
+      throw new Error(`baseRevision ${parsedInput.baseRevision} does not match current revision ${session.revision}`);
+    }
+
+    const graphPlan = applyGraphPlanMutations(session.graphPlan, parsedInput.operations);
+    const validation = validateGraphPlan(graphPlan);
+    if (parsedInput.validationPolicy === "block_errors" && validation.errorCount > 0) {
+      throw validationBlockedError(validation);
+    }
+
+    const nextSession = await this.commitGraphPlanRevision({
+      session,
+      graphPlan,
+      changeSummary: parsedInput.changeSummary,
+      validation,
+    });
+    const revisionEvent = nextSession.events.at(-1);
+    if (!revisionEvent || revisionEvent.type !== "agent.revision") {
+      throw new Error("Expected graph mutation to create a revision event.");
+    }
+    return { session: nextSession, revisionEvent, validation };
   }
 
   async markPlanApproved(input: {
@@ -147,6 +196,10 @@ export class FileSessionStore {
     message?: string;
   }): Promise<PlanSession> {
     const session = await this.getPlanSession(input.sessionId);
+    const publishValidation = validateGraphPlan(session.graphPlan, { mode: "publish" });
+    if (publishValidation.errorCount > 0) {
+      throw validationBlockedError(publishValidation);
+    }
     const now = new Date().toISOString();
     const event: UserApprovalEvent = {
       id: eventId("approval"),
@@ -156,6 +209,7 @@ export class FileSessionStore {
       message: input.message,
       createdAt: now,
     };
+    session.validation = publishValidation;
     session.events.push(event);
     session.status = "approved";
     session.updatedAt = now;
@@ -169,6 +223,37 @@ export class FileSessionStore {
     session.updatedAt = new Date().toISOString();
     await this.writeSession(session);
     return session;
+  }
+
+  private async commitGraphPlanRevision(input: {
+    session: PlanSession;
+    graphPlan: GraphPlanDocument;
+    changeSummary: Extract<PlanEvent, { type: "agent.revision" }>["changeSummary"];
+    validation: PlanSession["validation"];
+    target?: GraphPlanTarget;
+  }): Promise<PlanSession> {
+    const nextRevision = input.session.revision + 1;
+    const now = new Date().toISOString();
+    const graphPlan = { ...input.graphPlan, currentRevision: nextRevision };
+    const event: Extract<PlanEvent, { type: "agent.revision" }> = {
+      id: eventId("revision"),
+      type: "agent.revision",
+      sessionId: input.session.id,
+      fromRevision: input.session.revision,
+      toRevision: nextRevision,
+      target: input.target,
+      changeSummary: input.changeSummary,
+      validation: input.validation,
+      createdAt: now,
+    };
+    input.session.revision = nextRevision;
+    input.session.graphPlan = graphPlan;
+    input.session.validation = input.validation;
+    input.session.events.push(event);
+    input.session.status = "revision_ready";
+    input.session.updatedAt = now;
+    await this.writeSession(input.session);
+    return input.session;
   }
 
   private async writeSession(session: PlanSession): Promise<void> {
@@ -186,10 +271,8 @@ function eventId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
-function normalizePrototypeRevisions(plan: PlanDraft, revision: number): PlanDraft {
-  if (!plan.prototypes) return plan;
-  return {
-    ...plan,
-    prototypes: plan.prototypes.map((prototype) => ({ ...prototype, revision })),
-  };
+function validationBlockedError(validation: PlanSession["validation"]): Error {
+  const error = new Error(`validation_blocked: graph plan has ${validation.errorCount} validation error(s).`);
+  Object.assign(error, { code: "validation_blocked", validation });
+  return error;
 }

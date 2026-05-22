@@ -21,6 +21,7 @@
 Graph validator issue taxonomy는 [docs/graph-validator-taxonomy.md](docs/graph-validator-taxonomy.md)를 따른다. 이 문서는 validator issue를 API, MCP, UI, 테스트가 공유하는 오류 계약으로 정의한다.
 Graph MCP 설계는 [docs/graph-mcp-design.md](docs/graph-mcp-design.md)를 따른다. 이 문서는 graph-only MCP tool set, tool contract, error handling, 검증 시나리오를 정의한다.
 Graph Review UI 설계는 [docs/graph-review-ui-design.md](docs/graph-review-ui-design.md)를 따른다. 이 문서는 read-only graph review workspace, component 책임, URL state, validation 표시 정책을 정의한다.
+Phase 5 UI 작업 handoff는 [docs/phase5-ui-handoff.md](docs/phase5-ui-handoff.md)를 따른다. 이 문서는 현재 구현 상태, 남은 UI migration 지점, 검증 순서를 정리한다.
 
 ## 서브에이전트 병렬 실행 전략
 
