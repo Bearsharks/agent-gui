@@ -65,9 +65,7 @@ export function buildGraphIndex(document: GraphPlanDocument, issues: GraphPlanVa
 
 export function normalizeSelection(document: GraphPlanDocument, index: GraphIndex, selection: Partial<GraphSelection>): GraphSelection {
   const graphId = selection.graphId && index.graphsById.has(selection.graphId) ? selection.graphId : document.rootGraphId;
-  const graph = index.graphsById.get(graphId) ?? document.graphs[0];
-  const fallbackNodeId = graph?.nodes[0]?.id;
-  const nodeId = selection.nodeId && index.nodesByKey.has(nodeKey(graphId, selection.nodeId)) ? selection.nodeId : fallbackNodeId;
+  const nodeId = selection.nodeId && index.nodesByKey.has(nodeKey(graphId, selection.nodeId)) ? selection.nodeId : undefined;
   const blockId =
     nodeId && selection.blockId && index.blocksByKey.has(blockKey(graphId, nodeId, selection.blockId))
       ? selection.blockId
