@@ -20,7 +20,7 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { approveSession, createFixtureSession, fetchSession, notifyAgent, postFeedback } from "../api/client";
 import {
   blockKey,
@@ -511,7 +511,13 @@ function renderBlockBody(
           {block.risks.map((risk) => (
             <tr key={risk.id}>
               <td>
-                <button className="inline-target-button" onClick={() => onSelect({ graphId, nodeId, blockId: block.id, itemId: risk.id, itemType: "risk" })}>
+                <button
+                  className="inline-target-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect({ graphId, nodeId, blockId: block.id, itemId: risk.id, itemType: "risk" });
+                  }}
+                >
                   {risk.title}
                 </button>
               </td>
@@ -542,14 +548,19 @@ function renderBlockBody(
   if (block.type === "graph_ref") {
     const graph = index.graphsById.get(block.graphId);
     return (
-      <div className="graph-ref-block">
+      <div className="graph-ref-block" onClick={(event) => event.stopPropagation()}>
         <div>
           <strong>{graph?.title ?? block.graphId}</strong>
           <span>
             {block.relationship} · {block.ownership}
           </span>
         </div>
-        <Button variant="secondary" onClick={() => onSelect({ graphId: block.graphId })}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            onSelect({ graphId: block.graphId });
+          }}
+        >
           Drill down
         </Button>
       </div>
@@ -561,7 +572,13 @@ function renderBlockBody(
         <strong>{block.question}</strong>
         {block.options.map((option) => (
           <div className="choice-row" key={option.id}>
-            <button className="inline-target-button" onClick={() => onSelect({ graphId, nodeId, blockId: block.id, itemId: option.id, itemType: "option" })}>
+            <button
+              className="inline-target-button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect({ graphId, nodeId, blockId: block.id, itemId: option.id, itemType: "option" });
+              }}
+            >
               {option.label}
             </button>
             <Badge tone={option.status === "selected" ? "accent" : "neutral"}>{option.status}</Badge>
@@ -608,7 +625,18 @@ function ItemList({
   return (
     <div className="item-list">
       {items.map((item) => (
-        <button className="item-row" key={item.id} onClick={onItemClick ? () => onItemClick(item.id) : undefined}>
+        <button
+          className="item-row"
+          key={item.id}
+          onClick={
+            onItemClick
+              ? (event) => {
+                  event.stopPropagation();
+                  onItemClick(item.id);
+                }
+              : undefined
+          }
+        >
           <span>{item.label}</span>
           <span className="item-meta">
             {item.meta ? <em>{item.meta}</em> : null}
@@ -658,17 +686,20 @@ function FeedbackPanel({
   onRefresh: () => void;
 }) {
   const [message, setMessage] = useState("");
+  const messageRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
   const activeKey = targetKey(selectedTarget);
   const threadEvents = session.events.filter((event) => hasEventTarget(event) && targetKey(event.target) === activeKey);
 
   async function send() {
-    if (!message.trim() || isSending) return;
+    const currentMessage = messageRef.current?.value.trim() ?? message.trim();
+    if (!currentMessage || isSending) return;
     setIsSending(true);
     try {
-      await postFeedback(session.id, selectedTarget, message.trim());
+      await postFeedback(session.id, selectedTarget, currentMessage);
       setMessage("");
+      if (messageRef.current) messageRef.current.value = "";
       onRefresh();
     } finally {
       setIsSending(false);
@@ -693,7 +724,7 @@ function FeedbackPanel({
         <Badge>{selectedTarget.type}</Badge>
       </div>
       <p className="target-breadcrumb">{breadcrumbForTarget(selectedTarget, index)}</p>
-      <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="현재 graph target에 대한 피드백을 입력하세요." />
+      <textarea ref={messageRef} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="현재 graph target에 대한 피드백을 입력하세요." />
       <div className="tool-actions">
         <Button variant="secondary" onClick={notify} disabled={isNotifying || session.status === "approved"}>
           에이전트 호출

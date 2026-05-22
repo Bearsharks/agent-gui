@@ -72,8 +72,9 @@ export function normalizeSelection(document: GraphPlanDocument, index: GraphInde
     nodeId && selection.blockId && index.blocksByKey.has(blockKey(graphId, nodeId, selection.blockId))
       ? selection.blockId
       : undefined;
+  const itemId = blockId ? selection.itemId : undefined;
   const edgeId = selection.edgeId && index.edgesByKey.has(edgeKey(graphId, selection.edgeId)) ? selection.edgeId : undefined;
-  return { graphId, nodeId, blockId, edgeId, prototypeId: selection.prototypeId, pieceId: selection.pieceId };
+  return { graphId, nodeId, blockId, itemId, itemType: selection.itemType, edgeId, prototypeId: selection.prototypeId, pieceId: selection.pieceId };
 }
 
 export function selectionFromSearch(document: GraphPlanDocument, index: GraphIndex, search: string): GraphSelection {
