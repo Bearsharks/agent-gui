@@ -9,7 +9,18 @@ import type {
   PlanSession,
 } from "@agent-gui/plan-schema";
 import { Badge, Button } from "@agent-gui/design-system";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Background,
+  Controls,
+  MarkerType,
+  MiniMap,
+  ReactFlow,
+  type Edge as FlowEdge,
+  type Node as FlowNode,
+  type NodeMouseHandler,
+} from "@xyflow/react";
+import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { approveSession, createFixtureSession, fetchSession, notifyAgent, postFeedback } from "../api/client";
 import {
   blockKey,
@@ -26,9 +37,14 @@ import {
   selectionToTarget,
   targetKey,
   targetToSelection,
-  type GraphIndex,
+type GraphIndex,
   type GraphSelection,
 } from "./graphReviewModel";
+
+type ReviewFlowNode = FlowNode<{ label: ReactNode }, "default">;
+type ReviewFlowEdge = FlowEdge<{ edge: GraphPlanEdge }>;
+
+const elk = new ELK();
 
 function getSessionId() {
   const match = window.location.pathname.match(/\/sessions\/([^/]+)/);
@@ -172,9 +188,14 @@ function GraphPane({
 }) {
   const parentPointer = index.parentByGraphId.get(graph.id);
   const parentGraph = parentPointer?.graphId ? index.graphsById.get(parentPointer.graphId) : undefined;
-  const orderedNodes = graph.layout?.order
-    ? graph.layout.order.map((id) => graph.nodes.find((node) => node.id === id)).filter((node): node is GraphPlanNode => Boolean(node))
-    : graph.nodes;
+  const orderedNodes = useMemo(
+    () =>
+      graph.layout?.order
+        ? graph.layout.order.map((id) => graph.nodes.find((node) => node.id === id)).filter((node): node is GraphPlanNode => Boolean(node))
+        : graph.nodes,
+    [graph],
+  );
+  const { nodes, edges } = useGraphFlowModel(graph, orderedNodes, index, selection);
 
   function drillUp() {
     if (!parentPointer?.graphId) return;
@@ -184,6 +205,10 @@ function GraphPane({
       blockId: parentPointer.blockId,
     });
   }
+
+  const handleNodeClick: NodeMouseHandler<ReviewFlowNode> = (_event, node) => {
+    onSelect({ graphId: graph.id, nodeId: node.id });
+  };
 
   return (
     <aside className="graph-pane">
@@ -199,31 +224,23 @@ function GraphPane({
       </div>
 
       <div className="graph-canvas" aria-label={`${graph.title} graph`}>
-        {graph.edges.map((edge, indexInList) => (
-          <GraphEdge key={edge.id} edge={edge} index={indexInList} graphId={graph.id} selected={selection.edgeId === edge.id} onSelect={onSelect} />
-        ))}
-        <div className="graph-node-grid">
-          {orderedNodes.map((node) => {
-            const issueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
-            const childGraphIds = getChildGraphIds(node);
-            return (
-              <button
-                className={`graph-node-card ${selection.nodeId === node.id ? "selected" : ""} ${childGraphIds.length > 0 ? "drillable" : ""}`}
-                key={node.id}
-                onClick={() => onSelect({ graphId: graph.id, nodeId: node.id })}
-              >
-                <span className="node-kind">{node.kind}</span>
-                <strong>{node.title}</strong>
-                {node.summary ? <span className="node-summary">{node.summary}</span> : null}
-                <span className="node-meta">
-                  <span>{node.blocks.length} blocks</span>
-                  {childGraphIds.length > 0 ? <span>graph_ref</span> : null}
-                  {issueCount > 0 ? <span className="issue-chip">{issueCount}</span> : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          fitView
+          fitViewOptions={{ padding: 0.18 }}
+          minZoom={0.35}
+          maxZoom={1.5}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable
+          onNodeClick={handleNodeClick}
+          onEdgeClick={(_event, edge) => onSelect({ graphId: graph.id, edgeId: edge.id })}
+        >
+          <Background color="#d8cfc0" gap={24} />
+          <MiniMap pannable zoomable nodeStrokeWidth={3} />
+          <Controls showInteractive={false} />
+        </ReactFlow>
       </div>
 
       <div className="scope-footer">
@@ -240,30 +257,102 @@ function GraphPane({
   );
 }
 
-function GraphEdge({
-  edge,
-  graphId,
-  index,
-  selected,
-  onSelect,
-}: {
-  edge: GraphPlanEdge;
-  graphId: string;
-  index: number;
-  selected: boolean;
-  onSelect: (selection: GraphSelection) => void;
-}) {
-  return (
-    <button
-      className={`graph-edge-pill ${selected ? "selected" : ""}`}
-      style={{ top: 18 + index * 34 }}
-      onClick={() => onSelect({ graphId, edgeId: edge.id })}
-    >
-      <span>{edge.from}</span>
-      <strong>{conditionLabel(edge)}</strong>
-      <span>{edge.to}</span>
-    </button>
-  );
+function useGraphFlowModel(graph: GraphPlanGraph, orderedNodes: GraphPlanNode[], index: GraphIndex, selection: GraphSelection) {
+  const [flowNodes, setFlowNodes] = useState<ReviewFlowNode[]>(() => buildFallbackFlowNodes(graph, orderedNodes, index, selection));
+  const [flowEdges, setFlowEdges] = useState<ReviewFlowEdge[]>(() => buildFlowEdges(graph, selection));
+
+  useEffect(() => {
+    let cancelled = false;
+    const baseNodes = buildFallbackFlowNodes(graph, orderedNodes, index, selection);
+    const baseEdges = buildFlowEdges(graph, selection);
+    setFlowNodes(baseNodes);
+    setFlowEdges(baseEdges);
+
+    const elkGraph: ElkNode = {
+      id: graph.id,
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "48",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "72",
+      },
+      children: baseNodes.map((node) => ({
+        id: node.id,
+        width: Number(node.width ?? 190),
+        height: Number(node.height ?? 142),
+      })),
+      edges: graph.edges.map((edge) => ({
+        id: edge.id,
+        sources: [edge.from],
+        targets: [edge.to],
+      })),
+    };
+
+    void elk.layout(elkGraph).then((layouted) => {
+      if (cancelled) return;
+      const positions = new Map((layouted.children ?? []).map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]));
+      setFlowNodes(
+        baseNodes.map((node) => ({
+          ...node,
+          position: positions.get(node.id) ?? node.position,
+        })),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [graph, index, orderedNodes, selection]);
+
+  return { nodes: flowNodes, edges: flowEdges };
+}
+
+function buildFallbackFlowNodes(
+  graph: GraphPlanGraph,
+  orderedNodes: GraphPlanNode[],
+  index: GraphIndex,
+  selection: GraphSelection,
+): ReviewFlowNode[] {
+  return orderedNodes.map((node, nodeIndex) => {
+    const childGraphIds = getChildGraphIds(node);
+    const issueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
+    return {
+      id: node.id,
+      type: "default",
+      position: { x: nodeIndex * 230, y: 120 + (nodeIndex % 2) * 28 },
+      width: 190,
+      height: 142,
+      className: `review-flow-node ${selection.nodeId === node.id ? "selected" : ""} ${childGraphIds.length > 0 ? "drillable" : ""}`,
+      data: {
+        label: (
+          <div className="review-flow-node-body">
+            <span className="node-kind">{node.kind}</span>
+            <strong>{node.title}</strong>
+            {node.summary ? <span className="node-summary">{node.summary}</span> : null}
+            <span className="node-meta">
+              <span>{node.blocks.length} blocks</span>
+              {childGraphIds.length > 0 ? <span>graph_ref</span> : null}
+              {issueCount > 0 ? <span className="issue-chip">{issueCount}</span> : null}
+            </span>
+          </div>
+        ),
+      },
+    };
+  });
+}
+
+function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection): ReviewFlowEdge[] {
+  return graph.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.from,
+    target: edge.to,
+    label: conditionLabel(edge),
+    type: "smoothstep",
+    animated: edge.kind === "conditional" || selection.edgeId === edge.id,
+    className: selection.edgeId === edge.id ? "review-flow-edge selected" : "review-flow-edge",
+    markerEnd: { type: MarkerType.ArrowClosed },
+    data: { edge },
+  }));
 }
 
 function BlockInspector({
