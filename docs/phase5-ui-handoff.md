@@ -68,13 +68,23 @@ Codex MCP tool 직접 호출 확인:
 - `errorCount: 0`
 - `publishReady: true`
 
+Phase 5 UI E2E 수동 검증 추가 확인:
+
+- `agent-browser`로 graph fixture session을 열어 React Flow graph pane 렌더링 확인
+- review bundle criterion item 선택 시 URL이 `item=crit-context`를 보존하는지 확인
+- feedback composer가 `block_item` target으로 user feedback event를 저장하는지 MCP `list_plan_events`로 확인
+- MCP `post_agent_reply`가 같은 `block_item` target thread에 agent reply를 저장하는지 확인
+- MCP `mutate_graph_plan`으로 targeted node field revision을 만들고 revision 2, `publishReady: true`, `0` validation issue 확인
+- 브라우저 timeline에 user feedback, agent reply, agent revision, approval event가 graph breadcrumb와 함께 표시되는지 확인
+- 브라우저 approval 후 session status가 `approved`가 되고 approval event가 timeline에 표시되는지 확인
+
 전체 workspace 검증 상태:
 
 ```bash
 pnpm typecheck
 ```
 
-현재 실패한다. 실패 원인은 `apps/review-web`가 아직 `PlanDraft`, `PlanTarget`, `PlanPrototype`, `session.plan.steps`, `StepList`, `StepDetail`에 의존하기 때문이다. 이것은 Phase 5의 정상적인 작업 대상이다.
+Phase 5 UI 전환 후에는 `pnpm typecheck`가 통과한다. 기존 실패 원인이었던 `PlanDraft`, `PlanTarget`, `PlanPrototype`, `session.plan.steps`, `StepList`, `StepDetail` active path는 제거됐다.
 
 ## 현재 사용 가능한 Graph API
 
