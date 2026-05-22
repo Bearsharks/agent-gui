@@ -13,6 +13,8 @@ export type GraphSelection = {
   graphId: string;
   nodeId?: string;
   blockId?: string;
+  itemId?: string;
+  itemType?: Extract<GraphPlanTarget, { type: "block_item" }>["itemType"];
   edgeId?: string;
   prototypeId?: string;
   pieceId?: string;
@@ -80,6 +82,7 @@ export function selectionFromSearch(document: GraphPlanDocument, index: GraphInd
     graphId: params.get("graph") ?? undefined,
     nodeId: params.get("node") ?? undefined,
     blockId: params.get("block") ?? undefined,
+    itemId: params.get("item") ?? undefined,
     edgeId: params.get("edge") ?? undefined,
     pieceId: params.get("piece") ?? undefined,
   });
@@ -90,6 +93,7 @@ export function selectionToSearch(selection: GraphSelection): string {
   params.set("graph", selection.graphId);
   if (selection.nodeId) params.set("node", selection.nodeId);
   if (selection.blockId) params.set("block", selection.blockId);
+  if (selection.itemId) params.set("item", selection.itemId);
   if (selection.edgeId) params.set("edge", selection.edgeId);
   if (selection.pieceId) params.set("piece", selection.pieceId);
   return params.toString();
@@ -104,6 +108,16 @@ export function selectionToTarget(selection: GraphSelection): GraphPlanTarget {
       blockId: selection.blockId,
       prototypeId: selection.prototypeId,
       pieceId: selection.pieceId,
+    };
+  }
+  if (selection.itemId && selection.blockId && selection.nodeId) {
+    return {
+      type: "block_item",
+      graphId: selection.graphId,
+      nodeId: selection.nodeId,
+      blockId: selection.blockId,
+      itemId: selection.itemId,
+      itemType: selection.itemType,
     };
   }
   if (selection.edgeId) return { type: "edge", graphId: selection.graphId, edgeId: selection.edgeId };
@@ -121,7 +135,7 @@ export function targetToSelection(target: GraphPlanTarget, fallbackGraphId: stri
   if (target.type === "block") return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId };
   if (target.type === "edge") return { graphId: target.graphId, edgeId: target.edgeId };
   if (target.type === "block_item") {
-    return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId };
+    return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId, itemId: target.itemId, itemType: target.itemType };
   }
   if (target.type === "prototype_piece") {
     return {

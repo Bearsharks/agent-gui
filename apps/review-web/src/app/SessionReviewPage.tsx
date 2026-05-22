@@ -456,13 +456,28 @@ function renderBlockBody(
 ) {
   if (block.type === "text") return <p>{block.body}</p>;
   if (block.type === "task_list") {
-    return <ItemList items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status }))} />;
+    return (
+      <ItemList
+        items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status }))}
+        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "task" })}
+      />
+    );
   }
   if (block.type === "checklist") {
-    return <ItemList items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))} />;
+    return (
+      <ItemList
+        items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))}
+        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "check" })}
+      />
+    );
   }
   if (block.type === "criteria") {
-    return <ItemList items={block.criteria.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))} />;
+    return (
+      <ItemList
+        items={block.criteria.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))}
+        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "criterion" })}
+      />
+    );
   }
   if (block.type === "review_bundle") {
     return (
@@ -476,6 +491,7 @@ function renderBlockBody(
               status: criterion.status,
               meta: criterion.required ? "required" : "optional",
             }))}
+            onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "criterion" })}
           />
         ) : null}
       </div>
@@ -494,7 +510,11 @@ function renderBlockBody(
         <tbody>
           {block.risks.map((risk) => (
             <tr key={risk.id}>
-              <td>{risk.title}</td>
+              <td>
+                <button className="inline-target-button" onClick={() => onSelect({ graphId, nodeId, blockId: block.id, itemId: risk.id, itemType: "risk" })}>
+                  {risk.title}
+                </button>
+              </td>
               <td>{risk.severity}</td>
               <td>{risk.mitigation ?? "-"}</td>
             </tr>
@@ -504,10 +524,20 @@ function renderBlockBody(
     );
   }
   if (block.type === "verification") {
-    return <ItemList items={block.checks.map((check) => ({ id: check.id, label: check.label, status: check.outcome, meta: check.mode }))} />;
+    return (
+      <ItemList
+        items={block.checks.map((check) => ({ id: check.id, label: check.label, status: check.outcome, meta: check.mode }))}
+        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "verification" })}
+      />
+    );
   }
   if (block.type === "artifact") {
-    return <ItemList items={block.artifacts.map((artifact) => ({ id: artifact.id, label: artifact.title, status: artifact.kind, meta: artifact.ref }))} />;
+    return (
+      <ItemList
+        items={block.artifacts.map((artifact) => ({ id: artifact.id, label: artifact.title, status: artifact.kind, meta: artifact.ref }))}
+        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "artifact" })}
+      />
+    );
   }
   if (block.type === "graph_ref") {
     const graph = index.graphsById.get(block.graphId);
@@ -531,7 +561,9 @@ function renderBlockBody(
         <strong>{block.question}</strong>
         {block.options.map((option) => (
           <div className="choice-row" key={option.id}>
-            <span>{option.label}</span>
+            <button className="inline-target-button" onClick={() => onSelect({ graphId, nodeId, blockId: block.id, itemId: option.id, itemType: "option" })}>
+              {option.label}
+            </button>
             <Badge tone={option.status === "selected" ? "accent" : "neutral"}>{option.status}</Badge>
           </div>
         ))}
@@ -714,6 +746,7 @@ function ValidationPanel({
 function PrototypePiecePanel({ index, selection }: { index: GraphIndex; selection: GraphSelection }) {
   const block = selection.nodeId && selection.blockId ? index.blocksByKey.get(blockKey(selection.graphId, selection.nodeId, selection.blockId)) : undefined;
   if (!block || block.type !== "prototype") return null;
+  const selectedPiece = block.pieces.find((piece) => piece.id === selection.pieceId);
   return (
     <section className="tool-card">
       <div className="tool-card-header">
@@ -721,6 +754,19 @@ function PrototypePiecePanel({ index, selection }: { index: GraphIndex; selectio
         <Badge>{block.pieces.length}</Badge>
       </div>
       <ItemList items={block.pieces.map((piece) => ({ id: piece.id, label: piece.title, status: piece.kind, meta: piece.summary }))} />
+      {selectedPiece ? (
+        <div className="prototype-piece-detail">
+          <strong>{selectedPiece.title}</strong>
+          <span>primary: {breadcrumbForTarget(selectedPiece.primaryTarget, index)}</span>
+          {selectedPiece.validates.length > 0 ? (
+            <ul>
+              {selectedPiece.validates.map((target) => (
+                <li key={targetKey(target)}>{breadcrumbForTarget(target, index)}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
