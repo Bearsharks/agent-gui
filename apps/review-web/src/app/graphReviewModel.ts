@@ -172,13 +172,13 @@ export function targetKey(target: GraphPlanTarget): string {
 }
 
 export function breadcrumbForTarget(target: GraphPlanTarget, index: GraphIndex): string {
-  if (target.type === "plan") return "Plan";
+  if (target.type === "plan") return "계획";
   const graph = index.graphsById.get(target.graphId);
   const parts = [graph?.title ?? target.graphId];
   if (target.type === "graph") return parts.join(" / ");
   if (target.type === "edge") {
     const edge = index.edgesByKey.get(edgeKey(target.graphId, target.edgeId));
-    return `${parts.join(" / ")} / Edge: ${edge?.label ?? edge?.id ?? target.edgeId}`;
+    return `${parts.join(" / ")} / 연결: ${edge?.label ?? edge?.id ?? target.edgeId}`;
   }
   if ("nodeId" in target) {
     const node = index.nodesByKey.get(nodeKey(target.graphId, target.nodeId));
@@ -213,12 +213,22 @@ export function getChildGraphIds(node: GraphPlanNode): string[] {
 
 export function conditionLabel(edge: GraphPlanEdge): string {
   if (edge.label) return edge.label;
-  if (!edge.condition) return edge.kind;
+  if (!edge.condition) return edgeKindLabel(edge.kind);
   if ("label" in edge.condition && edge.condition.label) return edge.condition.label;
   if ("operator" in edge.condition) return edge.condition.operator;
-  if ("all" in edge.condition) return "all conditions";
-  if ("any" in edge.condition) return "any condition";
-  return "not condition";
+  if ("all" in edge.condition) return "모든 조건";
+  if ("any" in edge.condition) return "일부 조건";
+  return "조건 제외";
+}
+
+function edgeKindLabel(kind: string): string {
+  if (kind === "sequence") return "순서";
+  if (kind === "conditional") return "조건";
+  if (kind === "dependency") return "의존";
+  if (kind === "loop") return "반복";
+  if (kind === "reference") return "참조";
+  if (kind === "rollback") return "롤백";
+  return kind;
 }
 
 export function nodeKey(graphId: string, nodeId: string): string {

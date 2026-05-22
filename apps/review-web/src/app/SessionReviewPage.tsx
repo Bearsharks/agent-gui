@@ -37,7 +37,7 @@ import {
   selectionToTarget,
   targetKey,
   targetToSelection,
-type GraphIndex,
+  type GraphIndex,
   type GraphSelection,
 } from "./graphReviewModel";
 
@@ -45,6 +45,106 @@ type ReviewFlowNode = FlowNode<{ label: ReactNode }, "default">;
 type ReviewFlowEdge = FlowEdge<{ edge: GraphPlanEdge }>;
 
 const elk = new ELK();
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "초안",
+  needs_agent: "에이전트 필요",
+  agent_replied: "에이전트 답변",
+  revision_ready: "수정안 준비",
+  approved: "승인됨",
+  rejected: "반려됨",
+  open: "열림",
+  needs_revision: "수정 필요",
+  accepted: "수락됨",
+  blocked: "차단됨",
+  complete: "완료",
+  failed: "실패",
+  passed: "통과",
+  pending: "대기",
+  waived: "면제",
+  selected: "선택됨",
+  required: "필수",
+  optional: "선택",
+  manual: "수동",
+  automated: "자동",
+  high: "높음",
+  medium: "중간",
+  low: "낮음",
+  owner: "소유",
+  owned: "소유",
+  reference: "참조",
+  inline: "인라인",
+  prototype_state_flow: "프로토타입 상태 흐름",
+  panel: "패널",
+};
+
+const TARGET_TYPE_LABELS: Record<string, string> = {
+  plan: "계획",
+  graph: "그래프",
+  node: "노드",
+  block: "블록",
+  block_item: "블록 항목",
+  edge: "연결",
+  prototype_piece: "프로토타입 조각",
+  artifact_range: "산출물 범위",
+};
+
+const BLOCK_TYPE_LABELS: Record<string, string> = {
+  text: "텍스트",
+  task_list: "작업 목록",
+  checklist: "체크리스트",
+  criteria: "기준",
+  review_bundle: "리뷰 묶음",
+  risk: "위험",
+  verification: "검증",
+  artifact: "산출물",
+  graph_ref: "하위 그래프",
+  choice_set: "선택지",
+  prototype: "프로토타입",
+  changelog: "변경 기록",
+};
+
+const NODE_KIND_LABELS: Record<string, string> = {
+  section: "섹션",
+  action: "작업",
+  decision: "결정",
+  checkpoint: "체크포인트",
+  review: "리뷰",
+  artifact: "산출물",
+  note: "노트",
+};
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  "user.feedback": "사용자 피드백",
+  "agent.reply": "에이전트 답변",
+  "agent.revision": "에이전트 수정",
+  "user.approval": "사용자 승인",
+};
+
+function labelStatus(value: string | undefined): string {
+  if (!value) return "";
+  return STATUS_LABELS[value] ?? value;
+}
+
+function labelBlockType(value: string): string {
+  return BLOCK_TYPE_LABELS[value] ?? value;
+}
+
+function labelNodeKind(value: string): string {
+  return NODE_KIND_LABELS[value] ?? value;
+}
+
+function labelTargetType(value: string): string {
+  return TARGET_TYPE_LABELS[value] ?? value;
+}
+
+function labelEventType(value: string): string {
+  return EVENT_TYPE_LABELS[value] ?? value;
+}
+
+function labelRelationship(value: string): string {
+  return STATUS_LABELS[value] ?? value;
+}
 
 function getSessionId() {
   const match = window.location.pathname.match(/\/sessions\/([^/]+)/);
@@ -55,6 +155,7 @@ export function SessionReviewPage() {
   const [sessionId, setSessionId] = useState(getSessionId());
   const [session, setSession] = useState<PlanSession | null>(null);
   const [selection, setSelection] = useState<GraphSelection | null>(null);
+  const sessionIndex = useMemo(() => (session ? buildGraphIndex(session.graphPlan, session.validation.issues) : null), [session?.graphPlan, session?.validation.issues]);
 
   async function load(id = sessionId) {
     if (!id) return;
@@ -88,9 +189,8 @@ export function SessionReviewPage() {
   }
 
   function updateSelection(next: GraphSelection) {
-    if (!session) return;
-    const index = buildGraphIndex(session.graphPlan, session.validation.issues);
-    const normalized = normalizeSelection(session.graphPlan, index, next);
+    if (!session || !sessionIndex) return;
+    const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
     setSelection(normalized);
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
   }
@@ -99,31 +199,24 @@ export function SessionReviewPage() {
     return (
       <main className="empty-page">
         <section className="empty-card">
-          <h1>Graph Plan Review</h1>
-          <p>graph-only review session을 생성해 Phase 5 UI를 확인합니다.</p>
-          <Button onClick={startFixture}>fixture session 생성</Button>
+          <h1>그래프 계획 리뷰</h1>
+          <p>그래프 전용 리뷰 세션을 생성해 Phase 5 UI를 확인합니다.</p>
+          <Button onClick={startFixture}>예제 세션 생성</Button>
         </section>
       </main>
     );
   }
 
-  if (!session || !selection) return <main className="empty-page">세션 불러오는 중...</main>;
+  if (!session || !selection || !sessionIndex) return <main className="empty-page">세션 불러오는 중...</main>;
 
-  const index = buildGraphIndex(session.graphPlan, session.validation.issues);
+  const index = sessionIndex;
   const normalizedSelection = normalizeSelection(session.graphPlan, index, selection);
   const selectedTarget = selectionToTarget(normalizedSelection);
   const currentGraph = index.graphsById.get(normalizedSelection.graphId) ?? session.graphPlan.graphs[0];
   const currentNode = normalizedSelection.nodeId ? index.nodesByKey.get(nodeKey(normalizedSelection.graphId, normalizedSelection.nodeId)) : undefined;
   const rootIssueCount = session.validation.errorCount + session.validation.warningCount;
 
-  const statusLabel = {
-    draft: "draft",
-    needs_agent: "needs agent",
-    agent_replied: "agent replied",
-    revision_ready: "revision ready",
-    approved: "approved",
-    rejected: "rejected",
-  }[session.status];
+  const statusLabel = labelStatus(session.status);
 
   return (
     <main className="graph-review-shell">
@@ -134,10 +227,10 @@ export function SessionReviewPage() {
         </div>
         <div className="graph-review-actions">
           <Badge tone={session.validation.publishReady ? "accent" : "warn"}>
-            {session.validation.publishReady ? "publish ready" : "not ready"}
+            {session.validation.publishReady ? "게시 가능" : "게시 불가"}
           </Badge>
-          <Badge tone={rootIssueCount > 0 ? "warn" : "neutral"}>{rootIssueCount} issues</Badge>
-          <Badge>revision {session.revision}</Badge>
+          <Badge tone={rootIssueCount > 0 ? "warn" : "neutral"}>이슈 {rootIssueCount}개</Badge>
+          <Badge>리비전 {session.revision}</Badge>
           <Badge>{statusLabel}</Badge>
           <Button onClick={() => void approveSession(session.id, session.revision)} disabled={session.status === "approved"}>
             승인
@@ -214,12 +307,12 @@ function GraphPane({
     <aside className="graph-pane">
       <div className="pane-header">
         <div>
-          <div className="eyebrow">Graph scope</div>
+          <div className="eyebrow">그래프 범위</div>
           <h2>{graph.title}</h2>
-          <p>{graph.purpose ?? "Current graph scope only. Drilldown changes this pane instead of expanding nested graphs inline."}</p>
+          <p>{graph.purpose ?? "현재 그래프 범위만 표시합니다. 하위 그래프는 인라인 확장이 아니라 드릴다운으로 이 영역을 전환합니다."}</p>
         </div>
         <Button variant="secondary" onClick={drillUp} disabled={graph.id === documentRootGraphId || !parentPointer?.graphId}>
-          상위 graph
+          상위 그래프
         </Button>
       </div>
 
@@ -246,11 +339,11 @@ function GraphPane({
       <div className="scope-footer">
         {parentGraph ? (
           <span>
-            Parent: {parentGraph.title}
+            상위: {parentGraph.title}
             {parentPointer?.nodeId ? ` / ${index.nodesByKey.get(nodeKey(parentPointer.graphId!, parentPointer.nodeId))?.title ?? parentPointer.nodeId}` : ""}
           </span>
         ) : (
-          <span>Root graph. Nested graphs appear as `graph_ref` blocks in the selected node.</span>
+          <span>루트 그래프입니다. 하위 그래프는 선택된 노드의 `graph_ref` 블록으로 표시됩니다.</span>
         )}
       </div>
     </aside>
@@ -258,15 +351,15 @@ function GraphPane({
 }
 
 function useGraphFlowModel(graph: GraphPlanGraph, orderedNodes: GraphPlanNode[], index: GraphIndex, selection: GraphSelection) {
-  const [flowNodes, setFlowNodes] = useState<ReviewFlowNode[]>(() => buildFallbackFlowNodes(graph, orderedNodes, index, selection));
-  const [flowEdges, setFlowEdges] = useState<ReviewFlowEdge[]>(() => buildFlowEdges(graph, selection));
+  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(() => new Map());
+  const layoutKey = useMemo(
+    () => JSON.stringify({ graphId: graph.id, nodes: orderedNodes.map((node) => node.id), edges: graph.edges.map((edge) => [edge.id, edge.from, edge.to]) }),
+    [graph.id, graph.edges, orderedNodes],
+  );
 
   useEffect(() => {
     let cancelled = false;
     const baseNodes = buildFallbackFlowNodes(graph, orderedNodes, index, selection);
-    const baseEdges = buildFlowEdges(graph, selection);
-    setFlowNodes(baseNodes);
-    setFlowEdges(baseEdges);
 
     const elkGraph: ElkNode = {
       id: graph.id,
@@ -290,21 +383,25 @@ function useGraphFlowModel(graph: GraphPlanGraph, orderedNodes: GraphPlanNode[],
 
     void elk.layout(elkGraph).then((layouted) => {
       if (cancelled) return;
-      const positions = new Map((layouted.children ?? []).map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]));
-      setFlowNodes(
-        baseNodes.map((node) => ({
-          ...node,
-          position: positions.get(node.id) ?? node.position,
-        })),
-      );
+      setPositions(new Map((layouted.children ?? []).map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }])));
     });
 
     return () => {
       cancelled = true;
     };
-  }, [graph, index, orderedNodes, selection]);
+  }, [layoutKey]);
 
-  return { nodes: flowNodes, edges: flowEdges };
+  const nodes = useMemo(
+    () =>
+      buildFallbackFlowNodes(graph, orderedNodes, index, selection).map((node) => ({
+        ...node,
+        position: positions.get(node.id) ?? node.position,
+      })),
+    [graph, index, orderedNodes, positions, selection],
+  );
+  const edges = useMemo(() => buildFlowEdges(graph, selection), [graph, selection]);
+
+  return { nodes, edges };
 }
 
 function buildFallbackFlowNodes(
@@ -326,12 +423,12 @@ function buildFallbackFlowNodes(
       data: {
         label: (
           <div className="review-flow-node-body">
-            <span className="node-kind">{node.kind}</span>
+            <span className="node-kind">{labelNodeKind(node.kind)}</span>
             <strong>{node.title}</strong>
             {node.summary ? <span className="node-summary">{node.summary}</span> : null}
             <span className="node-meta">
-              <span>{node.blocks.length} blocks</span>
-              {childGraphIds.length > 0 ? <span>graph_ref</span> : null}
+              <span>블록 {node.blocks.length}개</span>
+              {childGraphIds.length > 0 ? <span>하위 그래프</span> : null}
               {issueCount > 0 ? <span className="issue-chip">{issueCount}</span> : null}
             </span>
           </div>
@@ -372,9 +469,9 @@ function BlockInspector({
     return (
       <section className="blocks-pane">
         <div className="pane-header">
-          <div className="eyebrow">Selected node blocks</div>
+          <div className="eyebrow">선택한 노드의 블록</div>
           <h2>{graph.title}</h2>
-          <p>노드를 선택하면 해당 node의 block list가 표시됩니다.</p>
+          <p>노드를 선택하면 해당 노드의 블록 목록이 표시됩니다.</p>
         </div>
       </section>
     );
@@ -383,16 +480,16 @@ function BlockInspector({
   return (
     <section className="blocks-pane">
       <div className="pane-header">
-        <div className="eyebrow">Selected node blocks</div>
+        <div className="eyebrow">선택한 노드의 블록</div>
         <h2>{node.title}</h2>
-        <p>{node.summary ?? "Nested graph is represented as a graph_ref block, not an inline canvas."}</p>
+        <p>{node.summary ?? "하위 그래프는 인라인 캔버스가 아니라 graph_ref 블록으로 표현됩니다."}</p>
       </div>
       <div className="node-contract">
-        <Badge>{node.kind}</Badge>
-        {node.status ? <Badge tone={node.status === "accepted" || node.status === "complete" ? "accent" : "neutral"}>{node.status}</Badge> : null}
+        <Badge>{labelNodeKind(node.kind)}</Badge>
+        {node.status ? <Badge tone={node.status === "accepted" || node.status === "complete" ? "accent" : "neutral"}>{labelStatus(node.status)}</Badge> : null}
         {getChildGraphIds(node).map((graphId) => (
           <button className="text-button" key={graphId} onClick={() => onSelect({ graphId })}>
-            drill into {index.graphsById.get(graphId)?.title ?? graphId}
+            {index.graphsById.get(graphId)?.title ?? graphId}로 드릴다운
           </button>
         ))}
       </div>
@@ -433,13 +530,13 @@ function BlockRenderer({
     <article className={`graph-block ${selected ? "selected" : ""}`} onClick={() => onSelect({ graphId, nodeId, blockId: block.id })}>
       <header className="block-header-row">
         <div>
-          <strong>{block.title ?? block.type}</strong>
+          <strong>{block.title ?? labelBlockType(block.type)}</strong>
           {block.summary ? <p>{block.summary}</p> : null}
         </div>
         <div className="block-badges">
-          <Badge>{block.type}</Badge>
-          {block.status ? <Badge>{block.status}</Badge> : null}
-          {issueCount > 0 ? <Badge tone="warn">{issueCount} issues</Badge> : null}
+          {block.title ? <Badge>{labelBlockType(block.type)}</Badge> : null}
+          {block.status ? <Badge>{labelStatus(block.status)}</Badge> : null}
+          {issueCount > 0 ? <Badge tone="warn">이슈 {issueCount}개</Badge> : null}
         </div>
       </header>
       <div className="block-body">{renderBlockBody(block, graphId, nodeId, onSelect, index)}</div>
@@ -502,9 +599,9 @@ function renderBlockBody(
       <table className="block-table">
         <thead>
           <tr>
-            <th>Risk</th>
-            <th>Severity</th>
-            <th>Mitigation</th>
+            <th>위험</th>
+            <th>심각도</th>
+            <th>완화책</th>
           </tr>
         </thead>
         <tbody>
@@ -521,7 +618,7 @@ function renderBlockBody(
                   {risk.title}
                 </button>
               </td>
-              <td>{risk.severity}</td>
+              <td>{labelStatus(risk.severity)}</td>
               <td>{risk.mitigation ?? "-"}</td>
             </tr>
           ))}
@@ -552,7 +649,7 @@ function renderBlockBody(
         <div>
           <strong>{graph?.title ?? block.graphId}</strong>
           <span>
-            {block.relationship} · {block.ownership}
+            {labelRelationship(block.relationship)} · {labelRelationship(block.ownership)}
           </span>
         </div>
         <Button
@@ -561,7 +658,7 @@ function renderBlockBody(
             onSelect({ graphId: block.graphId });
           }}
         >
-          Drill down
+          드릴다운
         </Button>
       </div>
     );
@@ -581,7 +678,7 @@ function renderBlockBody(
             >
               {option.label}
             </button>
-            <Badge tone={option.status === "selected" ? "accent" : "neutral"}>{option.status}</Badge>
+            <Badge tone={option.status === "selected" ? "accent" : "neutral"}>{labelStatus(option.status)}</Badge>
           </div>
         ))}
       </div>
@@ -609,7 +706,7 @@ function renderBlockBody(
   }
   return (
     <details>
-      <summary>Unsupported block details</summary>
+      <summary>지원하지 않는 블록 상세</summary>
       <pre>{JSON.stringify(block, null, 2)}</pre>
     </details>
   );
@@ -639,8 +736,8 @@ function ItemList({
         >
           <span>{item.label}</span>
           <span className="item-meta">
-            {item.meta ? <em>{item.meta}</em> : null}
-            {item.status ? <Badge>{item.status}</Badge> : null}
+            {item.meta ? <em>{labelStatus(item.meta)}</em> : null}
+            {item.status ? <Badge>{labelStatus(item.status)}</Badge> : null}
           </span>
         </button>
       ))}
@@ -720,11 +817,11 @@ function FeedbackPanel({
   return (
     <section className="tool-card">
       <div className="tool-card-header">
-        <h3>Selected target</h3>
-        <Badge>{selectedTarget.type}</Badge>
+        <h3>선택한 대상</h3>
+        <Badge>{labelTargetType(selectedTarget.type)}</Badge>
       </div>
       <p className="target-breadcrumb">{breadcrumbForTarget(selectedTarget, index)}</p>
-      <textarea ref={messageRef} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="현재 graph target에 대한 피드백을 입력하세요." />
+      <textarea ref={messageRef} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="현재 그래프 대상에 대한 피드백을 입력하세요." />
       <div className="tool-actions">
         <Button variant="secondary" onClick={notify} disabled={isNotifying || session.status === "approved"}>
           에이전트 호출
@@ -734,7 +831,7 @@ function FeedbackPanel({
         </Button>
       </div>
       <div className="thread-list">
-        {threadEvents.length === 0 ? <p className="muted">이 target에는 아직 thread가 없습니다.</p> : null}
+        {threadEvents.length === 0 ? <p className="muted">이 대상에는 아직 대화가 없습니다.</p> : null}
         {threadEvents.map((event) => (
           <EventSnippet event={event} key={event.id} />
         ))}
@@ -755,13 +852,13 @@ function ValidationPanel({
   return (
     <section className="tool-card">
       <div className="tool-card-header">
-        <h3>Validation</h3>
+        <h3>검증</h3>
         <Badge tone={session.validation.errorCount > 0 ? "warn" : "neutral"}>
-          {session.validation.errorCount} errors · {session.validation.warningCount} warnings
+          오류 {session.validation.errorCount}개 · 경고 {session.validation.warningCount}개
         </Badge>
       </div>
       <div className="issue-list">
-        {session.validation.issues.length === 0 ? <p className="muted">No validation issues.</p> : null}
+        {session.validation.issues.length === 0 ? <p className="muted">검증 이슈가 없습니다.</p> : null}
         {session.validation.issues.map((issue) => (
           <button className="issue-row" key={`${issue.code}:${issue.path}`} onClick={() => selectIssue(issue, session, onSelect)}>
             <strong>{issue.code}</strong>
@@ -781,14 +878,14 @@ function PrototypePiecePanel({ index, selection }: { index: GraphIndex; selectio
   return (
     <section className="tool-card">
       <div className="tool-card-header">
-        <h3>Prototype pieces</h3>
+        <h3>프로토타입 조각</h3>
         <Badge>{block.pieces.length}</Badge>
       </div>
       <ItemList items={block.pieces.map((piece) => ({ id: piece.id, label: piece.title, status: piece.kind, meta: piece.summary }))} />
       {selectedPiece ? (
         <div className="prototype-piece-detail">
           <strong>{selectedPiece.title}</strong>
-          <span>primary: {breadcrumbForTarget(selectedPiece.primaryTarget, index)}</span>
+          <span>주 대상: {breadcrumbForTarget(selectedPiece.primaryTarget, index)}</span>
           {selectedPiece.validates.length > 0 ? (
             <ul>
               {selectedPiece.validates.map((target) => (
@@ -814,7 +911,7 @@ function EventTimeline({
   return (
     <section className="tool-card">
       <div className="tool-card-header">
-        <h3>Timeline</h3>
+        <h3>타임라인</h3>
         <Badge>{session.events.length}</Badge>
       </div>
       <div className="timeline-list">
@@ -836,12 +933,12 @@ function EventSnippet({ event, index }: { event: PlanEvent; index?: GraphIndex }
         ? event.body
         : event.type === "agent.revision"
           ? [...event.changeSummary.structure, ...event.changeSummary.content, ...event.changeSummary.validation].join(", ")
-          : event.message ?? "Approved";
+          : event.message ?? "승인됨";
   return (
     <>
-      <strong>{event.type}</strong>
+      <strong>{labelEventType(event.type)}</strong>
       {hasEventTarget(event) && index ? <span>{breadcrumbForTarget(event.target, index)}</span> : null}
-      <p>{detail || "No detail"}</p>
+      <p>{detail || "상세 내용 없음"}</p>
     </>
   );
 }
@@ -852,7 +949,7 @@ function RevisionSummary({ events, index }: { events: PlanEvent[]; index: GraphI
   return (
     <section className="tool-card">
       <div className="tool-card-header">
-        <h3>Revision summary</h3>
+        <h3>리비전 요약</h3>
         <Badge>{revisions.length}</Badge>
       </div>
       {revisions.map((event) => (
@@ -861,9 +958,9 @@ function RevisionSummary({ events, index }: { events: PlanEvent[]; index: GraphI
             r{event.fromRevision} → r{event.toRevision}
           </strong>
           {event.target ? <span>{breadcrumbForTarget(event.target, index)}</span> : null}
-          <ChangeGroup label="Structure" items={event.changeSummary.structure} />
-          <ChangeGroup label="Content" items={event.changeSummary.content} />
-          <ChangeGroup label="Validation" items={event.changeSummary.validation} />
+          <ChangeGroup label="구조" items={event.changeSummary.structure} />
+          <ChangeGroup label="내용" items={event.changeSummary.content} />
+          <ChangeGroup label="검증" items={event.changeSummary.validation} />
         </div>
       ))}
     </section>
