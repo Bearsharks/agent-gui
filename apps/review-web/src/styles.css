@@ -302,6 +302,23 @@ pre {
   padding: 0;
 }
 
+.inline-target-button {
+  background: transparent;
+  border: 0;
+  color: #20201d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  padding: 0;
+  text-align: left;
+}
+
+.inline-target-button:hover,
+.text-button:hover {
+  color: #246aa8;
+  text-decoration: underline;
+}
+
 .block-list {
   display: grid;
   gap: 12px;
@@ -479,6 +496,29 @@ pre {
   color: #246aa8;
   font-size: 12px;
   font-weight: 750;
+}
+
+.prototype-piece-detail {
+  border-top: 1px solid #d8cfc0;
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+}
+
+.prototype-piece-detail strong {
+  font-size: 13px;
+}
+
+.prototype-piece-detail span,
+.prototype-piece-detail li {
+  color: #6b665e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.prototype-piece-detail ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .issue-row strong,
