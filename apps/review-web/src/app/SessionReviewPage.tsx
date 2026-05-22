@@ -41,8 +41,9 @@ import {
   type GraphSelection,
 } from "./graphReviewModel";
 
-type ReviewFlowNode = FlowNode<{ label: ReactNode }, "default">;
-type ReviewFlowEdge = FlowEdge<{ edge: GraphPlanEdge }>;
+type ReviewFlowNode = FlowNode<{ label: ReactNode; target: GraphSelection }, "default">;
+type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge }>;
+type DrawerKind = "history" | "activity" | "validation" | "prototype";
 
 const elk = new ELK();
 
@@ -142,10 +143,6 @@ function labelEventType(value: string): string {
   return EVENT_TYPE_LABELS[value] ?? value;
 }
 
-function labelRelationship(value: string): string {
-  return STATUS_LABELS[value] ?? value;
-}
-
 function getSessionId() {
   const match = window.location.pathname.match(/\/sessions\/([^/]+)/);
   return match?.[1] ?? null;
@@ -155,6 +152,8 @@ export function SessionReviewPage() {
   const [sessionId, setSessionId] = useState(getSessionId());
   const [session, setSession] = useState<PlanSession | null>(null);
   const [selection, setSelection] = useState<GraphSelection | null>(null);
+  const [expandedNodeSelection, setExpandedNodeSelection] = useState<GraphSelection | null>(null);
+  const [openDrawer, setOpenDrawer] = useState<DrawerKind | null>(null);
   const sessionIndex = useMemo(() => (session ? buildGraphIndex(session.graphPlan, session.validation.issues) : null), [session?.graphPlan, session?.validation.issues]);
 
   async function load(id = sessionId) {
@@ -162,7 +161,9 @@ export function SessionReviewPage() {
     const next = await fetchSession(id);
     const index = buildGraphIndex(next.graphPlan, next.validation.issues);
     setSession(next);
-    setSelection((current) => normalizeSelection(next.graphPlan, index, current ?? selectionFromSearch(next.graphPlan, index, window.location.search)));
+    const searchSelection = selectionFromSearch(next.graphPlan, index, window.location.search);
+    setSelection((current) => normalizeSelection(next.graphPlan, index, current ?? searchSelection));
+    setExpandedNodeSelection((current) => normalizeExpandedNodeSelection(next.graphPlan, index, current ?? searchSelection));
   }
 
   useEffect(() => {
@@ -193,6 +194,14 @@ export function SessionReviewPage() {
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
   }
 
+  function selectGraphNode(next: GraphSelection) {
+    if (!session || !sessionIndex) return;
+    const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
+    setSelection(normalized);
+    setExpandedNodeSelection(normalized.nodeId ? normalized : null);
+    window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
+  }
+
   if (!sessionId) {
     return (
       <main className="empty-page">
@@ -209,9 +218,9 @@ export function SessionReviewPage() {
 
   const index = sessionIndex;
   const normalizedSelection = normalizeSelection(session.graphPlan, index, selection);
+  const normalizedExpandedNodeSelection = normalizeExpandedNodeSelection(session.graphPlan, index, expandedNodeSelection);
   const selectedTarget = selectionToTarget(normalizedSelection);
-  const currentGraph = index.graphsById.get(normalizedSelection.graphId) ?? session.graphPlan.graphs[0];
-  const currentNode = normalizedSelection.nodeId ? index.nodesByKey.get(nodeKey(normalizedSelection.graphId, normalizedSelection.nodeId)) : undefined;
+  const currentGraph = getDisplayGraph(session.graphPlan.rootGraphId, index, normalizedExpandedNodeSelection ?? normalizedSelection) ?? session.graphPlan.graphs[0];
   const rootIssueCount = session.validation.errorCount + session.validation.warningCount;
 
   const statusLabel = labelStatus(session.status);
@@ -219,9 +228,10 @@ export function SessionReviewPage() {
   return (
     <main className="graph-review-shell">
       <header className="graph-review-header">
-        <div className="graph-review-title">
+        <div className="plan-header-copy">
           <h1>{session.graphPlan.title}</h1>
           <p>{session.graphPlan.goal}</p>
+          {session.graphPlan.summary ? <span>{session.graphPlan.summary}</span> : null}
         </div>
         <div className="graph-review-actions">
           <Badge tone={session.validation.publishReady ? "accent" : "warn"}>
@@ -230,55 +240,158 @@ export function SessionReviewPage() {
           <Badge tone={rootIssueCount > 0 ? "warn" : "neutral"}>이슈 {rootIssueCount}개</Badge>
           <Badge>리비전 {session.revision}</Badge>
           <Badge>{statusLabel}</Badge>
+          <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "history" ? null : "history"))}>
+            변경이력
+          </Button>
+          <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "activity" ? null : "activity"))}>
+            활동
+          </Button>
+          <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "validation" ? null : "validation"))}>
+            검증
+          </Button>
+          <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "prototype" ? null : "prototype"))}>
+            프로토타입
+          </Button>
           <Button onClick={() => void approveSession(session.id, session.revision)} disabled={session.status === "approved"}>
             승인
           </Button>
         </div>
       </header>
 
-      <section className="graph-review-grid">
+      <section className="graph-review-main graph-only">
         <GraphPane
-          documentRootGraphId={session.graphPlan.rootGraphId}
           graph={currentGraph}
           index={index}
           selection={normalizedSelection}
+          expandedNodeSelection={normalizedExpandedNodeSelection}
           onSelect={updateSelection}
-        />
-        <BlockInspector
-          graph={currentGraph}
-          node={currentNode}
-          index={index}
-          selection={normalizedSelection}
-          onSelect={updateSelection}
-        />
-        <ReviewTools
-          session={session}
-          index={index}
-          selectedTarget={selectedTarget}
-          selection={normalizedSelection}
-          onSelect={updateSelection}
-          onRefresh={() => void load()}
+          onNodeSelect={selectGraphNode}
         />
       </section>
+
+      <FeedbackComposer session={session} index={index} selectedTarget={selectedTarget} onRefresh={() => void load()} />
+
+      {openDrawer ? (
+        <ReviewDrawer
+          kind={openDrawer}
+          session={session}
+          index={index}
+          selection={normalizedSelection}
+          onSelect={updateSelection}
+          onClose={() => setOpenDrawer(null)}
+        />
+      ) : null}
     </main>
   );
 }
 
+function buildGraphChain(graphId: string, index: GraphIndex): GraphPlanGraph[] {
+  const chain: GraphPlanGraph[] = [];
+  const visited = new Set<string>();
+  let currentId: string | undefined = graphId;
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const graph = index.graphsById.get(currentId);
+    if (!graph) break;
+    chain.unshift(graph);
+    currentId = index.parentByGraphId.get(currentId)?.graphId;
+  }
+  return chain;
+}
+
+function getDisplayGraph(rootGraphId: string, index: GraphIndex, selection: GraphSelection): GraphPlanGraph | undefined {
+  if (selection.graphId === rootGraphId) return index.graphsById.get(rootGraphId);
+  const chain = buildGraphChain(selection.graphId, index);
+  return chain[0] ?? index.graphsById.get(selection.graphId);
+}
+
+function normalizeExpandedNodeSelection(
+  document: PlanSession["graphPlan"],
+  index: GraphIndex,
+  selection: GraphSelection | null,
+): GraphSelection | null {
+  if (!selection?.nodeId) return null;
+  const normalized = normalizeSelection(document, index, selection);
+  return normalized.nodeId ? normalized : null;
+}
+
+function FeedbackComposer({
+  session,
+  index,
+  selectedTarget,
+  onRefresh,
+}: {
+  session: PlanSession;
+  index: GraphIndex;
+  selectedTarget: GraphPlanTarget;
+  onRefresh: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
+
+  async function send() {
+    const currentMessage = inputRef.current?.value.trim() ?? message.trim();
+    if (!currentMessage || isSending) return;
+    setIsSending(true);
+    try {
+      await postFeedback(session.id, selectedTarget, currentMessage);
+      setMessage("");
+      if (inputRef.current) inputRef.current.value = "";
+      onRefresh();
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function notify() {
+    if (isNotifying) return;
+    setIsNotifying(true);
+    try {
+      await notifyAgent(session.id);
+      onRefresh();
+    } finally {
+      setIsNotifying(false);
+    }
+  }
+
+  return (
+    <section className="feedback-bar">
+      <Badge>{labelTargetType(selectedTarget.type)}</Badge>
+      <textarea
+        ref={inputRef}
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+        placeholder={`${breadcrumbForTarget(selectedTarget, index)}에 피드백 남기기`}
+        rows={1}
+      />
+      <Button variant="secondary" onClick={notify} disabled={isNotifying || session.status === "approved"}>
+        에이전트 호출
+      </Button>
+      <Button onClick={send} disabled={isSending || !message.trim()}>
+        제출
+      </Button>
+    </section>
+  );
+}
+
 function GraphPane({
-  documentRootGraphId,
   graph,
   index,
   selection,
+  expandedNodeSelection,
   onSelect,
+  onNodeSelect,
 }: {
-  documentRootGraphId: string;
   graph: GraphPlanGraph;
   index: GraphIndex;
   selection: GraphSelection;
+  expandedNodeSelection: GraphSelection | null;
   onSelect: (selection: GraphSelection) => void;
+  onNodeSelect: (selection: GraphSelection) => void;
 }) {
-  const parentPointer = index.parentByGraphId.get(graph.id);
-  const parentGraph = parentPointer?.graphId ? index.graphsById.get(parentPointer.graphId) : undefined;
+  const selectedNode = expandedNodeSelection ? selectedNodeForSelection(index, expandedNodeSelection) : undefined;
   const orderedNodes = useMemo(
     () =>
       graph.layout?.order
@@ -286,40 +399,20 @@ function GraphPane({
         : graph.nodes,
     [graph],
   );
-  const { nodes, edges } = useGraphFlowModel(graph, orderedNodes, index, selection);
-
-  function drillUp() {
-    if (!parentPointer?.graphId) return;
-    onSelect({
-      graphId: parentPointer.graphId,
-      nodeId: parentPointer.nodeId,
-      blockId: parentPointer.blockId,
-    });
-  }
+  const { nodes, edges } = useGraphFlowModel(graph, orderedNodes, index, selection, expandedNodeSelection, onSelect);
 
   const handleNodeClick: NodeMouseHandler<ReviewFlowNode> = (_event, node) => {
-    onSelect({ graphId: graph.id, nodeId: node.id });
+    onNodeSelect(node.data.target);
   };
 
   return (
     <aside className="graph-pane">
-      <div className="pane-header">
-        <div>
-          <div className="eyebrow">그래프 범위</div>
-          <h2>{graph.title}</h2>
-          <p>{graph.purpose ?? "현재 그래프 범위만 표시합니다. 하위 그래프는 인라인 확장이 아니라 드릴다운으로 이 영역을 전환합니다."}</p>
-        </div>
-        <Button variant="secondary" onClick={drillUp} disabled={graph.id === documentRootGraphId || !parentPointer?.graphId}>
-          상위 그래프
-        </Button>
-      </div>
-
       <div className="graph-canvas" aria-label={`${graph.title} graph`}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
           fitView
-          fitViewOptions={{ padding: 0.18 }}
+          fitViewOptions={{ padding: 0.28 }}
           minZoom={0.35}
           maxZoom={1.5}
           nodesDraggable={false}
@@ -332,51 +425,204 @@ function GraphPane({
           <MiniMap pannable zoomable nodeStrokeWidth={3} />
           <Controls showInteractive={false} />
         </ReactFlow>
-      </div>
-
-      <div className="scope-footer">
-        {parentGraph ? (
-          <span>
-            상위: {parentGraph.title}
-            {parentPointer?.nodeId ? ` / ${index.nodesByKey.get(nodeKey(parentPointer.graphId!, parentPointer.nodeId))?.title ?? parentPointer.nodeId}` : ""}
-          </span>
-        ) : (
-          <span>루트 그래프입니다. 하위 그래프는 선택된 노드의 `graph_ref` 블록으로 표시됩니다.</span>
-        )}
+        {selectedNode && expandedNodeSelection ? (
+          <SelectedNodeOverlay displayGraph={graph} node={selectedNode} selection={selection} expandedNodeSelection={expandedNodeSelection} index={index} onSelect={onSelect} />
+        ) : null}
       </div>
     </aside>
   );
 }
 
-function useGraphFlowModel(graph: GraphPlanGraph, orderedNodes: GraphPlanNode[], index: GraphIndex, selection: GraphSelection) {
+function SelectedNodeOverlay({
+  displayGraph,
+  node,
+  selection,
+  expandedNodeSelection,
+  index,
+  onSelect,
+}: {
+  displayGraph: GraphPlanGraph;
+  node: GraphPlanNode;
+  selection: GraphSelection;
+  expandedNodeSelection: GraphSelection;
+  index: GraphIndex;
+  onSelect: (selection: GraphSelection) => void;
+}) {
+  const nodeGraphId = expandedNodeSelection.graphId;
+  const childGraphIds = getChildGraphIds(node);
+  return (
+    <aside className="selected-node-overlay" onClick={(event) => event.stopPropagation()}>
+      <header className="selected-node-overlay-header">
+        <div>
+          <span>{labelNodeKind(node.kind)}</span>
+          <strong>{node.title}</strong>
+        </div>
+        <Button variant="secondary" onClick={() => onSelect({ graphId: displayGraph.id })}>
+          닫기
+        </Button>
+      </header>
+      <div className="selected-node-block-grid">
+        {node.blocks.map((block) => {
+          const issueCount = issueCountForTarget(index, { type: "block", graphId: nodeGraphId, nodeId: node.id, blockId: block.id });
+          return (
+            <article
+              className={`selected-node-block-card ${selection.blockId === block.id ? "selected" : ""}`}
+              key={block.id}
+              onClick={() => onSelect({ graphId: nodeGraphId, nodeId: node.id, blockId: block.id })}
+            >
+              <header>
+                <span>{labelBlockType(block.type)}</span>
+                <strong>{block.title ?? labelBlockType(block.type)}</strong>
+              </header>
+              {block.summary ? <em>{block.summary}</em> : null}
+              <div className="selected-node-block-body">{renderOverlayBlockBody(block, nodeGraphId, node.id, index, onSelect)}</div>
+              {issueCount > 0 ? <small>이슈 {issueCount}개</small> : null}
+            </article>
+          );
+        })}
+      </div>
+      {childGraphIds.length > 0 ? <div className="selected-node-overlay-footer">{displayGraph.title}</div> : null}
+    </aside>
+  );
+}
+
+function renderOverlayBlockBody(
+  block: GraphPlanBlock,
+  graphId: string,
+  nodeId: string,
+  index: GraphIndex,
+  onSelect: (selection: GraphSelection) => void,
+) {
+  if (block.type === "text") return <p>{block.body}</p>;
+  if (block.type === "task_list") return <OverlayItems items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status }))} />;
+  if (block.type === "checklist") {
+    return <OverlayItems items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "필수" : "선택" }))} />;
+  }
+  if (block.type === "criteria") {
+    return <OverlayItems items={block.criteria.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "필수" : "선택" }))} />;
+  }
+  if (block.type === "review_bundle") {
+    return (
+      <div className="overlay-block-stack">
+        <p>{block.prompt}</p>
+        <OverlayItems items={block.acceptanceCriteria.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "필수" : "선택" }))} />
+      </div>
+    );
+  }
+  if (block.type === "risk") {
+    return <OverlayItems items={block.risks.map((risk) => ({ id: risk.id, label: risk.title, status: risk.severity, meta: risk.mitigation }))} />;
+  }
+  if (block.type === "verification") {
+    return <OverlayItems items={block.checks.map((check) => ({ id: check.id, label: check.label, status: check.outcome, meta: check.mode }))} />;
+  }
+  if (block.type === "artifact") {
+    return <OverlayItems items={block.artifacts.map((artifact) => ({ id: artifact.id, label: artifact.title, status: artifact.kind, meta: artifact.ref }))} />;
+  }
+  if (block.type === "graph_ref") {
+    const graph = index.graphsById.get(block.graphId);
+    return (
+      <div className="overlay-block-stack">
+        <p>{graph?.title ?? block.graphId}</p>
+        <OverlayItems items={(graph?.nodes ?? []).map((node) => ({ id: node.id, label: node.title, status: node.kind, meta: `${node.blocks.length} blocks` }))} />
+      </div>
+    );
+  }
+  if (block.type === "choice_set") return <OverlayItems items={block.options.map((option) => ({ id: option.id, label: option.label, status: option.status }))} />;
+  if (block.type === "prototype") {
+    return (
+      <div className="overlay-block-stack">
+        <OverlayItems items={block.tabs.map((tab) => ({ id: tab.id, label: tab.title, meta: tab.url }))} />
+        <OverlayItems
+          items={block.pieces.map((piece) => ({ id: piece.id, label: piece.title, status: piece.kind, meta: piece.summary }))}
+          onItemClick={(pieceId) => onSelect({ graphId, nodeId, blockId: block.id, prototypeId: block.prototypeId, pieceId })}
+        />
+      </div>
+    );
+  }
+  if (block.type === "changelog") return <OverlayItems items={block.entries.map((entry) => ({ id: entry.id, label: entry.summary, status: `${block.fromRevision}->${block.toRevision}` }))} />;
+  return <pre>{JSON.stringify(block, null, 2)}</pre>;
+}
+
+function OverlayItems({
+  items,
+  onItemClick,
+}: {
+  items: { id: string; label: string; status?: string; meta?: string }[];
+  onItemClick?: (id: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="overlay-item-list">
+      {items.map((item) => (
+        <button
+          className="overlay-item-row"
+          key={item.id}
+          onClick={
+            onItemClick
+              ? (event) => {
+                  event.stopPropagation();
+                  onItemClick(item.id);
+                }
+              : undefined
+          }
+        >
+          <span>{item.label}</span>
+          {item.meta ? <em>{item.meta}</em> : null}
+          {item.status ? <small>{labelStatus(item.status)}</small> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function useGraphFlowModel(
+  graph: GraphPlanGraph,
+  orderedNodes: GraphPlanNode[],
+  index: GraphIndex,
+  selection: GraphSelection,
+  expandedNodeSelection: GraphSelection | null,
+  onSelect: (selection: GraphSelection) => void,
+) {
+  const expansionSelection = expandedNodeSelection ?? selection;
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(() => new Map());
   const layoutKey = useMemo(
-    () => JSON.stringify({ graphId: graph.id, nodes: orderedNodes.map((node) => node.id), edges: graph.edges.map((edge) => [edge.id, edge.from, edge.to]) }),
-    [graph.id, graph.edges, orderedNodes],
+    () =>
+      JSON.stringify({
+        graphId: graph.id,
+        selectedNodeId: expansionSelection.nodeId,
+        selectedGraphId: expansionSelection.graphId,
+        nodes: orderedNodes.map((node) => node.id),
+        edges: graph.edges.map((edge) => [edge.id, edge.from, edge.to]),
+        childGraphs: visibleNestedGraphIds(graph, expansionSelection, index),
+      }),
+    [expansionSelection, graph, graph.edges, index, orderedNodes],
   );
 
   useEffect(() => {
     let cancelled = false;
-    const baseNodes = buildFallbackFlowNodes(graph, orderedNodes, index, selection);
+    const baseNodes = buildFallbackFlowNodes(graph, orderedNodes, index, selection, expansionSelection, onSelect);
+    const flowEdges = buildFlowEdges(graph, selection, expansionSelection, index);
 
     const elkGraph: ElkNode = {
       id: graph.id,
       layoutOptions: {
         "elk.algorithm": "layered",
         "elk.direction": "RIGHT",
-        "elk.spacing.nodeNode": "48",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "72",
+        "elk.spacing.nodeNode": "28",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "46",
       },
       children: baseNodes.map((node) => ({
         id: node.id,
         width: Number(node.width ?? 190),
         height: Number(node.height ?? 142),
       })),
-      edges: graph.edges.map((edge) => ({
-        id: edge.id,
-        sources: [edge.from],
-        targets: [edge.to],
-      })),
+      edges: flowEdges
+        .filter((edge) => baseNodes.some((node) => node.id === edge.source) && baseNodes.some((node) => node.id === edge.target))
+        .map((edge) => ({
+          id: edge.id,
+          sources: [edge.source],
+          targets: [edge.target],
+        })),
     };
 
     void elk.layout(elkGraph).then((layouted) => {
@@ -387,17 +633,20 @@ function useGraphFlowModel(graph: GraphPlanGraph, orderedNodes: GraphPlanNode[],
     return () => {
       cancelled = true;
     };
-  }, [layoutKey]);
+  }, [expansionSelection, graph.id, index, layoutKey, onSelect, orderedNodes, selection]);
 
   const nodes = useMemo(
     () =>
-      buildFallbackFlowNodes(graph, orderedNodes, index, selection).map((node) => ({
-        ...node,
-        position: positions.get(node.id) ?? node.position,
-      })),
-    [graph, index, orderedNodes, positions, selection],
+      buildFallbackFlowNodes(graph, orderedNodes, index, selection, expansionSelection, onSelect).map((node) => {
+        const layoutPosition = positions.get(node.id);
+        return {
+          ...node,
+          position: layoutPosition ? positionForFlowNode(node.id, layoutPosition, graph.id, index) : node.position,
+        };
+      }),
+    [expansionSelection, graph, index, onSelect, orderedNodes, positions, selection],
   );
-  const edges = useMemo(() => buildFlowEdges(graph, selection), [graph, selection]);
+  const edges = useMemo(() => buildFlowEdges(graph, selection, expansionSelection, index), [expansionSelection, graph, index, selection]);
 
   return { nodes, edges };
 }
@@ -407,18 +656,22 @@ function buildFallbackFlowNodes(
   orderedNodes: GraphPlanNode[],
   index: GraphIndex,
   selection: GraphSelection,
+  expansionSelection: GraphSelection,
+  onSelect: (selection: GraphSelection) => void,
 ): ReviewFlowNode[] {
-  return orderedNodes.map((node, nodeIndex) => {
+  const baseNodes: ReviewFlowNode[] = orderedNodes.map((node, nodeIndex): ReviewFlowNode => {
     const childGraphIds = getChildGraphIds(node);
     const issueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
+    const selected = selection.graphId === graph.id && selection.nodeId === node.id;
     return {
       id: node.id,
       type: "default",
       position: { x: nodeIndex * 230, y: 120 + (nodeIndex % 2) * 28 },
-      width: 190,
-      height: 142,
-      className: `review-flow-node ${selection.nodeId === node.id ? "selected" : ""} ${childGraphIds.length > 0 ? "drillable" : ""}`,
+      width: 150,
+      height: 96,
+      className: `review-flow-node ${selected ? "selected" : ""} ${childGraphIds.length > 0 ? "drillable" : ""}`,
       data: {
+        target: { graphId: graph.id, nodeId: node.id },
         label: (
           <div className="review-flow-node-body">
             <span className="node-kind">{labelNodeKind(node.kind)}</span>
@@ -434,10 +687,40 @@ function buildFallbackFlowNodes(
       },
     };
   });
+  const childNodes =
+    visibleNestedGraphIds(graph, expansionSelection, index).flatMap((childGraphId) => {
+      const childGraph = index.graphsById.get(childGraphId);
+      if (!childGraph) return [];
+      const depth = nestedGraphDepth(graph.id, childGraph.id, index);
+      return childGraph.nodes.map((node, nodeIndex): ReviewFlowNode => {
+        const selected = selection.graphId === childGraph.id && selection.nodeId === node.id;
+        return {
+          id: childFlowNodeId(childGraph.id, node.id),
+          type: "default",
+          position: { x: 320 + nodeIndex * 190, y: 260 },
+          width: 150,
+          height: 96,
+          className: `review-flow-node child-graph-node depth-${depth} ${selected ? "selected" : ""}`,
+          data: {
+            target: { graphId: childGraph.id, nodeId: node.id },
+            label: (
+              <div className="review-flow-node-body">
+                <span className="node-kind">{childGraph.title}</span>
+                <strong>{node.title}</strong>
+                <span className="node-meta">
+                  <span>블록 {node.blocks.length}개</span>
+                </span>
+              </div>
+            ),
+          },
+        };
+      });
+    });
+  return [...baseNodes, ...childNodes];
 }
 
-function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection): ReviewFlowEdge[] {
-  return graph.edges.map((edge) => ({
+function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection, expansionSelection: GraphSelection, index: GraphIndex): ReviewFlowEdge[] {
+  const graphEdges = graph.edges.map((edge) => ({
     id: edge.id,
     source: edge.from,
     target: edge.to,
@@ -448,266 +731,97 @@ function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection): Revie
     markerEnd: { type: MarkerType.ArrowClosed },
     data: { edge },
   }));
+  const childEdges =
+    visibleNestedGraphIds(graph, expansionSelection, index).flatMap((childGraphId) => {
+      const childGraph = index.graphsById.get(childGraphId);
+      if (!childGraph) return [];
+      const owner = index.parentByGraphId.get(childGraph.id);
+      const ownerNodeId = owner?.nodeId;
+      const refEdges: ReviewFlowEdge[] = ownerNodeId
+        ? childGraph.nodes.slice(0, 1).map((node) => ({
+            id: `child-ref:${ownerNodeId}:${childGraph.id}:${node.id}`,
+            source: flowNodeIdForGraphNode(graph.id, owner?.graphId ?? graph.id, ownerNodeId),
+            target: childFlowNodeId(childGraph.id, node.id),
+        label: "자식",
+            type: "smoothstep",
+            animated: false,
+            className: "review-flow-edge child-graph-edge",
+            markerEnd: { type: MarkerType.ArrowClosed },
+            data: {},
+          }))
+        : [];
+      const internalEdges: ReviewFlowEdge[] = childGraph.edges.map((edge) => ({
+        id: `child-edge:${childGraph.id}:${edge.id}`,
+        source: childFlowNodeId(childGraph.id, edge.from),
+        target: childFlowNodeId(childGraph.id, edge.to),
+        label: conditionLabel(edge),
+        type: "smoothstep",
+        animated: edge.kind === "conditional",
+        className: "review-flow-edge child-graph-edge",
+        markerEnd: { type: MarkerType.ArrowClosed },
+        data: { edge },
+      }));
+      return [...refEdges, ...internalEdges];
+    });
+  return [...graphEdges, ...childEdges];
 }
 
-function BlockInspector({
-  graph,
-  node,
-  index,
-  selection,
-  onSelect,
-}: {
-  graph: GraphPlanGraph;
-  node: GraphPlanNode | undefined;
-  index: GraphIndex;
-  selection: GraphSelection;
-  onSelect: (selection: GraphSelection) => void;
-}) {
-  if (!node) {
-    return (
-      <section className="blocks-pane">
-        <div className="pane-header">
-          <div className="eyebrow">선택한 노드의 블록</div>
-          <h2>{graph.title}</h2>
-          <p>노드를 선택하면 해당 노드의 블록 목록이 표시됩니다.</p>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="blocks-pane">
-      <div className="pane-header">
-        <div className="eyebrow">선택한 노드의 블록</div>
-        <h2>{node.title}</h2>
-        <p>{node.summary ?? "하위 그래프는 인라인 캔버스가 아니라 graph_ref 블록으로 표현됩니다."}</p>
-      </div>
-      <div className="node-contract">
-        <Badge>{labelNodeKind(node.kind)}</Badge>
-        {node.status ? <Badge tone={node.status === "accepted" || node.status === "complete" ? "accent" : "neutral"}>{labelStatus(node.status)}</Badge> : null}
-        {getChildGraphIds(node).map((graphId) => (
-          <button className="text-button" key={graphId} onClick={() => onSelect({ graphId })}>
-            {index.graphsById.get(graphId)?.title ?? graphId}로 드릴다운
-          </button>
-        ))}
-      </div>
-      <div className="block-list">
-        {node.blocks.map((block) => (
-          <BlockRenderer
-            block={block}
-            graphId={graph.id}
-            nodeId={node.id}
-            index={index}
-            key={block.id}
-            selected={selection.blockId === block.id}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
-    </section>
-  );
+function childFlowNodeId(graphId: string, nodeId: string): string {
+  return `${graphId}::${nodeId}`;
 }
 
-function BlockRenderer({
-  block,
-  graphId,
-  nodeId,
-  index,
-  selected,
-  onSelect,
-}: {
-  block: GraphPlanBlock;
-  graphId: string;
-  nodeId: string;
-  index: GraphIndex;
-  selected: boolean;
-  onSelect: (selection: GraphSelection) => void;
-}) {
-  const issueCount = issueCountForTarget(index, { type: "block", graphId, nodeId, blockId: block.id });
-  return (
-    <article className={`graph-block ${selected ? "selected" : ""}`} onClick={() => onSelect({ graphId, nodeId, blockId: block.id })}>
-      <header className="block-header-row">
-        <div>
-          <strong>{block.title ?? labelBlockType(block.type)}</strong>
-          {block.summary ? <p>{block.summary}</p> : null}
-        </div>
-        <div className="block-badges">
-          {block.title ? <Badge>{labelBlockType(block.type)}</Badge> : null}
-          {block.status ? <Badge>{labelStatus(block.status)}</Badge> : null}
-          {issueCount > 0 ? <Badge tone="warn">이슈 {issueCount}개</Badge> : null}
-        </div>
-      </header>
-      <div className="block-body">{renderBlockBody(block, graphId, nodeId, onSelect, index)}</div>
-    </article>
-  );
-}
-
-function renderBlockBody(
-  block: GraphPlanBlock,
-  graphId: string,
-  nodeId: string,
-  onSelect: (selection: GraphSelection) => void,
+function positionForFlowNode(
+  flowNodeId: string,
+  layoutPosition: { x: number; y: number },
+  displayGraphId: string,
   index: GraphIndex,
-) {
-  if (block.type === "text") return <p>{block.body}</p>;
-  if (block.type === "task_list") {
-    return (
-      <ItemList
-        items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status }))}
-        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "task" })}
-      />
-    );
+): { x: number; y: number } {
+  const parsed = parseChildFlowNodeId(flowNodeId);
+  if (!parsed) return { x: layoutPosition.x + 48, y: layoutPosition.y + 72 };
+  const depth = nestedGraphDepth(displayGraphId, parsed.graphId, index);
+  return {
+    x: layoutPosition.x + 48,
+    y: layoutPosition.y + 72 + depth * 150,
+  };
+}
+
+function parseChildFlowNodeId(flowNodeId: string): { graphId: string; nodeId: string } | null {
+  const [graphId, nodeId] = flowNodeId.split("::");
+  if (!graphId || !nodeId) return null;
+  return { graphId, nodeId };
+}
+
+function flowNodeIdForGraphNode(displayGraphId: string, graphId: string, nodeId: string): string {
+  return graphId === displayGraphId ? nodeId : childFlowNodeId(graphId, nodeId);
+}
+
+function nestedGraphDepth(displayGraphId: string, graphId: string, index: GraphIndex): number {
+  let depth = 0;
+  let currentId: string | undefined = graphId;
+  const visited = new Set<string>();
+  while (currentId && currentId !== displayGraphId && !visited.has(currentId)) {
+    visited.add(currentId);
+    depth += 1;
+    currentId = index.parentByGraphId.get(currentId)?.graphId;
   }
-  if (block.type === "checklist") {
-    return (
-      <ItemList
-        items={block.items.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))}
-        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "check" })}
-      />
-    );
+  return depth;
+}
+
+function visibleNestedGraphIds(displayGraph: GraphPlanGraph, selection: GraphSelection, index: GraphIndex): string[] {
+  const graphIds = new Set<string>();
+  const chain = buildGraphChain(selection.graphId, index);
+  chain.forEach((graph) => {
+    if (graph.id !== displayGraph.id) graphIds.add(graph.id);
+  });
+  const selectedNode = selectedNodeForSelection(index, selection);
+  if (selectedNode) {
+    getChildGraphIds(selectedNode).forEach((graphId) => graphIds.add(graphId));
   }
-  if (block.type === "criteria") {
-    return (
-      <ItemList
-        items={block.criteria.map((item) => ({ id: item.id, label: item.label, status: item.status, meta: item.required ? "required" : "optional" }))}
-        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "criterion" })}
-      />
-    );
-  }
-  if (block.type === "review_bundle") {
-    return (
-      <div className="review-bundle">
-        <p>{block.prompt}</p>
-        {block.acceptanceCriteria.length > 0 ? (
-          <ItemList
-            items={block.acceptanceCriteria.map((criterion) => ({
-              id: criterion.id,
-              label: criterion.label,
-              status: criterion.status,
-              meta: criterion.required ? "required" : "optional",
-            }))}
-            onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "criterion" })}
-          />
-        ) : null}
-      </div>
-    );
-  }
-  if (block.type === "risk") {
-    return (
-      <table className="block-table">
-        <thead>
-          <tr>
-            <th>위험</th>
-            <th>심각도</th>
-            <th>완화책</th>
-          </tr>
-        </thead>
-        <tbody>
-          {block.risks.map((risk) => (
-            <tr key={risk.id}>
-              <td>
-                <button
-                  className="inline-target-button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect({ graphId, nodeId, blockId: block.id, itemId: risk.id, itemType: "risk" });
-                  }}
-                >
-                  {risk.title}
-                </button>
-              </td>
-              <td>{labelStatus(risk.severity)}</td>
-              <td>{risk.mitigation ?? "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
-  if (block.type === "verification") {
-    return (
-      <ItemList
-        items={block.checks.map((check) => ({ id: check.id, label: check.label, status: check.outcome, meta: check.mode }))}
-        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "verification" })}
-      />
-    );
-  }
-  if (block.type === "artifact") {
-    return (
-      <ItemList
-        items={block.artifacts.map((artifact) => ({ id: artifact.id, label: artifact.title, status: artifact.kind, meta: artifact.ref }))}
-        onItemClick={(itemId) => onSelect({ graphId, nodeId, blockId: block.id, itemId, itemType: "artifact" })}
-      />
-    );
-  }
-  if (block.type === "graph_ref") {
-    const graph = index.graphsById.get(block.graphId);
-    return (
-      <div className="graph-ref-block" onClick={(event) => event.stopPropagation()}>
-        <div>
-          <strong>{graph?.title ?? block.graphId}</strong>
-          <span>
-            {labelRelationship(block.relationship)} · {labelRelationship(block.ownership)}
-          </span>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            onSelect({ graphId: block.graphId });
-          }}
-        >
-          드릴다운
-        </Button>
-      </div>
-    );
-  }
-  if (block.type === "choice_set") {
-    return (
-      <div className="choice-list">
-        <strong>{block.question}</strong>
-        {block.options.map((option) => (
-          <div className="choice-row" key={option.id}>
-            <button
-              className="inline-target-button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect({ graphId, nodeId, blockId: block.id, itemId: option.id, itemType: "option" });
-              }}
-            >
-              {option.label}
-            </button>
-            <Badge tone={option.status === "selected" ? "accent" : "neutral"}>{labelStatus(option.status)}</Badge>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (block.type === "prototype") {
-    return (
-      <div className="prototype-block">
-        <div className="prototype-tabs">
-          {block.tabs.map((tab) => (
-            <a href={tab.url} key={tab.id} target="_blank" rel="noreferrer">
-              {tab.title}
-            </a>
-          ))}
-        </div>
-        <ItemList
-          items={block.pieces.map((piece) => ({ id: piece.id, label: piece.title, status: piece.kind, meta: piece.summary }))}
-          onItemClick={(pieceId) => onSelect({ graphId, nodeId, blockId: block.id, prototypeId: block.prototypeId, pieceId })}
-        />
-      </div>
-    );
-  }
-  if (block.type === "changelog") {
-    return <ItemList items={block.entries.map((entry) => ({ id: entry.id, label: entry.summary, status: `${block.fromRevision}->${block.toRevision}` }))} />;
-  }
-  return (
-    <details>
-      <summary>지원하지 않는 블록 상세</summary>
-      <pre>{JSON.stringify(block, null, 2)}</pre>
-    </details>
-  );
+  return Array.from(graphIds);
+}
+
+function selectedNodeForSelection(index: GraphIndex, selection: GraphSelection): GraphPlanNode | undefined {
+  return selection.nodeId ? index.nodesByKey.get(nodeKey(selection.graphId, selection.nodeId)) : undefined;
 }
 
 function ItemList({
@@ -743,99 +857,50 @@ function ItemList({
   );
 }
 
-function ReviewTools({
+function ReviewDrawer({
+  kind,
   session,
   index,
-  selectedTarget,
   selection,
   onSelect,
-  onRefresh,
+  onClose,
 }: {
+  kind: DrawerKind;
   session: PlanSession;
   index: GraphIndex;
-  selectedTarget: GraphPlanTarget;
   selection: GraphSelection;
   onSelect: (selection: GraphSelection) => void;
-  onRefresh: () => void;
+  onClose: () => void;
 }) {
+  const titleByKind: Record<DrawerKind, string> = {
+    history: "변경이력",
+    activity: "활동",
+    validation: "검증",
+    prototype: "프로토타입",
+  };
+
   return (
-    <aside className="review-pane">
-      <FeedbackPanel session={session} index={index} selectedTarget={selectedTarget} onRefresh={onRefresh} />
-      <ValidationPanel session={session} index={index} onSelect={onSelect} />
-      <PrototypePiecePanel index={index} selection={selection} />
-      <EventTimeline session={session} index={index} onSelect={onSelect} />
-      <RevisionSummary events={session.events} index={index} />
+    <aside className="review-drawer" aria-label={titleByKind[kind]}>
+      <div className="review-drawer-header">
+        <h2>{titleByKind[kind]}</h2>
+        <Button variant="secondary" onClick={onClose}>
+          닫기
+        </Button>
+      </div>
+      <div className="review-drawer-body">
+        {kind === "history" ? <RevisionSummary events={session.events} index={index} /> : null}
+        {kind === "activity" ? <EventTimeline session={session} index={index} onSelect={onSelect} /> : null}
+        {kind === "validation" ? <ValidationPanel session={session} index={index} onSelect={onSelect} /> : null}
+        {kind === "prototype" ? <PrototypePiecePanel index={index} selection={selection} /> : null}
+        {kind === "prototype" && !getSelectedPrototypeBlock(index, selection) ? <p className="muted drawer-empty">선택된 프로토타입 블록이 없습니다.</p> : null}
+      </div>
     </aside>
   );
 }
 
-function FeedbackPanel({
-  session,
-  index,
-  selectedTarget,
-  onRefresh,
-}: {
-  session: PlanSession;
-  index: GraphIndex;
-  selectedTarget: GraphPlanTarget;
-  onRefresh: () => void;
-}) {
-  const [message, setMessage] = useState("");
-  const messageRef = useRef<HTMLTextAreaElement | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [isNotifying, setIsNotifying] = useState(false);
-  const activeKey = targetKey(selectedTarget);
-  const threadEvents = session.events.filter((event) => hasEventTarget(event) && targetKey(event.target) === activeKey);
-
-  async function send() {
-    const currentMessage = messageRef.current?.value.trim() ?? message.trim();
-    if (!currentMessage || isSending) return;
-    setIsSending(true);
-    try {
-      await postFeedback(session.id, selectedTarget, currentMessage);
-      setMessage("");
-      if (messageRef.current) messageRef.current.value = "";
-      onRefresh();
-    } finally {
-      setIsSending(false);
-    }
-  }
-
-  async function notify() {
-    if (isNotifying) return;
-    setIsNotifying(true);
-    try {
-      await notifyAgent(session.id);
-      onRefresh();
-    } finally {
-      setIsNotifying(false);
-    }
-  }
-
-  return (
-    <section className="tool-card">
-      <div className="tool-card-header">
-        <h3>선택한 대상</h3>
-        <Badge>{labelTargetType(selectedTarget.type)}</Badge>
-      </div>
-      <p className="target-breadcrumb">{breadcrumbForTarget(selectedTarget, index)}</p>
-      <textarea ref={messageRef} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="현재 그래프 대상에 대한 피드백을 입력하세요." />
-      <div className="tool-actions">
-        <Button variant="secondary" onClick={notify} disabled={isNotifying || session.status === "approved"}>
-          에이전트 호출
-        </Button>
-        <Button onClick={send} disabled={isSending || !message.trim()}>
-          피드백 제출
-        </Button>
-      </div>
-      <div className="thread-list">
-        {threadEvents.length === 0 ? <p className="muted">이 대상에는 아직 대화가 없습니다.</p> : null}
-        {threadEvents.map((event) => (
-          <EventSnippet event={event} key={event.id} />
-        ))}
-      </div>
-    </section>
-  );
+function getSelectedPrototypeBlock(index: GraphIndex, selection: GraphSelection): GraphPlanBlock | undefined {
+  const block = selection.nodeId && selection.blockId ? index.blocksByKey.get(blockKey(selection.graphId, selection.nodeId, selection.blockId)) : undefined;
+  return block?.type === "prototype" ? block : undefined;
 }
 
 function ValidationPanel({

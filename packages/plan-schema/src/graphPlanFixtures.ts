@@ -167,11 +167,59 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
       nodes: [
         { id: "n-default", kind: "artifact", title: "기본 상태", blocks: [{ id: "b-default", type: "text", body: "선택된 프로토타입 조각이 없다." }] },
         { id: "n-piece-selected", kind: "artifact", title: "조각 선택 상태", blocks: [{ id: "b-selected", type: "text", body: "사이드바가 조각의 대상 경로를 표시한다." }] },
-        { id: "n-commenting", kind: "review", title: "댓글 작성 상태", blocks: [{ id: "b-commenting", type: "text", body: "피드백 작성기가 프로토타입 조각을 대상으로 삼는다." }] },
+        {
+          id: "n-commenting",
+          kind: "review",
+          title: "댓글 작성 상태",
+          ownedGraphIds: ["g-comment-thread"],
+          blocks: [
+            { id: "b-commenting", type: "text", body: "피드백 작성기가 프로토타입 조각을 대상으로 삼는다." },
+            {
+              id: "b-comment-thread-flow",
+              type: "graph_ref",
+              graphId: "g-comment-thread",
+              relationship: "decomposes_node",
+              ownership: "owned",
+            },
+          ],
+        },
       ],
       edges: [
         { id: "e-default-selected", from: "n-default", to: "n-piece-selected", kind: "conditional", label: "조각 클릭" },
         { id: "e-selected-commenting", from: "n-piece-selected", to: "n-commenting", kind: "conditional", label: "댓글 열림" },
+      ],
+    },
+    {
+      id: "g-comment-thread",
+      title: "댓글 스레드 작성",
+      owner: { graphId: "g-prototype-states", nodeId: "n-commenting", blockId: "b-comment-thread-flow" },
+      layout: { mode: "linear", order: ["n-draft-comment", "n-submit-comment", "n-thread-visible"] },
+      nodes: [
+        {
+          id: "n-draft-comment",
+          kind: "action",
+          title: "댓글 초안 작성",
+          blocks: [
+            { id: "b-draft-copy", type: "text", body: "선택된 프로토타입 조각과 그래프 target을 보면서 피드백 문장을 작성한다." },
+            { id: "b-draft-checks", type: "checklist", items: [{ id: "check-target-visible", label: "작성 중 target breadcrumb가 보인다", required: true }] },
+          ],
+        },
+        {
+          id: "n-submit-comment",
+          kind: "action",
+          title: "댓글 제출",
+          blocks: [{ id: "b-submit-task", type: "task_list", items: [{ id: "task-submit", label: "현재 선택 target으로 feedback event를 저장한다" }] }],
+        },
+        {
+          id: "n-thread-visible",
+          kind: "checkpoint",
+          title: "스레드 표시 확인",
+          blocks: [{ id: "b-thread-criteria", type: "criteria", criteria: [{ id: "crit-thread-target", label: "저장된 댓글이 같은 target thread 아래에 보인다" }] }],
+        },
+      ],
+      edges: [
+        { id: "e-draft-submit", from: "n-draft-comment", to: "n-submit-comment", kind: "sequence" },
+        { id: "e-submit-visible", from: "n-submit-comment", to: "n-thread-visible", kind: "sequence" },
       ],
     },
   ],
