@@ -445,6 +445,7 @@ pre {
 }
 
 .selected-node-block-body {
+  align-content: start;
   box-sizing: border-box;
   display: grid;
   gap: 5px;
@@ -482,6 +483,11 @@ pre {
 .text-block-content {
   display: grid;
   gap: 6px;
+}
+
+.typed-block-content,
+.text-block-content {
+  align-content: start;
 }
 
 .block-relationship-row {
@@ -616,7 +622,10 @@ pre {
   color: #6b665e;
   font-size: 10px;
   font-style: normal;
+  grid-column: 1 / -1;
   line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .checklist-row {

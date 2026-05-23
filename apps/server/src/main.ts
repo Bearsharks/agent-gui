@@ -15,11 +15,16 @@ const honoListener = getRequestListener(app.fetch);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
 const reviewRoot = path.join(repoRoot, "apps/review-web");
+const todoPrototypePath = path.join(repoRoot, "fixtures/todo-list-prototype/index.html");
 
 const server = createServer((req, res) => {
   const url = req.url ?? "/";
   if (url.startsWith("/api/") || url.startsWith("/events/") || url.startsWith("/mcp")) {
     void honoListener(req, res);
+    return;
+  }
+  if (url.startsWith("/prototypes/todo-list")) {
+    void serveHtmlFile(todoPrototypePath, res);
     return;
   }
   if (url.startsWith("/sessions/")) {
@@ -64,6 +69,18 @@ async function serveIndex(url: string, root: string, vite: Awaited<ReturnType<ty
     res.end(transformed);
   } catch (error) {
     vite.ssrFixStacktrace(error as Error);
+    res.statusCode = 500;
+    res.end(String(error));
+  }
+}
+
+async function serveHtmlFile(filePath: string, res: import("node:http").ServerResponse) {
+  try {
+    const html = await readFile(filePath, "utf8");
+    res.statusCode = 200;
+    res.setHeader("content-type", "text/html");
+    res.end(html);
+  } catch (error) {
     res.statusCode = 500;
     res.end(String(error));
   }

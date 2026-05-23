@@ -1,191 +1,211 @@
 ---
 name: plan-gui-mcp
-description: Use Agent GUI's local MCP plan review workflow to create browser-reviewable implementation plans, collect targeted user feedback, answer feedback threads, submit plan revisions, and confirm approval before implementation. Trigger when the user asks to use Agent GUI, Plan GUI, plan review UI, MCP plan sessions, browser plan review, revision/approval loops, or wants a complex implementation plan reviewed in the Agent GUI before code changes.
+description: Use Agent GUI's current graph-plan MCP workflow to create browser-reviewable GraphPlanDocument sessions, attach prototype iframe tabs, inspect feedback events, reply or revise plans, validate graph targets, and confirm approval. Trigger when the user asks to use Agent GUI, Plan GUI, graph plan review, MCP plan sessions, browser plan review, prototype tabs, revision/approval loops, or wants an implementation plan reviewed before code changes.
 ---
 
 # Plan GUI MCP
 
-Use this skill to run the Agent GUI review loop for implementation plans. Agent GUI is a local server plus MCP server that lets users review structured plans, leave targeted feedback, inspect revisions, and approve a plan in a browser.
+Use this skill to create and operate Agent GUI graph-plan review sessions. The current model is graph-based: sessions contain a `GraphPlanDocument`, not the older step-based `PlanDraft`.
 
-## Prerequisites
+## Current Model
 
-- Work from the Agent GUI repo when possible.
-- The local server normally runs at `http://localhost:8787`.
-- If the server is not running and the task requires the UI, start it with `pnpm dev`.
-- Use the available MCP tools directly when present:
-  - `create_plan_session`
-  - `get_plan_session`
-  - `list_plan_events`
-  - `post_agent_reply`
-  - `update_plan_revision`
-  - `mark_plan_approved`
-
-## Standard Workflow
-
-1. Draft the plan before editing code when the user asks for Agent GUI review or when the workflow explicitly requires approval.
-2. Create a `PlanDraft` with clear decisions, phases, steps, risks, verification, and optional prototypes.
-3. Call `create_plan_session` with `{ plan }`.
-4. Share the returned review URL and ask the user to review it in the browser.
-5. Wait for the user to say feedback is ready, or for `pnpm planctl notify <sessionId>` to mark the session as `needs_agent`.
-6. Read feedback with `list_plan_events`.
-7. For feedback that only needs explanation, call `post_agent_reply` on the original feedback event.
-8. For feedback that changes the plan, call `update_plan_revision` with the full updated `PlanDraft`, the current `baseRevision`, and a concise `changeSummary`.
-9. Repeat until the user approves the revision.
-10. Confirm approval with `get_plan_session` before starting implementation.
-
-## PlanDraft Shape
-
-Always submit the full plan object on create and revision updates.
+Submit a full `GraphPlanDocument`:
 
 ```ts
-type PlanDraft = {
+type GraphPlanDocument = {
+  schemaVersion: "graph-plan/v1";
+  id: string;
   title: string;
   goal: string;
   summary?: string;
-  decisions?: Array<{
-    id: string;
-    title: string;
-    summary: string;
-    rationale?: string;
-  }>;
-  phases?: Array<{
-    id: string;
-    title: string;
-    summary?: string;
-    stepIds: string[];
-  }>;
-  steps: Array<{
-    id: string;
-    phaseId?: string;
-    title: string;
-    kind: "research" | "decision" | "code" | "test" | "checkpoint";
-    summary: string;
-    files?: string[];
-    risks?: string[];
-    constraints?: string[];
-    verification?: string[];
-  }>;
-  risks?: Array<{
-    id: string;
-    title: string;
-    severity: "low" | "medium" | "high";
-    description: string;
-    mitigation: string;
-  }>;
-  verification?: string[];
-  prototypes?: PrototypeDraft[];
-};
-
-type PrototypeDraft = {
-  id: string;
-  revision: number;
-  title: string;
-  summary?: string;
-  kind: "wireframe" | "mockup" | "flow" | "interaction";
-  links: Array<{
-    target: PlanTarget;
-    purpose: "explains" | "validates" | "alternative" | "final_candidate";
-  }>;
-  tabs?: Array<{
-    id: string;
-    title: string;
-    url: string;
-    summary?: string;
-  }>;
-  state: Record<string, unknown>;
+  rootGraphId: string;
+  graphs: GraphPlanGraph[];
+  currentRevision: number;
 };
 ```
 
-Use stable, readable IDs such as `phase-setup`, `step-auth-form`, `risk-session-state`, and `proto-main-flow`.
+Each graph contains nodes and edges:
+
+```ts
+type GraphPlanGraph = {
+  id: string;
+  title: string;
+  purpose?: string;
+  owner?: GraphPlanPointer;
+  contract?: { inputs?: OutputDefinition[]; outputs?: OutputDefinition[] };
+  nodes: GraphPlanNode[];
+  edges: GraphPlanEdge[];
+  layout?: { mode: "linear" | "dag" | "swimlane" | "tree" | "freeform"; order?: string[] };
+};
+
+type GraphPlanNode = {
+  id: string;
+  kind: "section" | "action" | "decision" | "checkpoint" | "review" | "artifact" | "note" | `x-${string}`;
+  title: string;
+  summary?: string;
+  blocks: GraphPlanBlock[];
+  ownedGraphIds?: string[];
+  status?: "open" | "needs_revision" | "accepted" | "blocked" | "complete" | "rejected";
+};
+```
+
+Use stable readable IDs: `g-implementation`, `n-validation`, `b-prototype`, `task-add-todo`, `tab-filter`.
 
 ## Targets
 
-Use precise targets so feedback threads and revisions remain traceable.
+Feedback, links, relations, and mutations use `GraphPlanTarget`:
 
 ```ts
-type PlanTarget = {
-  type:
-    | "plan"
-    | "phase"
-    | "step"
-    | "decision"
-    | "risk"
-    | "verification"
-    | "prototype";
-  id?: string;
-};
+type GraphPlanTarget =
+  | { type: "plan" }
+  | { type: "graph"; graphId: string }
+  | { type: "node"; graphId: string; nodeId: string }
+  | { type: "block"; graphId: string; nodeId: string; blockId: string }
+  | { type: "block_item"; graphId: string; nodeId: string; blockId: string; itemId: string; itemType?: BlockItemType }
+  | { type: "edge"; graphId: string; edgeId: string }
+  | { type: "prototype_tab"; graphId: string; nodeId: string; blockId: string; prototypeId: string; tabId: string }
+  | { type: "artifact_range"; graphId: string; nodeId: string; blockId: string; artifactId: string; path?: string; lineStart?: number; lineEnd?: number };
+```
+
+`BlockItemType` values: `task`, `check`, `criterion`, `option`, `evidence`, `finding`, `verification`, `hypothesis`, `experiment`, `score`, `risk`, `artifact`, `change`, `migration_step`.
+
+Prefer precise targets. If feedback is about a prototype screen state, target `prototype_tab`. If it is about a row inside a task/checklist/criteria block, target `block_item`.
+
+## Blocks
+
+Use only the block types needed for the plan. Common choices:
+
+- `text`: freeform body plus optional `outputDefinitions`.
+- `task_list`: implementation work items. Each item can have `target`.
+- `checklist`: manual checks with `required`, `status`, `owner`.
+- `criteria`: approval conditions with `required`, `status`.
+- `review_bundle`: review prompt, linked targets, acceptance criteria, optional `prototypeRef`.
+- `prototype`: iframe tabs for visual/interactive review.
+- `risk`: risks with severity and mitigation.
+- `verification`: command/manual/test/metric checks.
+- `checkpoint_outcome`: final gate result and determining targets.
+- `artifact`: files, URLs, code refs, generated outputs.
+- `graph_ref`: references owned or external subgraphs.
+
+Other supported specialist blocks include `choice_set`, `comparison`, `evidence`, `synthesis`, `changelog`, `investigation`, and `migration`.
+
+### Common Metadata
+
+Every block can include:
+
+- `id`, `type`, `title`, `summary`, `status`
+- `links: { target, purpose }[]`
+- `outputDefinitions: { key, label?, valueType, required?, allowedValues?, producedBy? }[]`
+- `revisionMeta`
+- `metadata`
+
+Use `links` and `outputDefinitions` when they help the reviewer understand what this block affects or produces. Do not invent metadata just to fill fields.
+
+## Prototype Tabs
+
+Prototype review is now a graph `prototype` block with URL tabs. Do not use the removed `pieces` model.
+
+```ts
+{
+  id: "b-prototype",
+  type: "prototype",
+  title: "Todo List 프로토타입",
+  prototypeId: "proto-todo-list",
+  revision: 1,
+  tabs: [
+    {
+      id: "tab-filter",
+      title: "필터 상태",
+      url: "http://localhost:8787/prototypes/todo-list?view=filter",
+      summary: "전체/진행 중/완료 필터를 검토한다.",
+      context: { graphId: "g-plan", nodeId: "n-implementation", blockId: "b-ui-tasks", itemId: "task-filter" },
+      relatedTargets: [
+        {
+          target: { type: "block_item", graphId: "g-plan", nodeId: "n-implementation", blockId: "b-ui-tasks", itemId: "task-filter", itemType: "task" },
+          purpose: "validates",
+          note: "이 탭은 필터 구현 작업의 목표 화면이다."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 Rules:
 
-- Use `{ "type": "plan" }` for whole-plan feedback.
-- Include `id` for node-specific targets such as steps, decisions, risks, and prototypes.
-- Preserve previous feedback and revision history; do not recreate a new session just to handle ordinary feedback.
+- Use one tab per reviewable screen state, mode, or prototype URL.
+- The iframe URL owns its internal UI. Do not model buttons or panels inside the iframe as graph artifacts.
+- Use `context` for the primary graph location the tab explains.
+- Use `relatedTargets` to show what the tab validates, shows, or tests.
+- Allowed tab relation purposes: `explains`, `validates`, `tests_interaction`, `shows_state`.
+- Local HTTP prototype URLs must be `localhost` or `127.0.0.1`; HTTPS is also allowed.
 
-## Reply vs Revision
+## MCP Tools
 
-Use `post_agent_reply` when:
+Prefer direct MCP tools when available:
 
-- The user asks a clarifying question.
-- The current plan is still correct.
-- More user input is needed before revising.
+- `create_graph_plan_session({ graphPlan })`
+- `get_graph_plan_session({ sessionId })`
+- `list_plan_events({ sessionId, afterEventId? })`
+- `post_agent_reply({ sessionId, revision, replyToEventId, target, body, disposition? })`
+- `replace_graph_plan({ sessionId, baseRevision, graphPlan, changeSummary, validationPolicy? })`
+- `mutate_graph_plan({ sessionId, baseRevision, operations, changeSummary, validationPolicy? })`
+- `validate_graph_plan({ graphPlan, mode? })`
+- `mark_plan_approved({ sessionId, revision, message? })`
 
-Set `disposition` to one of:
+If direct MCP tools are not available, use local HTTP:
 
-- `answered`
-- `needs_user_clarification`
-- `open`
-- `incorporated_in_revision`
-- `rejected`
+```bash
+curl -s http://localhost:8787/mcp/tools
+curl -s -X POST http://localhost:8787/mcp/call \
+  -H 'content-type: application/json' \
+  --data-binary @payload.json
+```
 
-Use `update_plan_revision` when:
+HTTP payload shape:
 
-- The user asks to change scope, order, files, risks, verification, or prototype details.
-- A plan defect is discovered while reviewing feedback.
-- A targeted update would make the plan clearer than a reply.
+```json
+{
+  "tool": "create_graph_plan_session",
+  "input": { "graphPlan": { "schemaVersion": "graph-plan/v1" } }
+}
+```
 
-Revision update requirements:
+## Standard Workflow
 
-- Pass `baseRevision` equal to the current session revision.
-- Pass the complete updated `PlanDraft`, not a partial patch.
-- Include `changeSummary` entries that explain user-visible decisions.
-- Include `target` when the revision is mainly about one plan node.
-- Include `prototypeChanges` when prototype URL tabs or plan-target links change.
+1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
+2. Draft a focused `GraphPlanDocument` with explicit graph/node/block IDs.
+3. Add prototype HTML/routes when visual review helps. Serve local prototypes from the same server, then connect URLs through a `prototype` block.
+4. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
+5. Create the session with `create_graph_plan_session`.
+6. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
+7. When feedback is ready, read `list_plan_events`.
+8. Reply with `post_agent_reply` for explanation-only feedback.
+9. Use `mutate_graph_plan` for narrow edits; use `replace_graph_plan` for structural changes.
+10. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
 
-## Prototype Guidance
+## Runtime Gotchas
 
-Add `prototypes` only when a visual or interaction preview would help the user review UX, UI, flow, or product behavior.
-
-Each prototype should include:
-
-- `id`, `revision`, `title`, `summary`
-- `kind`: `wireframe`, `mockup`, `flow`, or `interaction`
-- `links` to plan targets with purposes such as `explains`, `validates`, `alternative`, or `final_candidate`
-- `tabs`, an array of external preview URLs:
-  - `id`
-  - `title`
-  - `url`
-  - optional `summary`
-- `state` for small metadata only
-
-Plan GUI renders prototype identity, linked plan targets, URL tabs, and the selected URL in an iframe. The external URL owns its internal UI. Do not model buttons, panels, components, or other iframe internals as Agent GUI artifacts.
+- If a tool rejects `prototype_tab` and expects `prototype_piece`, the server or MCP process is stale. Restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
+- Existing stored sessions may contain older data. UI code should tolerate missing optional fields, but new sessions should use `prototype_tab`.
+- HTTP calls from Node may hit sandbox network restrictions. `curl` is usually approved in this repo.
+- If adding a new prototype route in `apps/server/src/main.ts`, restart `pnpm dev` before relying on the clean route.
 
 ## Local Commands
 
 - Start server: `pnpm dev`
-- Create fixture session for manual testing: `curl -s -X POST http://localhost:8787/api/fixture-session`
+- Fixture session: `curl -s -X POST http://localhost:8787/api/fixture-session`
+- List HTTP tools: `curl -s http://localhost:8787/mcp/tools`
 - Notify agent after browser feedback: `pnpm planctl notify <sessionId>`
 - Validate repo changes: `pnpm typecheck` and `pnpm build`
 
-## User-Facing Messages
+## User-Facing Response
 
-After creating a session, provide the review URL and the next action:
+After creating a session, provide the URL and next action:
 
 ```text
 계획 수립이 완료되었습니다. 브라우저 UI에서 검토하고 피드백을 남겨주세요:
 http://localhost:8787/sessions/<sessionId>
 ```
 
-After submitting a revision, summarize the revision number and change summary, then ask the user to review the updated browser UI.
-
-After approval, state that the approved revision is confirmed and proceed with implementation.
+If you created prototype URLs, list the main route briefly and mention that prototype tabs are available inside the plan UI.
