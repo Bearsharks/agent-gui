@@ -35,7 +35,7 @@ export const graphPlanIssueCodes = [
   "missing_target_block",
   "missing_target_block_item",
   "missing_target_edge",
-  "missing_target_prototype_piece",
+  "missing_target_prototype_tab",
   "target_block_item_type_mismatch",
   "missing_graph_contract_input",
   "missing_graph_contract_output",
@@ -101,7 +101,7 @@ export const graphPlanIssueCategoryByCode = {
   missing_target_block: "target",
   missing_target_block_item: "target",
   missing_target_edge: "target",
-  missing_target_prototype_piece: "target",
+  missing_target_prototype_tab: "target",
   target_block_item_type_mismatch: "target",
   missing_graph_contract_input: "graph_contract",
   missing_graph_contract_output: "graph_contract",
@@ -185,4 +185,3 @@ export function summarizeGraphPlanValidation(
     issues,
   };
 }
-

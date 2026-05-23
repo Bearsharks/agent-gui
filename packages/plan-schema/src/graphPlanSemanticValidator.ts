@@ -26,7 +26,7 @@ type ValidationIndex = {
   edges: Map<string, { graph: GraphPlanGraph; edgeId: string }>;
   blockItems: Map<string, { type?: string }>;
   blockOutputs: Map<string, Map<string, GraphPlanOutputDefinition>>;
-  prototypePieces: Map<string, { graphId: string; nodeId: string; blockId: string; prototypeId: string; pieceId: string }>;
+  prototypeTabs: Map<string, { graphId: string; nodeId: string; blockId: string; prototypeId: string; tabId: string }>;
 };
 
 export function validateGraphPlanSemantics(document: GraphPlanDocument): GraphPlanValidationIssue[] {
@@ -102,7 +102,7 @@ function buildIndex(document: GraphPlanDocument, issues: GraphPlanValidationIssu
     edges: new Map(),
     blockItems: new Map(),
     blockOutputs: new Map(),
-    prototypePieces: new Map(),
+    prototypeTabs: new Map(),
   };
 
   for (const graph of document.graphs) {
@@ -160,14 +160,14 @@ function indexBlockItems(index: ValidationIndex, graphId: string, nodeId: string
       block.acceptanceCriteria.forEach((item) => addItem(item.id, "criterion"));
       break;
     case "prototype":
-      for (const piece of block.pieces) {
-        addItem(piece.id, "prototype_piece");
-        index.prototypePieces.set(prototypePieceKeyFor(graphId, nodeId, block.id, block.prototypeId, piece.id), {
+      for (const tab of block.tabs) {
+        addItem(tab.id, "prototype_tab");
+        index.prototypeTabs.set(prototypeTabKeyFor(graphId, nodeId, block.id, block.prototypeId, tab.id), {
           graphId,
           nodeId,
           blockId: block.id,
           prototypeId: block.prototypeId,
-          pieceId: piece.id,
+          tabId: tab.id,
         });
       }
       break;
@@ -311,10 +311,9 @@ function validateBlock(
       block.reviewTrace?.changedTargets?.forEach((target) => validateTarget(target, index, issues, `${path}.reviewTrace.changedTargets`));
       break;
     case "prototype":
-      for (const piece of block.pieces) {
-        validateTarget(piece.primaryTarget, index, issues, `${path}.pieces.${piece.id}.primaryTarget`);
-        piece.validates.forEach((target) => validateTarget(target, index, issues, `${path}.pieces.${piece.id}.validates`));
-        validatePointer(piece.context, index, issues, `${path}.pieces.${piece.id}.context`);
+      for (const tab of block.tabs) {
+        tab.relatedTargets.forEach((relation) => validateTarget(relation.target, index, issues, `${path}.tabs.${tab.id}.relatedTargets`));
+        validatePointer(tab.context, index, issues, `${path}.tabs.${tab.id}.context`);
       }
       break;
     case "choice_set":
@@ -741,7 +740,7 @@ function validateTarget(target: GraphPlanTarget | undefined, index: ValidationIn
       }
       if (target.itemType) {
         const item = index.blockItems.get(blockItemKeyFor(target.graphId, target.nodeId, target.blockId, target.itemId));
-        if (item?.type && item.type !== target.itemType && !(item.type === "prototype_piece" && target.itemType === "artifact")) {
+        if (item?.type && item.type !== target.itemType) {
           addIssue(issues, "warning", "target_block_item_type_mismatch", `Target item type '${target.itemType}' does not match indexed item type '${item.type}'.`, path, { target });
         }
       }
@@ -749,9 +748,9 @@ function validateTarget(target: GraphPlanTarget | undefined, index: ValidationIn
     case "edge":
       if (!index.edges.has(edgeKeyFor(target.graphId, target.edgeId))) addIssue(issues, severity, "missing_target_edge", `Target edge '${target.graphId}/${target.edgeId}' does not exist.`, path, { target });
       return;
-    case "prototype_piece":
-      if (!index.prototypePieces.has(prototypePieceKeyFor(target.graphId, target.nodeId, target.blockId, target.prototypeId, target.pieceId))) {
-        addIssue(issues, severity, "missing_target_prototype_piece", `Target prototype piece '${target.prototypeId}/${target.pieceId}' does not exist.`, path, { target });
+    case "prototype_tab":
+      if (!index.prototypeTabs.has(prototypeTabKeyFor(target.graphId, target.nodeId, target.blockId, target.prototypeId, target.tabId))) {
+        addIssue(issues, severity, "missing_target_prototype_tab", `Target prototype tab '${target.prototypeId}/${target.tabId}' does not exist.`, path, { target });
       }
       return;
   }
@@ -830,6 +829,6 @@ function edgeKeyFor(graphId: string, edgeId: string): string {
   return `graph:${graphId}/edge:${edgeId}`;
 }
 
-function prototypePieceKeyFor(graphId: string, nodeId: string, blockId: string, prototypeId: string, pieceId: string): string {
-  return `${blockKeyFor(graphId, nodeId, blockId)}/prototype:${prototypeId}/piece:${pieceId}`;
+function prototypeTabKeyFor(graphId: string, nodeId: string, blockId: string, prototypeId: string, tabId: string): string {
+  return `${blockKeyFor(graphId, nodeId, blockId)}/prototype:${prototypeId}/tab:${tabId}`;
 }

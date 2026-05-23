@@ -337,8 +337,8 @@ export const adversarialGraphPlanFixtures: AdversarialGraphPlanFixture[] = [
     }),
   },
   {
-    id: "prototype-piece-primary-target-missing",
-    title: "Prototype piece validates a deleted block",
+    id: "prototype-tab-related-target-missing",
+    title: "Prototype tab validates a deleted block",
     note: "Catches prototype review feedback that cannot attach to a stable plan target.",
     expectedIssueCodes: ["missing_target_block"],
     document: makeAdversarialDocument((document) => {
@@ -346,14 +346,12 @@ export const adversarialGraphPlanFixtures: AdversarialGraphPlanFixture[] = [
         id: "b-prototype",
         type: "prototype",
         prototypeId: "proto-adversarial",
-        tabs: [{ id: "tab-root", title: "Root", url: "http://localhost:8787" }],
-        pieces: [
+        tabs: [
           {
-            id: "piece-deleted",
-            title: "Deleted target piece",
-            kind: "panel",
-            primaryTarget: { type: "block", graphId: "g-root", nodeId: "n-review", blockId: "b-deleted" },
-            validates: [],
+            id: "tab-root",
+            title: "Root",
+            url: "http://localhost:8787",
+            relatedTargets: [{ target: { type: "block", graphId: "g-root", nodeId: "n-review", blockId: "b-deleted" }, purpose: "validates" }],
           },
         ],
       });

@@ -36,7 +36,7 @@ server.registerTool(
   {
     title: "Create graph plan session",
     description:
-      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, block, block_item, edge, prototype_piece, and artifact_range. The graph document is validated before it is stored.",
+      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, block, block_item, edge, prototype_tab, and artifact_range. The graph document is validated before it is stored.",
     inputSchema: { graphPlan: graphPlanDocumentSchema },
   },
   async ({ graphPlan }) => jsonResult(await graphStore.createGraphPlanSession(graphPlan)),
@@ -68,7 +68,7 @@ server.registerTool(
   {
     title: "Post agent reply",
     description:
-      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, block, block_item, edge, prototype_piece, or artifact_range.",
+      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, block, block_item, edge, prototype_tab, or artifact_range.",
     inputSchema: {
       sessionId: z.string(),
       revision: z.number().int().positive(),
@@ -86,7 +86,7 @@ server.registerTool(
   {
     title: "Replace graph plan",
     description:
-      "Replace the full GraphPlanDocument for a session. Use this for large structure changes; use mutate_graph_plan for targeted node, block, edge, prototype piece, or artifact range changes. Requires baseRevision and runs validation after replacement.",
+      "Replace the full GraphPlanDocument for a session. Use this for large structure changes; use mutate_graph_plan for targeted node, block, edge, prototype tab, or artifact range changes. Requires baseRevision and runs validation after replacement.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
@@ -103,7 +103,7 @@ server.registerTool(
   {
     title: "Mutate graph plan",
     description:
-      "Apply GraphPlanMutationOperation items atomically to the current GraphPlanDocument. Use for targeted graph, node, block, edge, subgraph, prototype piece, or artifact range updates. Requires baseRevision and runs validation after mutation.",
+      "Apply GraphPlanMutationOperation items atomically to the current GraphPlanDocument. Use for targeted graph, node, block, edge, subgraph, prototype tab, or artifact range updates. Requires baseRevision and runs validation after mutation.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
