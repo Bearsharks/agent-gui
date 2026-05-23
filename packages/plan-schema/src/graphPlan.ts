@@ -95,12 +95,12 @@ export const graphPlanTargetSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("edge"), graphId: z.string(), edgeId: z.string() }),
   z.object({
-    type: z.literal("prototype_piece"),
+    type: z.literal("prototype_tab"),
     graphId: z.string(),
     nodeId: z.string(),
     blockId: z.string(),
     prototypeId: z.string(),
-    pieceId: z.string(),
+    tabId: z.string(),
   }),
 ]);
 
@@ -285,17 +285,16 @@ const prototypeTabSchema = z.object({
   title: z.string(),
   url: prototypeUrlSchema,
   summary: z.string().optional(),
-});
-
-const prototypePieceSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  kind: z.enum(["component", "panel", "form", "card", "navigation", "state_view", "interaction_slice"]),
-  summary: z.string().optional(),
-  links: z.array(graphPlanLinkSchema).optional(),
   context: graphPlanPointerSchema.optional(),
-  primaryTarget: graphPlanTargetSchema,
-  validates: z.array(graphPlanTargetSchema).default([]),
+  relatedTargets: z
+    .array(
+      z.object({
+        target: graphPlanTargetSchema,
+        purpose: z.enum(["explains", "validates", "tests_interaction", "shows_state"]),
+        note: z.string().optional(),
+      }),
+    )
+    .default([]),
 });
 
 export const graphPlanBlockSchema = z.discriminatedUnion("type", [
@@ -355,7 +354,6 @@ export const graphPlanBlockSchema = z.discriminatedUnion("type", [
     revision: z.number().int().positive().optional(),
     contentHash: z.string().optional(),
     tabs: z.array(prototypeTabSchema).default([]),
-    pieces: z.array(prototypePieceSchema).default([]),
   }),
   baseBlockSchema.extend({
     type: z.literal("choice_set"),

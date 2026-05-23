@@ -17,7 +17,7 @@ export type GraphSelection = {
   itemType?: Extract<GraphPlanTarget, { type: "block_item" }>["itemType"];
   edgeId?: string;
   prototypeId?: string;
-  pieceId?: string;
+  tabId?: string;
 };
 
 export type GraphIndex = {
@@ -72,7 +72,7 @@ export function normalizeSelection(document: GraphPlanDocument, index: GraphInde
       : undefined;
   const itemId = blockId ? selection.itemId : undefined;
   const edgeId = selection.edgeId && index.edgesByKey.has(edgeKey(graphId, selection.edgeId)) ? selection.edgeId : undefined;
-  return { graphId, nodeId, blockId, itemId, itemType: selection.itemType, edgeId, prototypeId: selection.prototypeId, pieceId: selection.pieceId };
+  return { graphId, nodeId, blockId, itemId, itemType: selection.itemType, edgeId, prototypeId: selection.prototypeId, tabId: selection.tabId };
 }
 
 export function selectionFromSearch(document: GraphPlanDocument, index: GraphIndex, search: string): GraphSelection {
@@ -83,7 +83,7 @@ export function selectionFromSearch(document: GraphPlanDocument, index: GraphInd
     blockId: params.get("block") ?? undefined,
     itemId: params.get("item") ?? undefined,
     edgeId: params.get("edge") ?? undefined,
-    pieceId: params.get("piece") ?? undefined,
+    tabId: params.get("tab") ?? params.get("piece") ?? undefined,
   });
 }
 
@@ -94,19 +94,19 @@ export function selectionToSearch(selection: GraphSelection): string {
   if (selection.blockId) params.set("block", selection.blockId);
   if (selection.itemId) params.set("item", selection.itemId);
   if (selection.edgeId) params.set("edge", selection.edgeId);
-  if (selection.pieceId) params.set("piece", selection.pieceId);
+  if (selection.tabId) params.set("tab", selection.tabId);
   return params.toString();
 }
 
 export function selectionToTarget(selection: GraphSelection): GraphPlanTarget {
-  if (selection.pieceId && selection.prototypeId && selection.nodeId && selection.blockId) {
+  if (selection.tabId && selection.prototypeId && selection.nodeId && selection.blockId) {
     return {
-      type: "prototype_piece",
+      type: "prototype_tab",
       graphId: selection.graphId,
       nodeId: selection.nodeId,
       blockId: selection.blockId,
       prototypeId: selection.prototypeId,
-      pieceId: selection.pieceId,
+      tabId: selection.tabId,
     };
   }
   if (selection.itemId && selection.blockId && selection.nodeId) {
@@ -136,13 +136,13 @@ export function targetToSelection(target: GraphPlanTarget, fallbackGraphId: stri
   if (target.type === "block_item") {
     return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId, itemId: target.itemId, itemType: target.itemType };
   }
-  if (target.type === "prototype_piece") {
+  if (target.type === "prototype_tab") {
     return {
       graphId: target.graphId,
       nodeId: target.nodeId,
       blockId: target.blockId,
       prototypeId: target.prototypeId,
-      pieceId: target.pieceId,
+      tabId: target.tabId,
     };
   }
   return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId };
@@ -163,8 +163,8 @@ export function targetKey(target: GraphPlanTarget): string {
   if (target.type === "block") return blockKey(target.graphId, target.nodeId, target.blockId);
   if (target.type === "edge") return edgeKey(target.graphId, target.edgeId);
   if (target.type === "block_item") return `item:${target.graphId}:${target.nodeId}:${target.blockId}:${target.itemId}`;
-  if (target.type === "prototype_piece") {
-    return `piece:${target.graphId}:${target.nodeId}:${target.blockId}:${target.prototypeId}:${target.pieceId}`;
+  if (target.type === "prototype_tab") {
+    return `tab:${target.graphId}:${target.nodeId}:${target.blockId}:${target.prototypeId}:${target.tabId}`;
   }
   return `artifact:${target.graphId}:${target.nodeId}:${target.blockId}:${target.artifactId}:${target.path ?? ""}`;
 }
@@ -187,13 +187,31 @@ export function breadcrumbForTarget(target: GraphPlanTarget, index: GraphIndex):
     parts.push(block?.title ?? block?.type ?? target.blockId);
   }
   if (target.type === "block_item") parts.push(target.itemId);
-  if (target.type === "prototype_piece") parts.push(target.pieceId);
+  if (target.type === "prototype_tab") {
+    const block = index.blocksByKey.get(blockKey(target.graphId, target.nodeId, target.blockId));
+    const tab = block?.type === "prototype" ? block.tabs.find((candidate) => candidate.id === target.tabId) : undefined;
+    parts.push(tab?.title ?? target.tabId);
+  }
   if (target.type === "artifact_range") parts.push(target.path ?? target.artifactId);
   return parts.join(" / ");
 }
 
 export function selectedGraph(index: GraphIndex, selection: GraphSelection): GraphPlanGraph | undefined {
   return index.graphsById.get(selection.graphId);
+}
+
+export function buildGraphChain(graphId: string, index: GraphIndex): GraphPlanGraph[] {
+  const chain: GraphPlanGraph[] = [];
+  const visited = new Set<string>();
+  let currentId: string | undefined = graphId;
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const graph = index.graphsById.get(currentId);
+    if (!graph) break;
+    chain.unshift(graph);
+    currentId = index.parentByGraphId.get(currentId)?.graphId;
+  }
+  return chain;
 }
 
 export function selectedNode(index: GraphIndex, selection: GraphSelection): GraphPlanNode | undefined {
