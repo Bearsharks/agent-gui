@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Todo List Prototype</title>
+    <style>
+      :root {
+        color: #22201c;
+        background: #f7f3eb;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      main {
+        display: grid;
+        gap: 14px;
+        margin: 0 auto;
+        max-width: 860px;
+        min-height: 100vh;
+        padding: 22px;
+      }
+
+      header,
+      .panel,
+      .task {
+        background: #fffdf8;
+        border: 1px solid #d7ccbb;
+        border-radius: 8px;
+      }
+
+      header {
+        display: grid;
+        gap: 8px;
+        padding: 18px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 1.2;
+      }
+
+      p,
+      small {
+        color: #686158;
+        line-height: 1.45;
+      }
+
+      .tabs,
+      .toolbar,
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip,
+      button,
+      input {
+        border: 1px solid #d7ccbb;
+        border-radius: 6px;
+        font: inherit;
+      }
+
+      button,
+      .chip {
+        background: #f8f4ec;
+        color: #3d3933;
+        font-size: 13px;
+        font-weight: 760;
+        padding: 7px 10px;
+      }
+
+      button.primary,
+      .chip.active {
+        background: #e8f2fb;
+        border-color: #6b9cc8;
+        color: #185b8f;
+      }
+
+      .panel {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .compose {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      input {
+        background: #fff;
+        color: #22201c;
+        min-width: 0;
+        padding: 10px;
+      }
+
+      .task-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .task {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        padding: 12px;
+      }
+
+      .task.done strong {
+        color: #777064;
+        text-decoration: line-through;
+      }
+
+      .check {
+        align-items: center;
+        border: 2px solid #8d877d;
+        border-radius: 5px;
+        display: grid;
+        height: 20px;
+        justify-content: center;
+        width: 20px;
+      }
+
+      .done .check {
+        background: #2f7d59;
+        border-color: #2f7d59;
+        color: white;
+      }
+
+      .task strong {
+        display: block;
+        font-size: 15px;
+        line-height: 1.35;
+      }
+
+      .task small {
+        display: block;
+        margin-top: 3px;
+      }
+
+      .empty {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+        min-height: 220px;
+        text-align: center;
+      }
+
+      .empty strong {
+        font-size: 18px;
+      }
+
+      @media (max-width: 620px) {
+        main {
+          padding: 14px;
+        }
+
+        .compose,
+        .task {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="chips">
+          <span class="chip active" id="state-chip">List</span>
+          <span class="chip">Local prototype</span>
+        </div>
+        <h1 id="title">Todo List</h1>
+        <p id="subtitle">할 일을 빠르게 추가하고, 완료 상태와 필터를 확인하는 기본 화면입니다.</p>
+      </header>
+
+      <section class="panel">
+        <div class="toolbar" aria-label="filters">
+          <button class="primary">전체</button>
+          <button>진행 중</button>
+          <button>완료</button>
+        </div>
+
+        <div class="compose">
+          <input id="task-input" value="프로토타입을 Plan GUI와 연결하기" aria-label="new todo" />
+          <button class="primary" id="compose-button">추가</button>
+        </div>
+
+        <div class="task-list" id="task-list"></div>
+      </section>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view") || "list";
+      const title = document.querySelector("#title");
+      const subtitle = document.querySelector("#subtitle");
+      const stateChip = document.querySelector("#state-chip");
+      const taskInput = document.querySelector("#task-input");
+      const composeButton = document.querySelector("#compose-button");
+      const taskList = document.querySelector("#task-list");
+
+      const states = {
+        list: {
+          chip: "List",
+          title: "Todo List",
+          subtitle: "할 일을 빠르게 추가하고, 완료 상태와 필터를 확인하는 기본 화면입니다.",
+          input: "프로토타입을 Plan GUI와 연결하기",
+          button: "추가",
+          tasks: [
+            ["MCP로 개발 계획 세션 생성", "오늘", false],
+            ["프로토타입 HTML을 서버에서 확인", "오늘", true],
+            ["완료 기준과 검증 항목 정리", "내일", false],
+          ],
+        },
+        add: {
+          chip: "Add",
+          title: "새 할 일 추가",
+          subtitle: "입력창, 추가 버튼, 빈 입력 처리의 우선순위를 검토합니다.",
+          input: "새 작업 이름 입력 중",
+          button: "추가",
+          tasks: [["입력 후 Enter 또는 추가 버튼으로 저장", "방금", false]],
+        },
+        edit: {
+          chip: "Edit",
+          title: "할 일 편집",
+          subtitle: "기존 항목의 제목 수정, 저장, 취소 상태를 검토합니다.",
+          input: "MCP plan session 생성하기",
+          button: "저장",
+          tasks: [
+            ["MCP plan session 생성하기", "편집 중", false],
+            ["브라우저 검토 URL 공유", "다음", false],
+          ],
+        },
+        filter: {
+          chip: "Filter",
+          title: "필터와 완료 상태",
+          subtitle: "전체, 진행 중, 완료 필터가 같은 데이터 모델을 공유하는지 확인합니다.",
+          input: "필터 회귀 테스트",
+          button: "추가",
+          tasks: [
+            ["진행 중 항목만 표시", "진행 중", false],
+            ["완료 항목은 취소선으로 표시", "완료", true],
+          ],
+        },
+        empty: {
+          chip: "Empty",
+          title: "빈 목록",
+          subtitle: "처음 사용하는 사용자가 다음 행동을 바로 알 수 있어야 합니다.",
+          input: "첫 할 일 추가하기",
+          button: "추가",
+          tasks: [],
+        },
+      };
+
+      const state = states[view] || states.list;
+      document.body.dataset.view = view;
+      stateChip.textContent = state.chip;
+      title.textContent = state.title;
+      subtitle.textContent = state.subtitle;
+      taskInput.value = state.input;
+      composeButton.textContent = state.button;
+
+      if (state.tasks.length === 0) {
+        taskList.innerHTML = '<div class="empty"><strong>아직 할 일이 없습니다</strong><p>입력창에 첫 할 일을 작성하고 추가하세요.</p><button class="primary">첫 할 일 추가</button></div>';
+      } else {
+        taskList.innerHTML = state.tasks
+          .map(([label, meta, done]) => {
+            const mark = done ? "✓" : "";
+            const className = done ? "task done" : "task";
+            return `<article class="${className}"><span class="check">${mark}</span><div><strong>${label}</strong><small>${meta}</small></div><button>${done ? "되돌리기" : "완료"}</button></article>`;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>
