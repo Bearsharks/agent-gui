@@ -332,6 +332,7 @@ function ValidationPanel({ session, index, onSelect }: { session: PlanSession; i
 }
 
 function EventTimeline({ session, index, onSelect }: { session: PlanSession; index: GraphIndex; onSelect: (target: GraphPlanTarget) => void }) {
+  const eventsNewestFirst = [...session.events].reverse();
   return (
     <section className="tool-card">
       <div className="tool-card-header">
@@ -339,7 +340,7 @@ function EventTimeline({ session, index, onSelect }: { session: PlanSession; ind
         <Badge>{session.events.length}</Badge>
       </div>
       <div className="timeline-list">
-        {session.events.map((event) => (
+        {eventsNewestFirst.map((event) => (
           <button className="timeline-row" key={event.id} onClick={() => hasEventTarget(event) && onSelect(event.target)}>
             <EventSnippet event={event} events={session.events} index={index} />
           </button>
@@ -385,7 +386,7 @@ function labelDisposition(disposition: Extract<PlanEvent, { type: "agent.reply" 
 }
 
 function RevisionSummary({ events, index }: { events: PlanEvent[]; index: GraphIndex }) {
-  const revisions = events.filter((event) => event.type === "agent.revision");
+  const revisions = events.filter((event) => event.type === "agent.revision").reverse();
   if (revisions.length === 0) return <p className="muted drawer-empty">리비전이 없습니다.</p>;
   return (
     <section className="tool-card">
