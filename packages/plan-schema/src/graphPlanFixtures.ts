@@ -7,14 +7,14 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
   schemaVersion: "graph-plan/v1",
   id: "fixture-linear-phase",
   title: "블로그 검색 경험 개선 계획",
-  description: "요구 확인부터 배포 준비까지 검색 경험 개선 흐름을 검토한다.",
+  markdownDesc: "요구 확인부터 배포 준비까지 검색 경험 개선 흐름을 검토한다.",
   rootGraphId: "g-search-plan",
   currentRevision: 1,
   graphs: [
     {
       id: "g-search-plan",
       title: "검색 개선 전체 흐름",
-      description: "요구 확인, 설계, 구현, 검증, 배포 준비 단계",
+      markdownDesc: "요구 확인, 설계, 구현, 검증, 배포 준비 단계",
       nodes: [
         node("n-requirements", "요구 확인", "검색 사용자의 현재 문제와 개선 목표를 확인한다.", "linear-requirements.html"),
         node("n-design", "설계", "검색 입력, 결과 표시, 필터, 빈 상태의 설계를 정리한다.", "linear-design.html"),
@@ -35,7 +35,7 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
     {
       id: "g-search-implementation",
       title: "구현 세부 작업",
-      description: "검색 구현 노드의 하위 작업 흐름",
+      markdownDesc: "검색 구현 노드의 하위 작업 흐름",
       parent: { graphId: "g-search-plan", nodeId: "n-implementation" },
       nodes: [
         node("n-search-input", "검색 입력 UI", "검색어 입력, clear action, focus 상태를 구현한다.", "linear-input.html"),
@@ -56,14 +56,14 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
   schemaVersion: "graph-plan/v1",
   id: "fixture-prototype-review",
   title: "새 검색 패널 프로토타입 리뷰",
-  description: "검색 패널 프로토타입을 상태별로 검토하고 피드백을 수집한다.",
+  markdownDesc: "검색 패널 프로토타입을 상태별로 검토하고 피드백을 수집한다.",
   rootGraphId: "g-prototype-review",
   currentRevision: 1,
   graphs: [
     {
       id: "g-prototype-review",
       title: "프로토타입 리뷰 흐름",
-      description: "리뷰 목표, 프로토타입 확인, 피드백 수집, 승인 여부 결정",
+      markdownDesc: "리뷰 목표, 프로토타입 확인, 피드백 수집, 승인 여부 결정",
       nodes: [
         node("n-review-goal", "리뷰 목표", "검색 패널 프로토타입에서 확인할 질문과 승인 기준을 정한다.", "prototype-goal.html"),
         {
@@ -82,7 +82,7 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
     {
       id: "g-prototype-states",
       title: "검색 패널 상태",
-      description: "리뷰 가능한 검색 패널 화면 상태",
+      markdownDesc: "리뷰 가능한 검색 패널 화면 상태",
       parent: { graphId: "g-prototype-review", nodeId: "n-prototype-check" },
       nodes: [
         node("n-default-state", "기본 상태", "검색 전 기본 패널 상태를 검토한다.", "prototype-default.html"),
@@ -103,14 +103,14 @@ export const reviewRevisionLoopGraphPlanFixture = graphPlanDocumentSchema.parse(
   schemaVersion: "graph-plan/v1",
   id: "fixture-review-revision-loop",
   title: "검색 패널 피드백 수정 루프",
-  description: "결과 밀도와 빈 상태 설명 피드백을 반영하고 재검토한다.",
+  markdownDesc: "결과 밀도와 빈 상태 설명 피드백을 반영하고 재검토한다.",
   rootGraphId: "g-revision-loop",
   currentRevision: 1,
   graphs: [
     {
       id: "g-revision-loop",
       title: "리뷰/수정 루프",
-      description: "피드백 접수부터 승인 또는 재수정까지 반복되는 흐름",
+      markdownDesc: "피드백 접수부터 승인 또는 재수정까지 반복되는 흐름",
       nodes: [
         node("n-feedback-received", "피드백 접수", "결과가 조밀하고 빈 상태 설명이 부족하다는 피드백을 접수한다.", "revision-feedback.html"),
         node("n-impact-analysis", "영향 분석", "결과 밀도, 빈 상태 카피, 프로토타입 HTML 영향 범위를 확인한다.", "revision-impact.html"),
@@ -132,7 +132,7 @@ export const reviewRevisionLoopGraphPlanFixture = graphPlanDocumentSchema.parse(
     {
       id: "g-revision-work",
       title: "수정안 작성 세부 작업",
-      description: "피드백 반영을 위한 세부 작업 흐름",
+      markdownDesc: "피드백 반영을 위한 세부 작업 흐름",
       parent: { graphId: "g-revision-loop", nodeId: "n-revision-draft" },
       nodes: [
         node("n-density", "결과 밀도 조정", "검색 결과 간격과 정보 밀도를 조정한다.", "revision-density.html"),
@@ -157,7 +157,7 @@ export const graphPlanFixtures = {
 
 for (const fixture of Object.values(graphPlanFixtures)) assertGraphPlanSemantics(fixture);
 
-function node(id: string, title: string, description: string, htmlFile: string) {
+function node(id: string, title: string, markdownDesc: string, htmlFile: string) {
   const previewFile = htmlFile.startsWith("linear")
     ? "graph-linear-rollout.html"
     : htmlFile.startsWith("prototype")
@@ -166,7 +166,7 @@ function node(id: string, title: string, description: string, htmlFile: string) 
   return {
     id,
     title,
-    description,
+    markdownDesc: nodeMarkdownDesc(markdownDesc),
     iframes: [
       {
         id: `iframe-${id.replace(/^n-/, "")}`,
@@ -175,6 +175,18 @@ function node(id: string, title: string, description: string, htmlFile: string) 
       },
     ],
   };
+}
+
+function nodeMarkdownDesc(summary: string): string {
+  return [
+    summary,
+    "",
+    "### 확인할 내용",
+    "",
+    "- 그래프의 현재 단계와 다음 흐름이 자연스러운지 확인한다.",
+    "- 연결된 iframe 상세 화면에서 판단에 필요한 화면 상태를 검토한다.",
+    "- 피드백이 필요하면 node 또는 iframe target에 남긴다.",
+  ].join("\n");
 }
 
 function edge(id: string, from: string, to: string, kind: "sequence" | "conditional" | "loop" | "dependency" = "sequence", label?: string, condition?: string) {

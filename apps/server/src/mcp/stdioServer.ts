@@ -39,7 +39,7 @@ server.registerTool(
   {
     title: "Create graph plan session",
     description:
-      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, edge, and iframe. The graph document is validated before it is stored.",
+      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, edge, and iframe. Document, graph, and node markdownDesc fields are markdown; node markdownDesc is rendered in the right detail panel. The graph document is validated before it is stored.",
     inputSchema: { graphPlan: graphPlanDocumentSchema },
   },
   async ({ graphPlan }) => jsonResult(await graphStore.createGraphPlanSession(graphPlan)),
@@ -89,7 +89,7 @@ server.registerTool(
   {
     title: "Mutate graph plan",
     description:
-      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including graph, node, edge, subgraph, and iframe add/update/remove operations. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
+      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including graph, node markdownDesc, edge, subgraph, and iframe add/update/remove operations. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
@@ -125,7 +125,7 @@ server.registerTool(
   {
     title: "Normalize graph plan",
     description:
-      "Normalize common graph/html authoring shorthand before strict validation and return schema issues with hints. The current model is graph, node, edge, subGraphs, and node iframes.",
+      "Normalize common graph/html authoring shorthand before strict validation and return schema issues with hints. The current model is graph, node markdownDesc, edge, subGraphs, and node iframes.",
     inputSchema: {
       graphPlan: z.unknown(),
       mode: graphPlanValidationModeSchema.default("draft"),

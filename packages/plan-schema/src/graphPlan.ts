@@ -17,7 +17,7 @@ export const graphPlanIframeSchema = z.object({
 export const graphPlanNodeSchema = z.object({
   id: z.string(),
   title: z.string(),
-  description: z.string().optional(),
+  markdownDesc: z.string().optional(),
   subGraphs: z.array(z.string()).optional(),
   iframes: z.array(graphPlanIframeSchema).optional(),
 }).strict();
@@ -41,7 +41,7 @@ export const graphPlanParentSchema = z.object({
 export const graphPlanGraphSchema = z.object({
   id: z.string(),
   title: z.string(),
-  description: z.string().optional(),
+  markdownDesc: z.string().optional(),
   parent: graphPlanParentSchema.optional(),
   nodes: z.array(graphPlanNodeSchema),
   edges: z.array(graphPlanEdgeSchema),
@@ -51,7 +51,7 @@ export const graphPlanDocumentSchema = z.object({
   schemaVersion: z.literal("graph-plan/v1"),
   id: z.string(),
   title: z.string(),
-  description: z.string().optional(),
+  markdownDesc: z.string().optional(),
   rootGraphId: z.string(),
   graphs: z.array(graphPlanGraphSchema),
   currentRevision: z.number().int().positive(),

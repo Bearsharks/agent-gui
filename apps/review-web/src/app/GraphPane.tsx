@@ -1,14 +1,28 @@
 import type { GraphPlanDocument, GraphPlanEdge, GraphPlanGraph, GraphPlanNode, GraphPlanTarget } from "@agent-gui/plan-schema";
 import { Button } from "@agent-gui/design-system";
-import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge as FlowEdge, type Node as FlowNode, type NodeMouseHandler } from "@xyflow/react";
-import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  Background,
+  Controls,
+  MarkerType,
+  MiniMap,
+  Position,
+  ReactFlow,
+  type Edge as FlowEdge,
+  type Node as FlowNode,
+  type NodeMouseHandler,
+} from "@xyflow/react";
+import { useMemo, type MouseEvent, type ReactNode } from "react";
 import { conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
+import { MarkdownView } from "./MarkdownView";
 
 type ReviewFlowNode = FlowNode<{ label: ReactNode; target: GraphSelection }, "default">;
 type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge; graphId?: string }>;
 
-const elk = new ELK();
+const NODE_WIDTH = 220;
+const NODE_HEIGHT = 116;
+const COLUMN_GAP = 150;
+const ROW_GAP = 42;
+const GRAPH_LANE_GAP = 120;
 
 export function GraphPane({
   document,
@@ -61,7 +75,6 @@ export function SelectedNodeDetail({
   onSelect,
   onClose,
   onResizeStart,
-  footer,
 }: {
   graph: GraphPlanGraph;
   node: GraphPlanNode;
@@ -70,13 +83,9 @@ export function SelectedNodeDetail({
   onSelect: (selection: GraphSelection) => void;
   onClose: () => void;
   onResizeStart: (event: MouseEvent<HTMLDivElement>) => void;
-  footer?: ReactNode;
 }) {
   const iframes = node.iframes ?? [];
   const activeIframe = iframes.find((iframe) => iframe.id === selection.iframeId) ?? iframes[0];
-  const nodeIssueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
-  const incoming = graph.edges.filter((edge) => edge.to === node.id);
-  const outgoing = graph.edges.filter((edge) => edge.from === node.id);
   const childGraphIds = getChildGraphIds(node);
 
   return (
@@ -86,26 +95,15 @@ export function SelectedNodeDetail({
         <div>
           <span>{graph.title}</span>
           <strong>{node.title}</strong>
-          {node.description ? <p>{node.description}</p> : null}
         </div>
         <Button variant="secondary" onClick={onClose}>
           닫기
         </Button>
       </header>
-      <div className="selected-node-meta-strip">
-        {iframes.length > 0 ? <span>iframe {iframes.length}개</span> : null}
-        {childGraphIds.length > 0 ? <span>하위 그래프 {childGraphIds.length}개</span> : null}
-        {incoming.length > 0 ? <span>in {incoming.length}</span> : null}
-        {outgoing.length > 0 ? <span>out {outgoing.length}</span> : null}
-        {nodeIssueCount > 0 ? <span className="issue-chip">이슈 {nodeIssueCount}개</span> : null}
-      </div>
       <div className="selected-node-primary-detail">
-        <section className="selected-node-info-card">
-          <strong>노드 정보</strong>
-          {node.description ? <p>{node.description}</p> : <p className="muted">설명 없음</p>}
+        <section className="selected-node-markdown-card">
+          {node.markdownDesc ? <MarkdownView markdown={node.markdownDesc} /> : <p className="muted">본문 없음</p>}
           {childGraphIds.length > 0 ? <span>연결된 하위 그래프: {childGraphIds.join(", ")}</span> : null}
-          {incoming.length > 0 ? <span>이전 흐름: {incoming.map((edge) => edge.label ?? edge.from).join(", ")}</span> : null}
-          {outgoing.length > 0 ? <span>다음 흐름: {outgoing.map((edge) => edge.label ?? edge.to).join(", ")}</span> : null}
         </section>
         {iframes.length > 0 ? (
           <section className="selected-node-iframe-panel" aria-label={`${node.title} iframe preview`}>
@@ -137,59 +135,42 @@ export function SelectedNodeDetail({
           </section>
         )}
       </div>
-      {footer}
     </aside>
   );
 }
 
 function useGraphFlowModel(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection) {
-  const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(() => new Map());
-  const baseNodes = useMemo(() => buildFlowNodes(document, index, selection), [document, index, selection]);
-  const baseEdges = useMemo(() => buildFlowEdges(document, index, selection), [document, index, selection]);
-  const layoutKey = useMemo(() => JSON.stringify({ graphs: document.graphs.map((graph) => [graph.id, graph.nodes.length, graph.edges.length]) }), [document]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const elkGraph: ElkNode = {
-      id: document.rootGraphId,
-      layoutOptions: {
-        "elk.algorithm": "layered",
-        "elk.direction": "RIGHT",
-        "elk.spacing.nodeNode": "36",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "70",
-      },
-      children: baseNodes.map((node) => ({ id: node.id, width: Number(node.width ?? 180), height: Number(node.height ?? 108) })),
-      edges: baseEdges
-        .filter((edge) => baseNodes.some((node) => node.id === edge.source) && baseNodes.some((node) => node.id === edge.target))
-        .map((edge) => ({ id: edge.id, sources: [edge.source], targets: [edge.target] })),
+  return useMemo(() => {
+    const graphLayouts = layoutGraphs(document);
+    return {
+      nodes: buildFlowNodes(document, index, selection, graphLayouts),
+      edges: buildFlowEdges(document, index, selection),
     };
-    void elk.layout(elkGraph).then((layouted) => {
-      if (!cancelled) setPositions(new Map((layouted.children ?? []).map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }])));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [baseEdges, baseNodes, document.rootGraphId, layoutKey]);
-
-  return {
-    nodes: baseNodes.map((node) => ({ ...node, position: positions.get(node.id) ?? node.position })),
-    edges: baseEdges,
-  };
+  }, [document, index, selection]);
 }
 
-function buildFlowNodes(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection): ReviewFlowNode[] {
-  return document.graphs.flatMap((graph, graphIndex) =>
-    graph.nodes.map((node, nodeIndex) => {
+function buildFlowNodes(
+  document: GraphPlanDocument,
+  index: GraphIndex,
+  selection: GraphSelection,
+  graphLayouts: Map<string, GraphLayout>,
+): ReviewFlowNode[] {
+  return orderedGraphs(document).flatMap((graph) => {
+    const layout = graphLayouts.get(graph.id);
+    return graph.nodes.map((node, nodeIndex) => {
       const selected = selection.graphId === graph.id && selection.nodeId === node.id;
       const issueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
       const childGraphCount = node.subGraphs?.length ?? 0;
       const iframeCount = node.iframes?.length ?? 0;
+      const position = layout?.nodePositions.get(node.id) ?? { x: nodeIndex * (NODE_WIDTH + COLUMN_GAP), y: 0 };
       return {
         id: flowNodeId(graph.id, node.id),
         type: "default",
-        position: { x: nodeIndex * 220, y: graphIndex * 260 },
-        width: 170,
-        height: 104,
+        position,
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
         className: `review-flow-node ${selected ? "selected" : ""} ${childGraphCount > 0 ? "drillable" : ""}`,
         data: {
           target: { graphId: graph.id, nodeId: node.id },
@@ -197,7 +178,7 @@ function buildFlowNodes(document: GraphPlanDocument, index: GraphIndex, selectio
             <div className="review-flow-node-body">
               <span className="node-kind">{graph.title}</span>
               <strong>{node.title}</strong>
-              {node.description ? <span className="node-summary">{node.description}</span> : null}
+              {node.markdownDesc ? <span className="node-summary">{markdownSummary(node.markdownDesc)}</span> : null}
               <span className="node-meta">
                 {iframeCount > 0 ? <span>iframe {iframeCount}</span> : null}
                 {childGraphCount > 0 ? <span>하위 그래프</span> : null}
@@ -207,8 +188,8 @@ function buildFlowNodes(document: GraphPlanDocument, index: GraphIndex, selectio
           ),
         },
       } satisfies ReviewFlowNode;
-    }),
-  );
+    });
+  });
 }
 
 function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection): ReviewFlowEdge[] {
@@ -217,11 +198,14 @@ function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selectio
       id: edge.id,
       source: flowNodeId(graph.id, edge.from),
       target: flowNodeId(graph.id, edge.to),
-      label: conditionLabel(edge),
+      label: edge.kind === "sequence" && !edge.label && !edge.condition ? undefined : conditionLabel(edge),
       type: "smoothstep",
       animated: edge.kind === "conditional" || edge.kind === "loop" || selection.edgeId === edge.id,
       className: selection.edgeId === edge.id ? "review-flow-edge selected" : "review-flow-edge",
       markerEnd: { type: MarkerType.ArrowClosed },
+      labelShowBg: true,
+      labelBgPadding: [5, 3] as [number, number],
+      labelBgBorderRadius: 4,
       data: { edge, graphId: graph.id },
     })),
   );
@@ -240,6 +224,9 @@ function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selectio
           animated: false,
           className: "review-flow-edge child-graph-edge",
           markerEnd: { type: MarkerType.ArrowClosed },
+          labelShowBg: true,
+          labelBgPadding: [5, 3] as [number, number],
+          labelBgBorderRadius: 4,
           data: { graphId: childGraphId },
         } satisfies ReviewFlowEdge;
       }),
@@ -254,4 +241,107 @@ function issueCountForTarget(index: GraphIndex, target: GraphPlanTarget): number
 
 function flowNodeId(graphId: string, nodeId: string): string {
   return `${graphId}::${nodeId}`;
+}
+
+type GraphLayout = {
+  nodePositions: Map<string, { x: number; y: number }>;
+  height: number;
+};
+
+function layoutGraphs(document: GraphPlanDocument): Map<string, GraphLayout> {
+  const layouts = new Map<string, GraphLayout>();
+  let laneY = 48;
+
+  for (const graph of orderedGraphs(document)) {
+    const levels = graphNodeLevels(graph);
+    const rowsByLevel = new Map<number, number>();
+    const nodePositions = new Map<string, { x: number; y: number }>();
+
+    graph.nodes.forEach((node, nodeIndex) => {
+      const level = levels.get(node.id) ?? nodeIndex;
+      const row = rowsByLevel.get(level) ?? 0;
+      rowsByLevel.set(level, row + 1);
+      nodePositions.set(node.id, {
+        x: 64 + level * (NODE_WIDTH + COLUMN_GAP),
+        y: laneY + row * (NODE_HEIGHT + ROW_GAP),
+      });
+    });
+
+    const maxRows = Math.max(1, ...rowsByLevel.values());
+    const height = maxRows * NODE_HEIGHT + Math.max(0, maxRows - 1) * ROW_GAP;
+    layouts.set(graph.id, { nodePositions, height });
+    laneY += height + GRAPH_LANE_GAP;
+  }
+
+  return layouts;
+}
+
+function graphNodeLevels(graph: GraphPlanGraph): Map<string, number> {
+  const nodeIds = new Set(graph.nodes.map((node) => node.id));
+  const incomingCount = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+  const levels = new Map<string, number>();
+
+  graph.nodes.forEach((node) => {
+    incomingCount.set(node.id, 0);
+    outgoing.set(node.id, []);
+  });
+
+  graph.edges
+    .filter((edge) => edge.kind !== "loop" && nodeIds.has(edge.from) && nodeIds.has(edge.to))
+    .forEach((edge) => {
+      incomingCount.set(edge.to, (incomingCount.get(edge.to) ?? 0) + 1);
+      outgoing.get(edge.from)?.push(edge.to);
+    });
+
+  const queue = graph.nodes.filter((node) => (incomingCount.get(node.id) ?? 0) === 0).map((node) => node.id);
+  queue.forEach((nodeId) => levels.set(nodeId, 0));
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    const nextLevel = (levels.get(nodeId) ?? 0) + 1;
+    for (const nextNodeId of outgoing.get(nodeId) ?? []) {
+      levels.set(nextNodeId, Math.max(levels.get(nextNodeId) ?? 0, nextLevel));
+      incomingCount.set(nextNodeId, (incomingCount.get(nextNodeId) ?? 0) - 1);
+      if ((incomingCount.get(nextNodeId) ?? 0) === 0) queue.push(nextNodeId);
+    }
+  }
+
+  graph.nodes.forEach((node, index) => {
+    if (!levels.has(node.id)) levels.set(node.id, index);
+  });
+
+  return levels;
+}
+
+function orderedGraphs(document: GraphPlanDocument): GraphPlanGraph[] {
+  const graphsById = new Map(document.graphs.map((graph) => [graph.id, graph]));
+  const ordered: GraphPlanGraph[] = [];
+  const visited = new Set<string>();
+
+  const visit = (graphId: string) => {
+    if (visited.has(graphId)) return;
+    const graph = graphsById.get(graphId);
+    if (!graph) return;
+    visited.add(graphId);
+    ordered.push(graph);
+    graph.nodes.forEach((node) => node.subGraphs?.forEach(visit));
+  };
+
+  visit(document.rootGraphId);
+  document.graphs.forEach((graph) => visit(graph.id));
+  return ordered;
+}
+
+function markdownSummary(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/^\d+[.)]\s+/gm, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)[0] ?? "";
 }

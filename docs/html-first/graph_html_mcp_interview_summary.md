@@ -33,7 +33,7 @@
 
 - `id`
 - `title`
-- `description`
+- `markdownDesc`: markdown 설명 본문
 - `subGraphs`
 - 선택 필드: `iframes`
 
@@ -75,7 +75,7 @@
         {
           "id": "n-implement",
           "title": "구현",
-          "description": "검색 개선 기능을 구현한다.",
+          "markdownDesc": "## 구현\n\n검색 개선 기능을 구현한다.\n\n### 확인할 내용\n\n- 검색 입력 흐름\n- 결과 표시와 빈 상태\n- 회귀 확인",
           "subGraphs": ["g-implementation-detail"]
         }
       ],
@@ -138,14 +138,14 @@ Edge 최소 필드:
 {
   "id": "g-review-revision-loop",
   "title": "Review revision loop",
-  "description": "피드백을 반영하고 승인 또는 재수정을 반복하는 흐름",
+  "markdownDesc": "피드백을 반영하고 승인 또는 재수정을 반복하는 흐름",
   "nodes": [
-    { "id": "n-feedback", "title": "피드백 접수", "description": "사용자 피드백을 수집한다." },
-    { "id": "n-revision", "title": "수정안 작성", "description": "피드백을 반영한 수정안을 만든다." },
+    { "id": "n-feedback", "title": "피드백 접수", "markdownDesc": "사용자 피드백을 수집한다." },
+    { "id": "n-revision", "title": "수정안 작성", "markdownDesc": "피드백을 반영한 수정안을 만든다." },
     {
       "id": "n-review",
       "title": "수정 결과 리뷰",
-      "description": "수정 결과를 iframe으로 검토한다.",
+      "markdownDesc": "수정 결과를 iframe으로 검토한다.",
       "iframes": [
         {
           "id": "if-revision-review",
@@ -177,7 +177,7 @@ iframe에 넣을 HTML은 중앙 artifact 저장소가 아니라 에이전트가 
 {
   "id": "n-revision-review",
   "title": "수정 결과 리뷰",
-  "description": "피드백 반영 결과를 검토하고 승인 또는 재수정을 결정한다.",
+  "markdownDesc": "피드백 반영 결과를 검토하고 승인 또는 재수정을 결정한다.",
   "subGraphs": [],
   "iframes": [
     {
@@ -196,7 +196,7 @@ iframe에 넣을 HTML은 중앙 artifact 저장소가 아니라 에이전트가 
 
 before/after 비교, 여러 상세 화면, 탭, 비교 UI 같은 세부 표현은 여전히 HTML 내부에서 자체적으로 처리할 수 있다. 다만 한 노드에 명확히 구분되는 상세 진입점이 여러 개 필요한 경우, `iframes` 배열에 여러 entry를 둘 수 있다.
 
-중앙 스키마는 role, before/after, 상태명 같은 의미를 표준화하지 않는다. 의미가 필요한 경우 `description`에 자연어로 적고, 상세 구조와 인터랙션은 각 HTML이 담당한다.
+중앙 스키마는 role, before/after, 상태명 같은 의미를 표준화하지 않는다. iframe entry의 의미가 필요한 경우 `iframes[].description`에 자연어로 적고, 상세 구조와 인터랙션은 각 HTML이 담당한다.
 
 ## 9. iframe URL 허용 범위
 
@@ -276,28 +276,22 @@ Header는 현재 세션의 전역 상태를 보여준다.
 
 오른쪽 Detail Panel은 현재 선택 중인 node를 중심으로 구성한다.
 
-상단에는 선택한 node 정보를 보여준다.
+상단에는 선택한 graph title과 node title만 간결하게 보여준다.
 
-- node title
-- node description
-- node status가 있다면 status
-- incoming/outgoing edge summary
-- owned subgraph summary
-- validation issue summary
+본문은 node의 `markdownDesc`를 markdown으로 렌더링한다. 그래프 카드의 짧은 요약도 같은 `markdownDesc`에서 추출한다.
 
-node에 `iframes`가 있으면 node 정보 아래에 iframe tab을 보여준다.
+node에 `iframes`가 있으면 markdown 설명 아래에 iframe tab을 보여준다.
 
 각 tab은 iframe entry의 `description`을 label로 사용하고, 선택된 tab의 `url`을 sandbox iframe으로 렌더링한다.
 
 ```txt
 Right Detail Panel
-  Selected Node Info
+  Node Markdown Body
   Iframe Tabs
   Active Iframe Preview
-  Feedback
 ```
 
-Feedback 영역은 오른쪽 Detail Panel 하단에 둔다.
+Feedback 영역은 오른쪽 Detail Panel에서 빼고 왼쪽 graph view 하단에 compact하게 둔다.
 
 기본 feedback target은 현재 선택된 node다. 사용자가 iframe tab을 선택한 상태에서 피드백을 남기면 해당 iframe entry를 target으로 삼을 수 있어야 한다.
 

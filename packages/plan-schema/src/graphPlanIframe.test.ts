@@ -24,7 +24,7 @@ function reviewNode(overrides: Partial<GraphPlanDocument["graphs"][number]["node
   return {
     id: "n-review",
     title: "Review",
-    description: "Review node",
+    markdownDesc: "Review node",
     iframes: [{ id: "preview", description: "Fixture app preview", url: "http://localhost:8787/review" }],
     ...overrides,
   };
