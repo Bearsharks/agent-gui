@@ -68,6 +68,7 @@ Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `if
 - Use only local explicit-port HTTP iframe URLs:
   - `http://localhost:<port>/...`
   - `http://127.0.0.1:<port>/...`
+- The browser app appends `planRevision=<revision>` to iframe URLs and remounts iframe previews when the plan revision changes. Keep iframe URLs stable; do not add your own revision cache-buster unless the HTML itself needs a separate version key.
 
 ## Targets
 
@@ -90,8 +91,8 @@ Prefer direct MCP tools when available:
 
 - `create_graph_plan_session({ graphPlan })`
 - `get_graph_plan_session({ sessionId })`
-- `list_plan_events({ sessionId, afterEventId? })`
-- `post_agent_reply({ sessionId, revision, replyToEventId, target, body, disposition? })`
+- `list_plan_events({ sessionId, afterEventId?, feedbackStatus? })`
+- `post_agent_reply({ sessionId, revision, replyToEventId, target, body, disposition })`
 - `mutate_graph_plan({ sessionId, baseRevision, operations, changeSummary, validationPolicy? })`
 - `replace_graph_plan({ sessionId, baseRevision, graphPlan, changeSummary, replacementRationale, validationPolicy? })`
 - `normalize_graph_plan({ graphPlan, mode? })`
@@ -116,10 +117,47 @@ curl -s -X POST http://localhost:8787/mcp/call \
 5. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
 6. Create the session with `create_graph_plan_session`.
 7. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
-8. When feedback is ready, read `list_plan_events`.
-9. Reply with `post_agent_reply` for explanation-only feedback.
+8. When feedback is ready, read `list_plan_events`; by default it returns only unhandled user feedback.
+9. Handle every feedback item by calling `post_agent_reply` with a disposition. This is required even when a graph mutation also addresses the feedback.
 10. Default to `mutate_graph_plan` for revisions.
 11. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
+
+## Feedback Handling
+
+`post_agent_reply` is the source of truth for whether a feedback thread is handled. Do not rely on "read once" semantics, and do not assume a graph revision alone closes feedback.
+
+Use `list_plan_events` as follows:
+
+- Default: `list_plan_events({ sessionId })` returns only open `user.feedback` events that do not have a non-open reply disposition.
+- Full audit log: `list_plan_events({ sessionId, feedbackStatus: "all" })`.
+- Handled feedback only: `list_plan_events({ sessionId, feedbackStatus: "resolved" })`.
+- Cursoring still works with `afterEventId`.
+
+Use these `post_agent_reply.disposition` values:
+
+- `answered`: answered without changing the graph.
+- `incorporated_in_revision`: graph/html content was changed to address the feedback.
+- `rejected`: intentionally not changing the plan, with rationale in `body`.
+- `needs_user_clarification`: cannot complete without user input; clearly ask the next question in `body`.
+- `open`: avoid this for normal handling because it leaves the feedback in the default open list.
+
+When a mutation handles feedback, do both operations:
+
+1. Call `mutate_graph_plan` or `replace_graph_plan`.
+2. Call `post_agent_reply` with `replyToEventId` pointing to the original `user.feedback` and `disposition: "incorporated_in_revision"`.
+
+Example:
+
+```json
+{
+  "sessionId": "plan_12345678",
+  "revision": 3,
+  "replyToEventId": "feedback_abcdef12",
+  "target": { "type": "node", "graphId": "g-review", "nodeId": "n-result-review" },
+  "body": "반영했습니다. 노드 설명과 iframe 비교 화면을 새 기준으로 갱신했습니다.",
+  "disposition": "incorporated_in_revision"
+}
+```
 
 ## Mutation Choice
 
