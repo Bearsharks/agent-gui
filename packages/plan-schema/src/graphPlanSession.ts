@@ -114,6 +114,7 @@ export const replaceGraphPlanInputSchema = z.object({
   baseRevision: z.number().int().positive(),
   graphPlan: graphPlanDocumentSchema,
   changeSummary: graphPlanChangeSummarySchema,
+  replacementRationale: z.string().min(20),
   validationPolicy: validationPolicySchema.default("block_errors"),
 });
 
@@ -126,6 +127,7 @@ const targetMutationBaseSchema = graphPlanMutationBaseSchema.extend({
 });
 
 export const graphPlanMutationOperationSchema = z.discriminatedUnion("op", [
+  // Deprecated for agent authoring. Prefer the dedicated replace_graph_plan tool when the whole document must be replaced.
   z.object({ op: z.literal("replace_document"), graphPlan: graphPlanDocumentSchema }),
   targetMutationBaseSchema.extend({
     op: z.literal("update_node_fields"),
@@ -225,4 +227,3 @@ export type ReplaceGraphPlanInput = z.infer<typeof replaceGraphPlanInputSchema>;
 export type GraphPlanMutationOperation = z.infer<typeof graphPlanMutationOperationSchema>;
 export type GraphPlanMutationInput = z.infer<typeof graphPlanMutationInputSchema>;
 export type GraphPlanMutationResult = z.infer<typeof graphPlanMutationResultSchema>;
-

@@ -19,6 +19,7 @@ import {
   graphPlanMutationOperationSchema,
   graphPlanTargetSchema,
   graphPlanValidationModeSchema,
+  normalizeGraphPlanForAuthoring,
   validationPolicySchema,
 } from "@agent-gui/plan-schema";
 import { FileSessionStore } from "../store/fileStore";
@@ -82,28 +83,11 @@ server.registerTool(
 );
 
 server.registerTool(
-  "replace_graph_plan",
-  {
-    title: "Replace graph plan",
-    description:
-      "Replace the full GraphPlanDocument for a session. Use this for large structure changes; use mutate_graph_plan for targeted node, block, edge, prototype tab, or artifact range changes. Requires baseRevision and runs validation after replacement.",
-    inputSchema: {
-      sessionId: z.string(),
-      baseRevision: z.number().int().positive(),
-      graphPlan: graphPlanDocumentSchema,
-      changeSummary: graphPlanChangeSummarySchema,
-      validationPolicy: validationPolicySchema.default("block_errors"),
-    },
-  },
-  async (input) => jsonResult(await graphStore.replaceGraphPlan(input)),
-);
-
-server.registerTool(
   "mutate_graph_plan",
   {
     title: "Mutate graph plan",
     description:
-      "Apply GraphPlanMutationOperation items atomically to the current GraphPlanDocument. Use for targeted graph, node, block, edge, subgraph, prototype tab, or artifact range updates. Requires baseRevision and runs validation after mutation.",
+      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including node additions, edge additions, subgraph additions, block appends/replacements, field updates, prototype tab updates, and artifact range updates. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
@@ -114,6 +98,38 @@ server.registerTool(
     },
   },
   async (input) => jsonResult(await graphStore.mutateGraphPlan(input)),
+);
+
+server.registerTool(
+  "replace_graph_plan",
+  {
+    title: "Replace graph plan",
+    description:
+      "Replace the full GraphPlanDocument only when targeted mutations would be misleading or unsafe, such as importing a regenerated document, redesigning most graphs, or intentionally remapping target identities. Do not use for adding interview questions, adding nodes/edges, appending blocks, or updating a few fields; use mutate_graph_plan for those. Requires a concrete replacementRationale.",
+    inputSchema: {
+      sessionId: z.string(),
+      baseRevision: z.number().int().positive(),
+      graphPlan: graphPlanDocumentSchema,
+      changeSummary: graphPlanChangeSummarySchema,
+      replacementRationale: z.string().min(20),
+      validationPolicy: validationPolicySchema.default("block_errors"),
+    },
+  },
+  async (input) => jsonResult(await graphStore.replaceGraphPlan(input)),
+);
+
+server.registerTool(
+  "normalize_graph_plan",
+  {
+    title: "Normalize graph plan",
+    description:
+      "Normalize common authoring shorthand before strict validation. Copies item text to label, artifact label/uri to title/ref, normalizes session-like artifact URLs to kind=url, converts simple comparison columns/rows/cells into criteria/options/scores, and returns remaining schema issues with hints.",
+    inputSchema: {
+      graphPlan: z.unknown(),
+      mode: graphPlanValidationModeSchema.default("draft"),
+    },
+  },
+  async ({ graphPlan, mode }) => jsonResult(normalizeGraphPlanForAuthoring(graphPlan, mode)),
 );
 
 server.registerTool(

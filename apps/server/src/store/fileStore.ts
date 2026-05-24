@@ -44,6 +44,7 @@ export type ReplaceGraphPlanInput = {
       ? Summary
       : never
     : never;
+  replacementRationale: string;
   validationPolicy?: "allow_all" | "block_errors";
   target?: GraphPlanTarget;
 };
@@ -144,6 +145,7 @@ export class FileSessionStore {
       baseRevision: input.baseRevision,
       graphPlan: input.graphPlan,
       changeSummary: input.changeSummary,
+      replacementRationale: input.replacementRationale,
       validationPolicy: input.validationPolicy ?? "block_errors",
     });
     if (session.revision !== parsedInput.baseRevision) {

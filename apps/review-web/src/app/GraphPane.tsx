@@ -2,10 +2,10 @@ import type { GraphPlanEdge, GraphPlanGraph, GraphPlanNode, GraphPlanTarget } fr
 import { Button } from "@agent-gui/design-system";
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge as FlowEdge, type Node as FlowNode, type NodeMouseHandler } from "@xyflow/react";
 import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { BlockDetail, blockItemCount } from "./BlockDetail";
 import { labelBlockType, labelNodeKind, labelStatus } from "./graphReviewLabels";
-import { blockKey, buildGraphChain, conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
+import { blockKey, conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
 
 type ReviewFlowNode = FlowNode<{ label: ReactNode; target: GraphSelection }, "default">;
 type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge }>;
@@ -19,8 +19,6 @@ export function GraphPane({
   expandedNodeSelection,
   onSelect,
   onNodeSelect,
-  onTargetSelect,
-  onNodeOverlayClose,
 }: {
   graph: GraphPlanGraph;
   index: GraphIndex;
@@ -28,10 +26,7 @@ export function GraphPane({
   expandedNodeSelection: GraphSelection | null;
   onSelect: (selection: GraphSelection) => void;
   onNodeSelect: (selection: GraphSelection) => void;
-  onTargetSelect: (target: GraphPlanTarget) => void;
-  onNodeOverlayClose: () => void;
 }) {
-  const selectedNode = expandedNodeSelection ? selectedNodeForSelection(index, expandedNodeSelection) : undefined;
   const orderedNodes = useMemo(
     () =>
       graph.layout?.order
@@ -65,24 +60,12 @@ export function GraphPane({
           <MiniMap pannable zoomable nodeStrokeWidth={3} />
           <Controls showInteractive={false} />
         </ReactFlow>
-        {selectedNode && expandedNodeSelection ? (
-          <SelectedNodeOverlay
-            displayGraph={graph}
-            node={selectedNode}
-            selection={selection}
-            expandedNodeSelection={expandedNodeSelection}
-            index={index}
-            onSelect={onSelect}
-            onTargetSelect={onTargetSelect}
-            onClose={onNodeOverlayClose}
-          />
-        ) : null}
       </div>
     </aside>
   );
 }
 
-function SelectedNodeOverlay({
+export function SelectedNodeDetail({
   displayGraph,
   node,
   selection,
@@ -91,6 +74,8 @@ function SelectedNodeOverlay({
   onSelect,
   onTargetSelect,
   onClose,
+  onResizeStart,
+  footer,
 }: {
   displayGraph: GraphPlanGraph;
   node: GraphPlanNode;
@@ -100,6 +85,8 @@ function SelectedNodeOverlay({
   onSelect: (selection: GraphSelection) => void;
   onTargetSelect: (target: GraphPlanTarget) => void;
   onClose: () => void;
+  onResizeStart: (event: MouseEvent<HTMLDivElement>) => void;
+  footer?: ReactNode;
 }) {
   const nodeGraphId = expandedNodeSelection.graphId;
   const childGraphIds = getChildGraphIds(node);
@@ -109,7 +96,8 @@ function SelectedNodeOverlay({
   const nodeIssueCount = issueCountForTarget(index, { type: "node", graphId: nodeGraphId, nodeId: node.id });
   const totalItemCount = node.blocks.reduce((sum, block) => sum + blockItemCount(block), 0);
   return (
-    <aside className="selected-node-overlay" onClick={(event) => event.stopPropagation()}>
+    <aside className="selected-node-overlay">
+      <div className="selected-node-resize-handle" onMouseDown={onResizeStart} aria-hidden="true" />
       <header className="selected-node-overlay-header">
         <div>
           <span>{labelNodeKind(node.kind)}</span>
@@ -168,6 +156,7 @@ function SelectedNodeOverlay({
         </section>
       </div>
       {childGraphIds.length > 0 ? <div className="selected-node-overlay-footer">현재 그래프: {displayGraph.title}</div> : null}
+      {footer}
     </aside>
   );
 }
@@ -394,7 +383,7 @@ function positionForFlowNode(
   const depth = nestedGraphDepth(displayGraphId, parsed.graphId, index);
   return {
     x: layoutPosition.x + 48,
-    y: layoutPosition.y + 72 + depth * 150,
+    y: layoutPosition.y + 72 + depth * 300,
   };
 }
 
@@ -422,15 +411,20 @@ function nestedGraphDepth(displayGraphId: string, graphId: string, index: GraphI
 
 function visibleNestedGraphIds(displayGraph: GraphPlanGraph, selection: GraphSelection, index: GraphIndex): string[] {
   const graphIds = new Set<string>();
-  const chain = buildGraphChain(selection.graphId, index);
-  chain.forEach((graph) => {
-    if (graph.id !== displayGraph.id) graphIds.add(graph.id);
-  });
-  const selectedNode = selectedNodeForSelection(index, selection);
-  if (selectedNode) {
-    getChildGraphIds(selectedNode).forEach((graphId) => graphIds.add(graphId));
-  }
+  collectNestedGraphIds(displayGraph, index, graphIds);
   return Array.from(graphIds);
+}
+
+function collectNestedGraphIds(graph: GraphPlanGraph, index: GraphIndex, graphIds: Set<string>): void {
+  graph.nodes.forEach((node) => {
+    getChildGraphIds(node).forEach((childGraphId) => {
+      if (graphIds.has(childGraphId)) return;
+      const childGraph = index.graphsById.get(childGraphId);
+      if (!childGraph) return;
+      graphIds.add(childGraphId);
+      collectNestedGraphIds(childGraph, index, graphIds);
+    });
+  });
 }
 
 function selectedNodeForSelection(index: GraphIndex, selection: GraphSelection): GraphPlanNode | undefined {
