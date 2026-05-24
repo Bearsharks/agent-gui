@@ -6,6 +6,7 @@ body {
 }
 
 button,
+input,
 textarea {
   font: inherit;
 }
@@ -25,6 +26,14 @@ textarea {
   padding: 10px;
   resize: vertical;
   width: 100%;
+}
+
+input {
+  border: 1px solid #d8cfc0;
+  border-radius: 6px;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 7px 9px;
 }
 
 pre {
@@ -126,22 +135,25 @@ pre {
   gap: 4px;
 }
 
+.graph-workspace {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .feedback-bar {
   align-items: start;
   background: #fffdf8;
-  border: 1px solid #d8cfc0;
-  border-radius: 7px;
+  border-top: 1px solid #d8cfc0;
   display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  padding: 7px;
+  gap: 5px;
+  grid-template-columns: minmax(0, auto) auto minmax(220px, 1fr) auto;
+  padding: 5px 7px;
 }
 
-.feedback-bar textarea {
-  grid-column: 1 / -1;
-  min-height: 28px;
-  max-height: 58px;
-  resize: vertical;
+.feedback-bar input {
+  height: 30px;
 }
 
 .feedback-target-path {
@@ -150,6 +162,7 @@ pre {
   flex-wrap: wrap;
   gap: 2px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .feedback-target-path button {
@@ -234,7 +247,7 @@ pre {
   box-shadow: -10px 0 22px rgba(57, 45, 25, 0.08);
   display: grid;
   gap: 8px;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -312,23 +325,6 @@ pre {
   white-space: nowrap;
 }
 
-.selected-node-meta-strip {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.selected-node-meta-strip span {
-  background: #f8f4ec;
-  border: 1px solid #d8cfc0;
-  border-radius: 4px;
-  color: #6b665e;
-  font-size: 9px;
-  font-weight: 750;
-  padding: 2px 5px;
-}
-
 .selected-node-layout {
   box-sizing: border-box;
   display: grid;
@@ -362,7 +358,7 @@ pre {
   border-radius: 999px;
 }
 
-.selected-node-info-card,
+.selected-node-markdown-card,
 .selected-node-iframe-panel {
   background: #fffdf8;
   border: 1px solid #d8cfc0;
@@ -373,20 +369,74 @@ pre {
   padding: 8px;
 }
 
-.selected-node-info-card strong {
-  font-size: 12px;
+.selected-node-markdown-card > span {
+  color: #6b665e;
+  font-size: 10px;
 }
 
-.selected-node-info-card p {
-  color: #6b665e;
-  font-size: 11px;
-  line-height: 1.45;
+.markdown-view {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.markdown-view h2,
+.markdown-view h3,
+.markdown-view h4 {
+  color: #20201d;
+  line-height: 1.25;
   margin: 0;
 }
 
-.selected-node-info-card span {
-  color: #6b665e;
+.markdown-view h2 {
+  font-size: 14px;
+}
+
+.markdown-view h3 {
+  border-top: 1px solid #e5ded1;
+  font-size: 12px;
+  padding-top: 7px;
+}
+
+.markdown-view h4 {
+  color: #3f3d38;
+  font-size: 11px;
+}
+
+.markdown-view p,
+.markdown-view li {
+  color: #5f5a53;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.markdown-view p {
+  margin: 0;
+}
+
+.markdown-view ul,
+.markdown-view ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.markdown-view code {
+  background: #f0ebe2;
+  border: 1px solid #d8cfc0;
+  border-radius: 4px;
+  color: #2f4f68;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 10px;
+  padding: 1px 4px;
+}
+
+.markdown-view pre {
+  font-size: 10px;
+  margin: 0;
+  max-height: 160px;
+  white-space: pre-wrap;
 }
 
 .iframe-tab-list {
@@ -506,7 +556,8 @@ pre {
   border: 1px solid #d8cfc0 !important;
   border-radius: 7px !important;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-  width: 150px;
+  min-height: 116px;
+  width: 220px;
 }
 
 .review-flow-node.selected {
@@ -538,7 +589,8 @@ pre {
 
 .review-flow-node-body {
   display: grid;
-  gap: 3px;
+  gap: 5px;
+  min-height: 100px;
   text-align: left;
 }
 
@@ -547,28 +599,41 @@ pre {
   stroke-width: 2.5;
 }
 
+.review-flow-edge .react-flow__edge-path {
+  stroke: #8d9aa8;
+  stroke-width: 1.6;
+}
+
+.review-flow-edge.child-graph-edge .react-flow__edge-path {
+  stroke: #246aa8;
+  stroke-dasharray: 6 4;
+}
+
 .react-flow__edge-textbg {
   fill: #fffdf8;
   stroke: #d8cfc0;
+  stroke-width: 1;
 }
 
 .react-flow__edge-text {
-  fill: #6b665e;
-  font-size: 11px;
-  font-weight: 700;
+  fill: #4e5f70;
+  font-size: 10px;
+  font-weight: 850;
 }
 
 .node-kind {
   color: #6b665e;
   font-size: 8px;
   font-weight: 850;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .node-summary {
   font-size: 10px;
   line-height: 1.4;
+  max-height: 42px;
+  overflow: hidden;
 }
 
 .node-meta {

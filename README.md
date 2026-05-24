@@ -42,6 +42,7 @@ Agent GUI의 현재 session payload는 `GraphPlanDocument`입니다.
 - Document는 top-level `graphs[]`와 `rootGraphId`를 갖습니다.
 - Graph는 `nodes[]`와 graph-level `edges[]`를 갖습니다.
 - Node는 선택/리뷰 단위이며 하위 graph와 iframe entry를 가질 수 있습니다.
+- Document, Graph, Node의 `markdownDesc`는 markdown 설명 본문입니다. UI는 graph card/header에서는 요약 텍스트로, 오른쪽 상세패널에서는 markdown viewer로 렌더링합니다.
 - Edge는 flow, dependency, conditional, loop 같은 graph 흐름을 표현합니다.
 - iframe HTML은 node 상세 화면, 프로토타입, before/after 비교, 리뷰 질문 같은 구체 표현을 담당합니다.
 
@@ -71,8 +72,8 @@ Right Detail Panel
 ```
 
 - Header: title, goal, status, revision, validation, approval action
-- Left Graph View: root graph와 모든 하위 graph를 함께 보여주는 전체 graph view
-- Right Detail Panel: 선택한 node 정보, iframe tabs, active sandbox iframe preview, feedback composer
+- Left Graph View: root graph와 모든 하위 graph를 함께 보여주는 전체 graph view, 하단 compact feedback composer
+- Right Detail Panel: 선택한 node의 `markdownDesc`, iframe tabs, active sandbox iframe preview
 
 iframe tab 선택 상태에서 feedback을 남기면 target은 iframe entry입니다.
 

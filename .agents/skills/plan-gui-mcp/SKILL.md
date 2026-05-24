@@ -16,7 +16,7 @@ type GraphPlanDocument = {
   schemaVersion: "graph-plan/v1";
   id: string;
   title: string;
-  description?: string;
+  markdownDesc?: string;
   rootGraphId: string;
   graphs: GraphPlanGraph[];
   currentRevision: number;
@@ -29,7 +29,7 @@ Each graph owns its nodes and edges:
 type GraphPlanGraph = {
   id: string;
   title: string;
-  description?: string;
+  markdownDesc?: string;
   parent?: { graphId: string; nodeId: string };
   nodes: GraphPlanNode[];
   edges: GraphPlanEdge[];
@@ -42,7 +42,7 @@ Each node can point to child graphs and local iframe entries:
 type GraphPlanNode = {
   id: string;
   title: string;
-  description?: string;
+  markdownDesc?: string;
   subGraphs?: string[];
   iframes?: {
     id: string;
@@ -60,6 +60,8 @@ Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `if
 - Store edges as graph-level `edges[]`; do not embed edges inside nodes.
 - Use `node.subGraphs[]` to connect a node to child graphs.
 - Set each child graph's `parent` to the owning `{ graphId, nodeId }`.
+- Use `markdownDesc` for document, graph, and node descriptions. It is markdown.
+- The review UI renders node `markdownDesc` with a markdown viewer in the right detail panel and derives graph-card summary text from the same field.
 - Put detailed screens, comparisons, checklist UI, prototype states, and review questions in node iframe HTML.
 - Use `iframes[].description` as the UI tab label.
 - Keep `iframes[].id` unique within the node.
@@ -126,7 +128,7 @@ Use `mutate_graph_plan` unless the whole document truly needs replacement.
 Use `mutate_graph_plan` for:
 
 - Adding nodes, edges, and subgraphs.
-- Updating graph or node title/description.
+- Updating graph or node title or `markdownDesc`.
 - Attaching or detaching subgraphs.
 - Adding, updating, or removing iframe entries.
 - Updating edge label, condition, or kind.
@@ -182,7 +184,7 @@ Minimal node with iframe:
 {
   "id": "n-review",
   "title": "수정 결과 리뷰",
-  "description": "사용자 피드백 반영 결과를 확인한다.",
+  "markdownDesc": "## 수정 결과 리뷰\n\n사용자 피드백 반영 결과를 확인한다.\n\n### 확인할 내용\n\n- 수정 전후 차이가 명확한지 확인한다.\n- 남은 피드백은 iframe target에 남긴다.",
   "iframes": [
     {
       "id": "iframe-result-review",

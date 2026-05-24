@@ -95,7 +95,7 @@ Node는 하위 graph id와 iframe entry를 가질 수 있습니다.
 type GraphPlanNode = {
   id: string;
   title: string;
-  description?: string;
+  markdownDesc?: string; // markdown 설명 본문
   subGraphs?: string[];
   iframes?: {
     id: string;
@@ -123,8 +123,8 @@ Right Detail Panel
 ```
 
 - Header는 title, goal, status, revision, validation, approval action을 보여줍니다.
-- Left Graph View는 root graph와 모든 하위 graph를 함께 보여줍니다.
-- Right Detail Panel은 현재 선택한 node 정보, iframe tabs, active sandbox iframe preview, feedback composer를 보여줍니다.
+- Left Graph View는 root graph와 모든 하위 graph를 함께 보여주고, 하단에 compact feedback composer를 둡니다.
+- Right Detail Panel은 현재 선택한 node의 `markdownDesc`, iframe tabs, active sandbox iframe preview를 보여줍니다.
 - iframe tab 선택 상태에서 feedback을 남기면 target은 `{ type: "iframe", graphId, nodeId, iframeId }`입니다.
 
 ## What To Inspect For POC Value

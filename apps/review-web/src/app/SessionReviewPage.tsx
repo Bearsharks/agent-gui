@@ -141,7 +141,7 @@ export function SessionReviewPage() {
       <header className="graph-review-header">
         <div className="plan-header-copy">
           <h1>{session.graphPlan.title}</h1>
-          {session.graphPlan.description ? <p>{session.graphPlan.description}</p> : null}
+          {session.graphPlan.markdownDesc ? <p>{markdownSummary(session.graphPlan.markdownDesc)}</p> : null}
         </div>
         <div className="graph-review-actions">
           <Badge tone={session.validation.publishReady ? "accent" : "warn"}>{session.validation.publishReady ? "게시 가능" : "게시 불가"}</Badge>
@@ -159,7 +159,17 @@ export function SessionReviewPage() {
         className={`graph-review-main ${selectedNode ? "with-detail" : "graph-only"}`}
         style={selectedNode && !isCompactDetailLayout ? { gridTemplateColumns: `minmax(34vw, 1fr) ${detailPanelWidth}px` } : undefined}
       >
-        <GraphPane document={session.graphPlan} index={index} selection={normalizedSelection} onSelect={updateSelection} onNodeSelect={updateSelection} />
+        <div className="graph-workspace">
+          <GraphPane document={session.graphPlan} index={index} selection={normalizedSelection} onSelect={updateSelection} onNodeSelect={updateSelection} />
+          <FeedbackComposer
+            session={session}
+            index={index}
+            detailSelection={normalizedSelection}
+            feedbackTarget={feedback}
+            onFeedbackSelect={setFeedbackTarget}
+            onRefresh={() => void load()}
+          />
+        </div>
         {selectedNode && selectedGraph ? (
           <SelectedNodeDetail
             graph={selectedGraph}
@@ -169,16 +179,6 @@ export function SessionReviewPage() {
             onSelect={updateSelection}
             onClose={() => setSelection({ graphId: normalizedSelection.graphId })}
             onResizeStart={startDetailPanelResize}
-            footer={
-              <FeedbackComposer
-                session={session}
-                index={index}
-                detailSelection={normalizedSelection}
-                feedbackTarget={feedback}
-                onFeedbackSelect={setFeedbackTarget}
-                onRefresh={() => void load()}
-              />
-            }
           />
         ) : null}
       </section>
@@ -202,6 +202,19 @@ function detailPanelBounds(): { min: number; max: number; canResize: boolean } {
   };
 }
 
+function markdownSummary(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/^\d+[.)]\s+/gm, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)[0] ?? "";
+}
+
 function FeedbackComposer({
   session,
   index,
@@ -218,7 +231,7 @@ function FeedbackComposer({
   onRefresh: () => void;
 }) {
   const [message, setMessage] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [isSending, setIsSending] = useState(false);
   const breadcrumbSegments = [{ label: "전체 플랜", target: { type: "plan" } as GraphPlanTarget }, ...breadcrumbSegmentsForTarget(selectionToTarget(detailSelection), index)];
   const selectedTargetKey = targetKey(feedbackTarget);
@@ -247,8 +260,16 @@ function FeedbackComposer({
           </button>
         ))}
       </div>
-      <Badge>{labelTargetType(feedbackTarget.type)}에 피드백</Badge>
-      <textarea ref={inputRef} value={message} onChange={(event) => setMessage(event.target.value)} placeholder={`${breadcrumbForTarget(feedbackTarget, index)}에 피드백 남기기`} rows={1} />
+      <Badge>{labelTargetType(feedbackTarget.type)}</Badge>
+      <input
+        ref={inputRef}
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) void send();
+        }}
+        placeholder={`${breadcrumbForTarget(feedbackTarget, index)}에 피드백`}
+      />
       <Button onClick={send} disabled={isSending || !message.trim()}>제출</Button>
     </section>
   );
