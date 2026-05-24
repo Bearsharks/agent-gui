@@ -7,21 +7,24 @@ import type {
   PlanSession,
 } from "@agent-gui/plan-schema";
 import { Badge, Button } from "@agent-gui/design-system";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { approveSession, createFixtureSession, fetchSession, notifyAgent, postFeedback } from "../api/client";
-import { GraphPane } from "./GraphPane";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { approveSession, createFixtureSession, fetchSession, postFeedback } from "../api/client";
+import { GraphPane, SelectedNodeDetail } from "./GraphPane";
 import { PrototypeTabPanel } from "./PrototypeTabPanel";
 import {
   blockKey,
-  breadcrumbForTarget,
   buildGraphChain,
+  breadcrumbSegmentsForTarget,
+  breadcrumbForTarget,
   buildGraphIndex,
   edgeKey,
+  nodeKey,
   normalizeSelection,
   pointerToSelection,
   selectionFromSearch,
   selectionToSearch,
   selectionToTarget,
+  targetKey,
   targetToSelection,
   type GraphIndex,
   type GraphSelection,
@@ -29,6 +32,11 @@ import {
 import { labelEventType, labelStatus, labelTargetType } from "./graphReviewLabels";
 
 type DrawerKind = "history" | "activity" | "validation" | "prototype";
+const DETAIL_PANEL_DEFAULT_WIDTH = 560;
+const DETAIL_PANEL_MIN_RATIO = 0.3;
+const DETAIL_PANEL_MAX_RATIO = 0.58;
+const GRAPH_MIN_RATIO = 0.34;
+const DETAIL_PANEL_MIN_ABSOLUTE_WIDTH = 340;
 
 function getSessionId() {
   const match = window.location.pathname.match(/\/sessions\/([^/]+)/);
@@ -39,8 +47,11 @@ export function SessionReviewPage() {
   const [sessionId, setSessionId] = useState(getSessionId());
   const [session, setSession] = useState<PlanSession | null>(null);
   const [selection, setSelection] = useState<GraphSelection | null>(null);
+  const [feedbackTarget, setFeedbackTarget] = useState<GraphPlanTarget | null>(null);
   const [expandedNodeSelection, setExpandedNodeSelection] = useState<GraphSelection | null>(null);
   const [openDrawer, setOpenDrawer] = useState<DrawerKind | null>(null);
+  const [detailPanelWidth, setDetailPanelWidth] = useState(DETAIL_PANEL_DEFAULT_WIDTH);
+  const [isCompactDetailLayout, setIsCompactDetailLayout] = useState(() => window.innerWidth <= 920);
   const sessionIndex = useMemo(() => (session ? buildGraphIndex(session.graphPlan, session.validation.issues) : null), [session?.graphPlan, session?.validation.issues]);
 
   async function load(id = sessionId) {
@@ -49,7 +60,9 @@ export function SessionReviewPage() {
     const index = buildGraphIndex(next.graphPlan, next.validation.issues);
     setSession(next);
     const searchSelection = selectionFromSearch(next.graphPlan, index, window.location.search);
-    setSelection((current) => normalizeSelection(next.graphPlan, index, current ?? searchSelection));
+    const normalizedSearchSelection = normalizeSelection(next.graphPlan, index, searchSelection);
+    setSelection((current) => normalizeSelection(next.graphPlan, index, current ?? normalizedSearchSelection));
+    setFeedbackTarget((current) => current ?? selectionToTarget(normalizedSearchSelection));
     setExpandedNodeSelection((current) => normalizeExpandedNodeSelection(next.graphPlan, index, current ?? searchSelection));
   }
 
@@ -68,6 +81,20 @@ export function SessionReviewPage() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    function handleResize() {
+      const bounds = detailPanelBounds();
+      setIsCompactDetailLayout(!bounds.canResize);
+      if (bounds.canResize) {
+        setDetailPanelWidth((current) => clamp(current, bounds.min, bounds.max));
+      }
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   async function startFixture() {
     const result = await createFixtureSession();
     window.history.pushState(null, "", `/sessions/${result.sessionId}`);
@@ -78,13 +105,20 @@ export function SessionReviewPage() {
     if (!session || !sessionIndex) return;
     const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
     setSelection(normalized);
+    setFeedbackTarget(selectionToTarget(normalized));
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
   }
 
   function selectGraphNode(next: GraphSelection) {
     if (!session || !sessionIndex) return;
-    const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
+    const normalizedNode = normalizeSelection(session.graphPlan, sessionIndex, next);
+    const firstBlockId = normalizedNode.nodeId ? sessionIndex.nodesByKey.get(nodeKey(normalizedNode.graphId, normalizedNode.nodeId))?.blocks[0]?.id : undefined;
+    const normalized = normalizeSelection(session.graphPlan, sessionIndex, {
+      ...normalizedNode,
+      blockId: normalizedNode.blockId ?? firstBlockId,
+    });
     setSelection(normalized);
+    setFeedbackTarget(selectionToTarget(normalized));
     setExpandedNodeSelection(normalized.nodeId ? normalized : null);
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
   }
@@ -93,8 +127,37 @@ export function SessionReviewPage() {
     if (!session || !sessionIndex) return;
     const normalized = normalizeSelection(session.graphPlan, sessionIndex, targetToSelection(target, session.graphPlan.rootGraphId));
     setSelection(normalized);
+    setFeedbackTarget(target);
     setExpandedNodeSelection(normalized.nodeId && !normalized.edgeId ? normalized : null);
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
+  }
+
+  function selectFeedbackTarget(next: GraphPlanTarget) {
+    setFeedbackTarget(next);
+  }
+
+  function startDetailPanelResize(event: MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const bounds = detailPanelBounds();
+    if (!bounds.canResize) return;
+    const startX = event.clientX;
+    const startWidth = detailPanelWidth;
+
+    function handleMove(moveEvent: globalThis.MouseEvent) {
+      const nextWidth = startWidth - (moveEvent.clientX - startX);
+      const nextBounds = detailPanelBounds();
+      setDetailPanelWidth(clamp(nextWidth, nextBounds.min, nextBounds.max));
+    }
+
+    function handleUp() {
+      document.body.classList.remove("is-resizing-node-detail");
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    }
+
+    document.body.classList.add("is-resizing-node-detail");
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
   }
 
   if (!sessionId) {
@@ -113,9 +176,10 @@ export function SessionReviewPage() {
 
   const index = sessionIndex;
   const normalizedSelection = normalizeSelection(session.graphPlan, index, selection);
+  const normalizedFeedbackTarget = feedbackTarget ?? selectionToTarget(normalizedSelection);
   const normalizedExpandedNodeSelection = normalizeExpandedNodeSelection(session.graphPlan, index, expandedNodeSelection);
-  const selectedTarget = selectionToTarget(normalizedSelection);
   const currentGraph = getDisplayGraph(session.graphPlan.rootGraphId, index, normalizedExpandedNodeSelection ?? normalizedSelection) ?? session.graphPlan.graphs[0];
+  const expandedNode = normalizedExpandedNodeSelection?.nodeId ? index.nodesByKey.get(nodeKey(normalizedExpandedNodeSelection.graphId, normalizedExpandedNodeSelection.nodeId)) : undefined;
   const rootIssueCount = session.validation.errorCount + session.validation.warningCount;
 
   const statusLabel = labelStatus(session.status);
@@ -153,7 +217,10 @@ export function SessionReviewPage() {
         </div>
       </header>
 
-      <section className="graph-review-main graph-only">
+      <section
+        className={`graph-review-main ${expandedNode && normalizedExpandedNodeSelection ? "with-detail" : "graph-only"}`}
+        style={expandedNode && normalizedExpandedNodeSelection && !isCompactDetailLayout ? { gridTemplateColumns: `minmax(34vw, 1fr) ${detailPanelWidth}px` } : undefined}
+      >
         <GraphPane
           graph={currentGraph}
           index={index}
@@ -161,12 +228,31 @@ export function SessionReviewPage() {
           expandedNodeSelection={normalizedExpandedNodeSelection}
           onSelect={updateSelection}
           onNodeSelect={selectGraphNode}
-          onTargetSelect={selectGraphTarget}
-          onNodeOverlayClose={() => setExpandedNodeSelection(null)}
         />
+        {expandedNode && normalizedExpandedNodeSelection ? (
+          <SelectedNodeDetail
+            displayGraph={currentGraph}
+            node={expandedNode}
+            selection={normalizedSelection}
+            expandedNodeSelection={normalizedExpandedNodeSelection}
+            index={index}
+            onSelect={updateSelection}
+            onTargetSelect={selectGraphTarget}
+            onClose={() => setExpandedNodeSelection(null)}
+            onResizeStart={startDetailPanelResize}
+            footer={
+              <FeedbackComposer
+                session={session}
+                index={index}
+                detailSelection={normalizedSelection}
+                feedbackTarget={normalizedFeedbackTarget}
+                onFeedbackSelect={selectFeedbackTarget}
+                onRefresh={() => void load()}
+              />
+            }
+          />
+        ) : null}
       </section>
-
-      <FeedbackComposer session={session} index={index} selectedTarget={selectedTarget} onRefresh={() => void load()} />
 
       {openDrawer ? (
         <ReviewDrawer
@@ -185,7 +271,25 @@ export function SessionReviewPage() {
 function getDisplayGraph(rootGraphId: string, index: GraphIndex, selection: GraphSelection): GraphPlanGraph | undefined {
   if (selection.graphId === rootGraphId) return index.graphsById.get(rootGraphId);
   const chain = buildGraphChain(selection.graphId, index);
-  return chain[0] ?? index.graphsById.get(selection.graphId);
+  return chain[0] ?? index.graphsById.get(selection.graphId) ?? index.graphsById.get(rootGraphId);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function detailPanelBounds(): { min: number; max: number; canResize: boolean } {
+  const viewportWidth = window.innerWidth;
+  if (viewportWidth <= 920) {
+    return { min: viewportWidth, max: viewportWidth, canResize: false };
+  }
+  const maxByDetailRatio = viewportWidth * DETAIL_PANEL_MAX_RATIO;
+  const maxByGraphRatio = viewportWidth * (1 - GRAPH_MIN_RATIO);
+  return {
+    min: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, viewportWidth * DETAIL_PANEL_MIN_RATIO),
+    max: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, Math.min(maxByDetailRatio, maxByGraphRatio)),
+    canResize: true,
+  };
 }
 
 function normalizeExpandedNodeSelection(
@@ -201,25 +305,30 @@ function normalizeExpandedNodeSelection(
 function FeedbackComposer({
   session,
   index,
-  selectedTarget,
+  detailSelection,
+  feedbackTarget,
+  onFeedbackSelect,
   onRefresh,
 }: {
   session: PlanSession;
   index: GraphIndex;
-  selectedTarget: GraphPlanTarget;
+  detailSelection: GraphSelection;
+  feedbackTarget: GraphPlanTarget;
+  onFeedbackSelect: (target: GraphPlanTarget) => void;
   onRefresh: () => void;
 }) {
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [isNotifying, setIsNotifying] = useState(false);
+  const breadcrumbSegments = feedbackBreadcrumbSegments(detailSelection, index);
+  const selectedTargetKey = targetKey(feedbackTarget);
 
   async function send() {
     const currentMessage = inputRef.current?.value.trim() ?? message.trim();
     if (!currentMessage || isSending) return;
     setIsSending(true);
     try {
-      await postFeedback(session.id, selectedTarget, currentMessage);
+      await postFeedback(session.id, feedbackTarget, currentMessage);
       setMessage("");
       if (inputRef.current) inputRef.current.value = "";
       onRefresh();
@@ -228,35 +337,46 @@ function FeedbackComposer({
     }
   }
 
-  async function notify() {
-    if (isNotifying) return;
-    setIsNotifying(true);
-    try {
-      await notifyAgent(session.id);
-      onRefresh();
-    } finally {
-      setIsNotifying(false);
-    }
-  }
-
   return (
     <section className="feedback-bar">
-      <Badge>{labelTargetType(selectedTarget.type)}</Badge>
+      <div className="feedback-target-path" aria-label="피드백 대상 경로">
+        {breadcrumbSegments.map((segment, index) => (
+          <button
+            key={targetKey(segment.target)}
+            className={targetKey(segment.target) === selectedTargetKey ? "selected" : ""}
+            onClick={() => onFeedbackSelect(segment.target)}
+            type="button"
+          >
+            {index > 0 ? <span>/</span> : null}
+            <strong>{segment.label}</strong>
+          </button>
+        ))}
+      </div>
+      <Badge>{labelTargetType(feedbackTarget.type)}에 피드백</Badge>
       <textarea
         ref={inputRef}
         value={message}
         onChange={(event) => setMessage(event.target.value)}
-        placeholder={`${breadcrumbForTarget(selectedTarget, index)}에 피드백 남기기`}
+        placeholder={`${breadcrumbForTarget(feedbackTarget, index)}에 피드백 남기기`}
         rows={1}
       />
-      <Button variant="secondary" onClick={notify} disabled={isNotifying || session.status === "approved"}>
-        에이전트 호출
-      </Button>
       <Button onClick={send} disabled={isSending || !message.trim()}>
         제출
       </Button>
     </section>
   );
+}
+
+function feedbackBreadcrumbSegments(selection: GraphSelection, index: GraphIndex): { label: string; target: GraphPlanTarget }[] {
+  const segments: { label: string; target: GraphPlanTarget }[] = [
+    {
+      label: "전체 플랜",
+      target: { type: "plan" },
+    },
+  ];
+
+  segments.push(...breadcrumbSegmentsForTarget(selectionToTarget(selection), index));
+  return segments;
 }
 
 function ReviewDrawer({

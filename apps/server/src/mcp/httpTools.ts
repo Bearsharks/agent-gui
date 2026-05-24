@@ -13,9 +13,11 @@ import {
   graphPlanDocumentSchema,
   graphPlanMutationInputSchema,
   graphPlanValidationModeSchema,
+  normalizeGraphPlanForAuthoring,
   replaceGraphPlanInputSchema,
 } from "@agent-gui/plan-schema";
 import { Hono } from "hono";
+import { ZodError } from "zod";
 import { publishSessionEvent } from "../realtime/sessionStream";
 import { store as sessionStore } from "../http/api";
 
@@ -36,8 +38,9 @@ export function createMcpHttpRoutes() {
         "get_graph_plan_session",
         "list_plan_events",
         "post_agent_reply",
-        "replace_graph_plan",
         "mutate_graph_plan",
+        "replace_graph_plan",
+        "normalize_graph_plan",
         "validate_graph_plan",
         "mark_plan_approved",
       ],
@@ -45,57 +48,68 @@ export function createMcpHttpRoutes() {
   );
 
   app.post("/mcp/call", async (c) => {
-    const { tool, input = {} } = (await c.req.json()) as ToolRequest;
-    switch (tool) {
-      case "create_graph_plan_session": {
-        const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
-        const result = await store.createGraphPlanSession(graphPlan);
-        publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
-        return c.json(result);
+    try {
+      const { tool, input = {} } = (await c.req.json()) as ToolRequest;
+      switch (tool) {
+        case "create_graph_plan_session": {
+          const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
+          const result = await store.createGraphPlanSession(graphPlan);
+          publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
+          return c.json(result);
+        }
+        case "get_graph_plan_session":
+          return c.json(await store.getPlanSession(input.sessionId as string));
+        case "list_plan_events":
+          return c.json(await store.listPlanEvents(input.sessionId as string, input.afterEventId as string | undefined));
+        case "post_agent_reply": {
+          const event = await store.postAgentReply({
+            sessionId: input.sessionId as string,
+            revision: input.revision as number,
+            replyToEventId: input.replyToEventId as string,
+            target: input.target,
+            body: input.body as string,
+            disposition: input.disposition,
+          });
+          publishSessionEvent({ type: "event.created", sessionId: event.sessionId, payload: event });
+          publishSessionEvent({ type: "session.updated", sessionId: event.sessionId });
+          return c.json(event);
+        }
+        case "mutate_graph_plan": {
+          const result = await store.mutateGraphPlan(graphPlanMutationInputSchema.parse(input));
+          publishGraphRevisionEvents(result.session);
+          return c.json(result);
+        }
+        case "replace_graph_plan": {
+          const session = await store.replaceGraphPlan(replaceGraphPlanInputSchema.parse(input));
+          publishGraphRevisionEvents(session);
+          return c.json(session);
+        }
+        case "normalize_graph_plan": {
+          const mode = graphPlanValidationModeSchema.default("draft").parse(input.mode);
+          return c.json(normalizeGraphPlanForAuthoring(input.graphPlan, mode));
+        }
+        case "validate_graph_plan": {
+          const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
+          const mode = graphPlanValidationModeSchema.default("draft").parse(input.mode);
+          return c.json(await store.validateGraphPlanDocument(graphPlan, mode));
+        }
+        case "mark_plan_approved": {
+          const session = await store.markPlanApproved({
+            sessionId: input.sessionId as string,
+            revision: input.revision as number,
+            message: input.message as string | undefined,
+          });
+          publishSessionEvent({ type: "session.updated", sessionId: session.id });
+          return c.json(session);
+        }
+        default:
+          return c.json({ error: `Unknown tool: ${tool}` }, 404);
       }
-      case "get_graph_plan_session":
-        return c.json(await store.getPlanSession(input.sessionId as string));
-      case "list_plan_events":
-        return c.json(await store.listPlanEvents(input.sessionId as string, input.afterEventId as string | undefined));
-      case "post_agent_reply": {
-        const event = await store.postAgentReply({
-          sessionId: input.sessionId as string,
-          revision: input.revision as number,
-          replyToEventId: input.replyToEventId as string,
-          target: input.target,
-          body: input.body as string,
-          disposition: input.disposition,
-        });
-        publishSessionEvent({ type: "event.created", sessionId: event.sessionId, payload: event });
-        publishSessionEvent({ type: "session.updated", sessionId: event.sessionId });
-        return c.json(event);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json({ error: "Invalid tool input", issues: error.issues }, 400);
       }
-      case "replace_graph_plan": {
-        const session = await store.replaceGraphPlan(replaceGraphPlanInputSchema.parse(input));
-        publishGraphRevisionEvents(session);
-        return c.json(session);
-      }
-      case "mutate_graph_plan": {
-        const result = await store.mutateGraphPlan(graphPlanMutationInputSchema.parse(input));
-        publishGraphRevisionEvents(result.session);
-        return c.json(result);
-      }
-      case "validate_graph_plan": {
-        const graphPlan = graphPlanDocumentSchema.parse(input.graphPlan);
-        const mode = graphPlanValidationModeSchema.default("draft").parse(input.mode);
-        return c.json(await store.validateGraphPlanDocument(graphPlan, mode));
-      }
-      case "mark_plan_approved": {
-        const session = await store.markPlanApproved({
-          sessionId: input.sessionId as string,
-          revision: input.revision as number,
-          message: input.message as string | undefined,
-        });
-        publishSessionEvent({ type: "session.updated", sessionId: session.id });
-        return c.json(session);
-      }
-      default:
-        return c.json({ error: `Unknown tool: ${tool}` }, 404);
+      throw error;
     }
   });
 

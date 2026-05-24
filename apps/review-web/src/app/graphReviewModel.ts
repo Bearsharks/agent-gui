@@ -169,31 +169,67 @@ export function targetKey(target: GraphPlanTarget): string {
   return `artifact:${target.graphId}:${target.nodeId}:${target.blockId}:${target.artifactId}:${target.path ?? ""}`;
 }
 
+export type GraphBreadcrumbSegment = {
+  label: string;
+  target: GraphPlanTarget;
+};
+
 export function breadcrumbForTarget(target: GraphPlanTarget, index: GraphIndex): string {
-  if (target.type === "plan") return "계획";
-  const graph = index.graphsById.get(target.graphId);
-  const parts = [graph?.title ?? target.graphId];
-  if (target.type === "graph") return parts.join(" / ");
+  return breadcrumbSegmentsForTarget(target, index).map((segment) => segment.label).join(" / ");
+}
+
+export function breadcrumbSegmentsForTarget(target: GraphPlanTarget, index: GraphIndex): GraphBreadcrumbSegment[] {
+  if (target.type === "plan") return [{ label: "계획", target }];
+  const parts = graphAncestrySegments(target.graphId, index);
+  if (target.type === "graph") return parts;
   if (target.type === "edge") {
     const edge = index.edgesByKey.get(edgeKey(target.graphId, target.edgeId));
-    return `${parts.join(" / ")} / 연결: ${edge?.label ?? edge?.id ?? target.edgeId}`;
+    return [...parts, { label: `연결: ${edge?.label ?? edge?.id ?? target.edgeId}`, target }];
   }
   if ("nodeId" in target) {
     const node = index.nodesByKey.get(nodeKey(target.graphId, target.nodeId));
-    parts.push(node?.title ?? target.nodeId);
+    parts.push({ label: node?.title ?? target.nodeId, target: { type: "node", graphId: target.graphId, nodeId: target.nodeId } });
   }
   if ("blockId" in target) {
     const block = index.blocksByKey.get(blockKey(target.graphId, target.nodeId, target.blockId));
-    parts.push(block?.title ?? block?.type ?? target.blockId);
+    parts.push({ label: block?.title ?? block?.type ?? target.blockId, target: { type: "block", graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId } });
   }
-  if (target.type === "block_item") parts.push(target.itemId);
+  if (target.type === "block_item") parts.push({ label: target.itemId, target });
   if (target.type === "prototype_tab") {
     const block = index.blocksByKey.get(blockKey(target.graphId, target.nodeId, target.blockId));
     const tab = block?.type === "prototype" ? block.tabs.find((candidate) => candidate.id === target.tabId) : undefined;
-    parts.push(tab?.title ?? target.tabId);
+    parts.push({ label: tab?.title ?? target.tabId, target });
   }
-  if (target.type === "artifact_range") parts.push(target.path ?? target.artifactId);
-  return parts.join(" / ");
+  if (target.type === "artifact_range") parts.push({ label: target.path ?? target.artifactId, target });
+  return parts;
+}
+
+function graphAncestrySegments(graphId: string, index: GraphIndex): GraphBreadcrumbSegment[] {
+  const segments: GraphBreadcrumbSegment[] = [];
+  const chain = buildGraphChain(graphId, index);
+  chain.forEach((graph, graphIndex) => {
+    const owner = index.parentByGraphId.get(graph.id);
+    if (owner?.graphId && owner.nodeId) {
+      const ownerNode = index.nodesByKey.get(nodeKey(owner.graphId, owner.nodeId));
+      const ownerGraphAlreadyAdded = segments.some((segment) => segment.target.type === "graph" && segment.target.graphId === owner.graphId);
+      if (!ownerGraphAlreadyAdded) {
+        const ownerGraph = index.graphsById.get(owner.graphId);
+        segments.push({ label: ownerGraph?.title ?? owner.graphId, target: { type: "graph", graphId: owner.graphId } });
+      }
+      segments.push({ label: ownerNode?.title ?? owner.nodeId, target: { type: "node", graphId: owner.graphId, nodeId: owner.nodeId } });
+    }
+    const isOwnedGraphAlreadyShownByOwner = graphIndex > 0 && owner?.nodeId;
+    if (!isOwnedGraphAlreadyShownByOwner) {
+      segments.push({ label: graph.title, target: { type: "graph", graphId: graph.id } });
+    } else {
+      segments.push({ label: graph.title, target: { type: "graph", graphId: graph.id } });
+    }
+  });
+  return dedupeAdjacentBreadcrumbSegments(segments);
+}
+
+function dedupeAdjacentBreadcrumbSegments(segments: GraphBreadcrumbSegment[]): GraphBreadcrumbSegment[] {
+  return segments.filter((segment, index) => index === 0 || targetKey(segment.target) !== targetKey(segments[index - 1].target));
 }
 
 export function selectedGraph(index: GraphIndex, selection: GraphSelection): GraphPlanGraph | undefined {

@@ -148,8 +148,9 @@ Prefer direct MCP tools when available:
 - `get_graph_plan_session({ sessionId })`
 - `list_plan_events({ sessionId, afterEventId? })`
 - `post_agent_reply({ sessionId, revision, replyToEventId, target, body, disposition? })`
-- `replace_graph_plan({ sessionId, baseRevision, graphPlan, changeSummary, validationPolicy? })`
 - `mutate_graph_plan({ sessionId, baseRevision, operations, changeSummary, validationPolicy? })`
+- `replace_graph_plan({ sessionId, baseRevision, graphPlan, changeSummary, replacementRationale, validationPolicy? })`
+- `normalize_graph_plan({ graphPlan, mode? })`
 - `validate_graph_plan({ graphPlan, mode? })`
 - `mark_plan_approved({ sessionId, revision, message? })`
 
@@ -176,13 +177,103 @@ HTTP payload shape:
 1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
 2. Draft a focused `GraphPlanDocument` with explicit graph/node/block IDs.
 3. Add prototype HTML/routes when visual review helps. Serve local prototypes from the same server, then connect URLs through a `prototype` block.
-4. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
-5. Create the session with `create_graph_plan_session`.
-6. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
-7. When feedback is ready, read `list_plan_events`.
-8. Reply with `post_agent_reply` for explanation-only feedback.
-9. Use `mutate_graph_plan` for narrow edits; use `replace_graph_plan` for structural changes.
-10. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
+4. If authoring from loose notes or generated JSON, run `normalize_graph_plan` first and inspect `changes` plus `schemaIssues`.
+5. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
+6. Create the session with `create_graph_plan_session`.
+7. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
+8. When feedback is ready, read `list_plan_events`.
+9. Reply with `post_agent_reply` for explanation-only feedback.
+10. Default to `mutate_graph_plan` for revisions. Node additions, edge additions, subgraph additions, block appends/replacements, and field updates are all mutations.
+11. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
+
+## Revision Tool Choice
+
+Use `mutate_graph_plan` unless the whole document truly needs replacement. Do not choose `replace_graph_plan` merely because the change is structural.
+
+Use `mutate_graph_plan` for:
+
+- Adding an interview question node and connecting it with an edge.
+- Appending a block or replacing one block.
+- Updating node title, summary, status, or a block's fields.
+- Adding a subgraph or attaching a `graph_ref` block.
+- Updating prototype tabs or target links.
+
+Use `replace_graph_plan` only for:
+
+- Importing a fully regenerated `GraphPlanDocument`.
+- Redesigning most graphs at once where targeted operations would obscure intent.
+- Intentionally remapping many target identities after a split/merge/rewrite.
+
+`replace_graph_plan` requires `replacementRationale`. If you cannot explain why targeted mutations are insufficient, use `mutate_graph_plan`.
+
+Interview question additions should be a mutation:
+
+```json
+{
+  "sessionId": "plan_123",
+  "baseRevision": 2,
+  "operations": [
+    {
+      "op": "add_node",
+      "graphId": "g-interview",
+      "node": {
+        "id": "n-q3",
+        "kind": "section",
+        "title": "Q3. 개인본/공개본 관계",
+        "blocks": [
+          { "id": "b-q3-question", "type": "text", "title": "질문", "body": "개인 레시피와 공개 레시피는 같은 데이터를 공유하나요?" }
+        ]
+      }
+    },
+    { "op": "add_edge", "graphId": "g-interview", "edge": { "id": "e-q2-q3", "from": "n-q2", "to": "n-q3", "kind": "sequence" } }
+  ],
+  "changeSummary": { "structure": ["인터뷰 Q3 노드와 Q2->Q3 연결을 추가했다."] }
+}
+```
+
+## Minimal Block Examples
+
+Use these shapes when validation errors complain about required fields:
+
+```json
+{ "id": "b-text", "type": "text", "title": "Scope", "body": "What is in and out." }
+```
+
+```json
+{
+  "id": "b-tasks",
+  "type": "task_list",
+  "items": [{ "id": "task-api", "label": "Add API route", "status": "open" }]
+}
+```
+
+```json
+{
+  "id": "b-criteria",
+  "type": "criteria",
+  "criteria": [{ "id": "criterion-ready", "label": "Build passes", "required": true, "status": "pending" }]
+}
+```
+
+```json
+{
+  "id": "b-artifact",
+  "type": "artifact",
+  "artifacts": [{ "id": "artifact-session", "kind": "url", "title": "Review session", "ref": "http://localhost:8787/sessions/plan_123" }]
+}
+```
+
+```json
+{
+  "id": "b-comparison",
+  "type": "comparison",
+  "criteria": [{ "id": "criterion-effort", "label": "Effort", "required": true, "status": "pending" }],
+  "options": [{ "id": "option-a", "label": "Small change" }],
+  "scores": [{ "optionId": "option-a", "criterionId": "criterion-effort", "rating": "high", "note": "Lowest risk." }]
+}
+```
+
+`normalize_graph_plan` accepts common shorthand such as task `text`, artifact `label`/`uri`, session-like URL artifacts, and simple comparison `columns`/`rows`/`cells`. Treat its output as a draft; `validate_graph_plan` remains the publish gate.
 
 ## Runtime Gotchas
 

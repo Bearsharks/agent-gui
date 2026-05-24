@@ -467,13 +467,13 @@ create_graph_plan_session
 get_graph_plan_session
 list_plan_events
 post_agent_reply
-replace_graph_plan
 mutate_graph_plan
+replace_graph_plan
 validate_graph_plan
 mark_plan_approved
 ```
 
-가장 중요한 도구는 `mutate_graph_plan`이다.
+가장 중요한 도구는 `mutate_graph_plan`이다. node/edge/subgraph 추가처럼 구조가 바뀌는 작업도 먼저 mutation으로 표현한다. `replace_graph_plan`은 전체 문서 재생성, 대부분의 graph 재설계, 대규모 target identity 재매핑에만 사용한다.
 
 ```json
 {
@@ -537,4 +537,3 @@ attach_graph_ref
 핵심 결론:
 
 Graph Plan API는 CRUD endpoint 모음이 아니라, revisioned graph document 위에 target-based atomic mutation을 적용하고 validation summary를 남기는 API여야 한다.
-

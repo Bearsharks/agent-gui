@@ -132,3 +132,118 @@ Step-based POC에서는 다음이 확인됐습니다.
 - [graph-plan-todo.md](docs/graph-plan-todo.md)
 
 바로 다음 작업은 graph plan validator issue taxonomy 정리, graph target을 포함한 `PlanTarget`/event schema 확장, `create_plan_session`의 graph payload 수용, graph fixture session route, read-only graph overview UI입니다.
+
+# 행동지침
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+
+# 구현 시 필수 준수사항
+
+Clean Code Rules for Preventing God Files
+
+## Core Principle
+
+Split code by responsibility, not by convenience.
+
+A file must have one clear reason to exist and one clear reason to change.
+
+## File Design Rules
+
+- Each file must have a single responsibility.
+- Do not mix business logic, UI, API calls, data access, state management, and configuration in one file.
+- Do not keep appending new features to an existing file just because it is convenient.
+- When a file starts growing too large, split it by responsibility immediately.
+- Prefer small, focused modules over large multi-purpose files.
+- File names must clearly describe their role.
+- Avoid vague file names such as `utils.ts`, `helpers.ts`, `common.ts`, or `misc.ts`.
+- Shared constants, types, utilities, services, hooks, components, and configuration must live in separate dedicated files.
+- Keep dependency direction clear and avoid circular dependencies.
+- Prioritize clear responsibility boundaries over premature abstraction.
+- Do not create abstractions only to remove small amounts of duplication.
+- Before modifying a file, ask: “Does this change belong to this file’s responsibility?”
+- Large changes must be implemented through multiple focused files, not one large file.
+- Code must remain easy to test; isolate external dependencies behind clear boundaries.
+
+## Size Limits
+
+- A file over 300 lines must be reviewed for possible separation.
+- A file must not exceed 500 lines unless there is a strong architectural reason.
+- A function should do one thing and should not exceed 50 lines.
+- A component, class, or module should stay focused on a single role.
+
+## Forbidden
+
+- Do not create god files.
+- Do not create files that contain multiple unrelated responsibilities.
+- Do not turn an existing file into a dumping ground for new logic.
+- Do not place unrelated helper functions into the same file.
+- Do not hide architectural problems behind generic utility files.
+
+## Required Behavior
+
+When implementing or modifying code:
+
+1. Identify the responsibility of the target file.
+2. Check whether the new logic belongs there.
+3. If the logic has a different responsibility, create or update a dedicated file.
+4. Keep each file focused, readable, and replaceable.
+5. Prefer explicit structure over convenient accumulation.
+
+## Final Rule
+
+If a file is becoming difficult to summarize in one sentence, split it.

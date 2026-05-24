@@ -135,37 +135,9 @@ AgentReplyEvent
 - `target`은 원 feedback의 target과 같거나 더 구체적인 graph target이어야 한다.
 - 서버는 target이 현재 graph plan에 resolve되는지 검증한다.
 
-### `replace_graph_plan`
-
-전체 `GraphPlanDocument`를 교체한다.
-
-입력:
-
-```ts
-{
-  sessionId: string;
-  baseRevision: number;
-  graphPlan: GraphPlanDocument;
-  changeSummary: GraphPlanChangeSummary;
-  validationPolicy?: "allow_all" | "block_errors";
-}
-```
-
-출력:
-
-```ts
-PlanSession
-```
-
-사용 시점:
-
-- 구조 변경이 크다.
-- 여러 graph/subgraph가 한꺼번에 바뀐다.
-- target patch로 표현하면 오히려 위험하다.
-
 ### `mutate_graph_plan`
 
-여러 graph operation을 atomic하게 적용한다.
+여러 graph operation을 atomic하게 적용한다. 기존 session의 revision을 갱신할 때 기본으로 사용하는 도구다.
 
 입력:
 
@@ -191,8 +163,41 @@ PlanSession
 - 사용자가 지적한 특정 node/block/edge만 수정한다.
 - node 추가와 edge 연결을 한 revision으로 묶는다.
 - 하위 graph 추가와 graph_ref block 추가를 함께 적용한다.
+- 인터뷰 질문/답변 노드를 추가한다.
+- prototype tab, block link, output definition 같은 target 주변 정보를 갱신한다.
 
 지원 operation은 [graph-api-design.md](graph-api-design.md)의 MVP operation set을 따른다.
+
+### `replace_graph_plan`
+
+전체 `GraphPlanDocument`를 교체한다. 구조 변경이라는 이유만으로 사용하지 않는다. node/edge/subgraph/block 변경은 먼저 `mutate_graph_plan`으로 표현한다.
+
+입력:
+
+```ts
+{
+  sessionId: string;
+  baseRevision: number;
+  graphPlan: GraphPlanDocument;
+  changeSummary: GraphPlanChangeSummary;
+  replacementRationale: string;
+  validationPolicy?: "allow_all" | "block_errors";
+}
+```
+
+출력:
+
+```ts
+PlanSession
+```
+
+사용 시점:
+
+- 완전히 재생성한 `GraphPlanDocument`를 가져온다.
+- 대부분의 graph를 다시 설계해서 targeted mutation이 오히려 변경 의도를 흐린다.
+- split/merge/rewrite로 많은 target identity를 의도적으로 재매핑한다.
+
+`replacementRationale`에는 targeted mutation이 왜 충분하지 않은지 적는다.
 
 ### `validate_graph_plan`
 
@@ -285,4 +290,3 @@ MCP 변경 완료 후 다음을 확인한다.
 6. `replace_graph_plan`으로 전체 graph 교체
 7. `post_agent_reply`가 graph target thread에 저장됨
 8. validation error가 있는 publish revision approval 차단
-

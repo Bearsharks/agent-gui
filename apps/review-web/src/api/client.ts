@@ -31,11 +31,3 @@ export async function approveSession(sessionId: string, revision: number) {
   if (!response.ok) throw new Error("Failed to approve session");
   return response.json();
 }
-
-export async function notifyAgent(sessionId: string) {
-  const response = await fetch(`/api/sessions/${sessionId}/notify`, {
-    method: "POST",
-  });
-  if (!response.ok) throw new Error("Failed to notify agent");
-  return response.json();
-}
