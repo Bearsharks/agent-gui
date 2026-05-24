@@ -72,6 +72,7 @@ export function SelectedNodeDetail({
   node,
   selection,
   index,
+  planRevision,
   onSelect,
   onClose,
   onResizeStart,
@@ -80,12 +81,14 @@ export function SelectedNodeDetail({
   node: GraphPlanNode;
   selection: GraphSelection;
   index: GraphIndex;
+  planRevision: number;
   onSelect: (selection: GraphSelection) => void;
   onClose: () => void;
   onResizeStart: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
   const iframes = node.iframes ?? [];
   const activeIframe = iframes.find((iframe) => iframe.id === selection.iframeId) ?? iframes[0];
+  const activeIframeUrl = activeIframe ? iframeUrlWithRevision(activeIframe.url, planRevision) : undefined;
   const childGraphIds = getChildGraphIds(node);
 
   return (
@@ -122,7 +125,8 @@ export function SelectedNodeDetail({
             {activeIframe ? (
               <iframe
                 className="selected-node-iframe-preview"
-                src={activeIframe.url}
+                key={`${activeIframe.id}:${planRevision}`}
+                src={activeIframeUrl}
                 title={activeIframe.description}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               />
@@ -137,6 +141,18 @@ export function SelectedNodeDetail({
       </div>
     </aside>
   );
+}
+
+function iframeUrlWithRevision(url: string, planRevision: number): string {
+  try {
+    const parsed = new URL(url, window.location.href);
+    parsed.searchParams.set("planRevision", String(planRevision));
+    return parsed.toString();
+  } catch {
+    const [withoutHash, hash = ""] = url.split("#", 2);
+    const separator = withoutHash.includes("?") ? "&" : "?";
+    return `${withoutHash}${separator}planRevision=${encodeURIComponent(String(planRevision))}${hash ? `#${hash}` : ""}`;
+  }
 }
 
 function useGraphFlowModel(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection) {

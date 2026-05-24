@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createApi } from "./http/api";
 import { createMcpHttpRoutes } from "./mcp/httpTools";
+import { startSessionFileWatcher } from "./realtime/sessionFileWatcher";
 
 const app = new Hono();
 app.route("/", createApi());
@@ -64,6 +65,8 @@ const reviewVite = await createViteServer({
 server.listen(8787, () => {
   console.log("agent-gui server listening on http://localhost:8787");
 });
+
+await startSessionFileWatcher();
 
 async function serveIndex(url: string, root: string, vite: Awaited<ReturnType<typeof createViteServer>>, res: import("node:http").ServerResponse) {
   try {

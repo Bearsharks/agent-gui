@@ -1,6 +1,6 @@
 import type { GraphPlanGraph, GraphPlanTarget, GraphPlanValidationIssue, PlanEvent, PlanSession } from "@agent-gui/plan-schema";
 import { Badge, Button } from "@agent-gui/design-system";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { approveSession, createFixtureSession, fetchSession, postFeedback } from "../api/client";
 import { GraphPane, SelectedNodeDetail } from "./GraphPane";
 import {
@@ -74,19 +74,24 @@ export function SessionReviewPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const normalizedSelection = useMemo(
+    () => (session && sessionIndex && selection ? normalizeSelection(session.graphPlan, sessionIndex, selection) : null),
+    [session?.graphPlan, sessionIndex, selection?.edgeId, selection?.graphId, selection?.iframeId, selection?.nodeId],
+  );
+
   async function startFixture() {
     const result = await createFixtureSession();
     window.history.pushState(null, "", `/sessions/${result.sessionId}`);
     setSessionId(result.sessionId);
   }
 
-  function updateSelection(next: GraphSelection) {
+  const updateSelection = useCallback((next: GraphSelection) => {
     if (!session || !sessionIndex) return;
     const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
     setSelection(normalized);
     setFeedbackTarget(selectionToTarget(normalized));
     window.history.replaceState(null, "", `${window.location.pathname}?${selectionToSearch(normalized)}`);
-  }
+  }, [session, sessionIndex]);
 
   function selectGraphTarget(target: GraphPlanTarget) {
     if (!session || !sessionIndex) return;
@@ -127,10 +132,9 @@ export function SessionReviewPage() {
     );
   }
 
-  if (!session || !selection || !sessionIndex) return <main className="empty-page">세션 불러오는 중...</main>;
+  if (!session || !selection || !sessionIndex || !normalizedSelection) return <main className="empty-page">세션 불러오는 중...</main>;
 
   const index = sessionIndex;
-  const normalizedSelection = normalizeSelection(session.graphPlan, index, selection);
   const feedback = feedbackTarget ?? selectionToTarget(normalizedSelection);
   const selectedGraph = index.graphsById.get(normalizedSelection.graphId) ?? session.graphPlan.graphs[0];
   const selectedNode = normalizedSelection.nodeId ? index.nodesByKey.get(nodeKey(normalizedSelection.graphId, normalizedSelection.nodeId)) : undefined;
@@ -176,6 +180,7 @@ export function SessionReviewPage() {
             node={selectedNode}
             selection={normalizedSelection}
             index={index}
+            planRevision={session.revision}
             onSelect={updateSelection}
             onClose={() => setSelection({ graphId: normalizedSelection.graphId })}
             onResizeStart={startDetailPanelResize}
@@ -231,7 +236,7 @@ function FeedbackComposer({
   onRefresh: () => void;
 }) {
   const [message, setMessage] = useState("");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSending, setIsSending] = useState(false);
   const breadcrumbSegments = [{ label: "전체 플랜", target: { type: "plan" } as GraphPlanTarget }, ...breadcrumbSegmentsForTarget(selectionToTarget(detailSelection), index)];
   const selectedTargetKey = targetKey(feedbackTarget);
@@ -261,12 +266,13 @@ function FeedbackComposer({
         ))}
       </div>
       <Badge>{labelTargetType(feedbackTarget.type)}</Badge>
-      <input
+      <textarea
         ref={inputRef}
+        rows={2}
         value={message}
         onChange={(event) => setMessage(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.nativeEvent.isComposing) void send();
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.nativeEvent.isComposing) void send();
         }}
         placeholder={`${breadcrumbForTarget(feedbackTarget, index)}에 피드백`}
       />
@@ -335,7 +341,7 @@ function EventTimeline({ session, index, onSelect }: { session: PlanSession; ind
       <div className="timeline-list">
         {session.events.map((event) => (
           <button className="timeline-row" key={event.id} onClick={() => hasEventTarget(event) && onSelect(event.target)}>
-            <EventSnippet event={event} index={index} />
+            <EventSnippet event={event} events={session.events} index={index} />
           </button>
         ))}
       </div>
@@ -343,7 +349,7 @@ function EventTimeline({ session, index, onSelect }: { session: PlanSession; ind
   );
 }
 
-function EventSnippet({ event, index }: { event: PlanEvent; index?: GraphIndex }) {
+function EventSnippet({ event, events, index }: { event: PlanEvent; events: PlanEvent[]; index?: GraphIndex }) {
   const detail =
     event.type === "user.feedback"
       ? event.message
@@ -355,10 +361,27 @@ function EventSnippet({ event, index }: { event: PlanEvent; index?: GraphIndex }
   return (
     <>
       <strong>{labelEventType(event.type)}</strong>
+      {event.type === "user.feedback" ? <Badge tone={feedbackHandled(events, event.id) ? "neutral" : "warn"}>{feedbackHandled(events, event.id) ? "처리됨" : "미처리"}</Badge> : null}
+      {event.type === "agent.reply" && event.disposition ? <Badge>{labelDisposition(event.disposition)}</Badge> : null}
       {hasEventTarget(event) && index ? <span>{breadcrumbForTarget(event.target, index)}</span> : null}
       <p>{detail || "상세 내용 없음"}</p>
     </>
   );
+}
+
+function feedbackHandled(events: PlanEvent[], feedbackId: string): boolean {
+  return events.some((event) => event.type === "agent.reply" && event.replyToEventId === feedbackId && event.disposition !== undefined && event.disposition !== "open");
+}
+
+function labelDisposition(disposition: Extract<PlanEvent, { type: "agent.reply" }>["disposition"]): string {
+  const labels = {
+    open: "미처리",
+    answered: "답변됨",
+    incorporated_in_revision: "수정 반영",
+    rejected: "거절",
+    needs_user_clarification: "확인 필요",
+  };
+  return disposition ? labels[disposition] : "미처리";
 }
 
 function RevisionSummary({ events, index }: { events: PlanEvent[]; index: GraphIndex }) {

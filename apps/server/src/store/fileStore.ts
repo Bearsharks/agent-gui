@@ -11,6 +11,7 @@ import type {
   UserFeedbackEvent,
 } from "@agent-gui/plan-schema";
 import {
+  feedbackDispositionSchema,
   graphPlanDocumentSchema,
   planSessionSchema,
   replaceGraphPlanInputSchema,
@@ -29,13 +30,20 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
-const DATA_ROOT = path.join(REPO_ROOT, "data", "sessions");
+export const SESSION_DATA_ROOT = path.join(REPO_ROOT, "data", "sessions");
 
 type CreateSessionResult = {
   sessionId: string;
   url: string;
   revision: number;
   validation: PlanSession["validation"];
+};
+
+export type FeedbackEventStatus = "open" | "resolved" | "all";
+
+export type ListPlanEventsOptions = {
+  afterEventId?: string;
+  feedbackStatus?: FeedbackEventStatus;
 };
 
 export type ReplaceGraphPlanInput = {
@@ -79,11 +87,11 @@ export class FileSessionStore {
     return planSessionSchema.parse(JSON.parse(file));
   }
 
-  async listPlanEvents(sessionId: string, afterEventId?: string): Promise<PlanEvent[]> {
+  async listPlanEvents(sessionId: string, options: ListPlanEventsOptions = {}): Promise<PlanEvent[]> {
     const session = await this.getPlanSession(sessionId);
-    if (!afterEventId) return session.events;
-    const index = session.events.findIndex((event) => event.id === afterEventId);
-    return index === -1 ? session.events : session.events.slice(index + 1);
+    const events = eventsAfter(session.events, options.afterEventId);
+    if (!options.feedbackStatus || options.feedbackStatus === "all") return events;
+    return filterFeedbackEvents(session.events, events, options.feedbackStatus);
   }
 
   async validateGraphPlanDocument(graphPlan: GraphPlanDocument, mode: GraphPlanValidationMode = "draft"): Promise<PlanSession["validation"]> {
@@ -120,9 +128,10 @@ export class FileSessionStore {
     replyToEventId: string;
     target: ServerGraphPlanTarget;
     body: string;
-    disposition?: FeedbackDisposition;
+    disposition: FeedbackDisposition;
   }): Promise<AgentReplyEvent> {
     const session = await this.getPlanSession(input.sessionId);
+    const disposition = feedbackDispositionSchema.parse(input.disposition);
     const event: AgentReplyEvent = {
       id: eventId("reply"),
       type: "agent.reply",
@@ -131,7 +140,7 @@ export class FileSessionStore {
       replyToEventId: input.replyToEventId,
       target: serverGraphPlanTargetSchema.parse(input.target) as GraphPlanTarget,
       body: input.body,
-      disposition: input.disposition,
+      disposition,
       createdAt: new Date().toISOString(),
     };
     session.events.push(event);
@@ -268,8 +277,28 @@ export class FileSessionStore {
   }
 
   private sessionPath(sessionId: string): string {
-    return path.join(DATA_ROOT, sessionId, "session.json");
+    return path.join(SESSION_DATA_ROOT, sessionId, "session.json");
   }
+}
+
+function eventsAfter(events: PlanEvent[], afterEventId?: string): PlanEvent[] {
+  if (!afterEventId) return events;
+  const index = events.findIndex((event) => event.id === afterEventId);
+  return index === -1 ? events : events.slice(index + 1);
+}
+
+function filterFeedbackEvents(allEvents: PlanEvent[], candidateEvents: PlanEvent[], status: Exclude<FeedbackEventStatus, "all">): PlanEvent[] {
+  const handledFeedbackIds = new Set<string>();
+  for (const event of allEvents) {
+    if (event.type === "agent.reply" && event.disposition && event.disposition !== "open") {
+      handledFeedbackIds.add(event.replyToEventId);
+    }
+  }
+  return candidateEvents.filter((event) => {
+    if (event.type !== "user.feedback") return false;
+    const isHandled = handledFeedbackIds.has(event.id);
+    return status === "resolved" ? isHandled : !isHandled;
+  });
 }
 
 function eventId(prefix: string): string {

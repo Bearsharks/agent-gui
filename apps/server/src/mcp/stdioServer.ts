@@ -28,6 +28,7 @@ import {
 
 const store = new FileSessionStore();
 const graphStore = store as unknown as GraphPlanSessionStore;
+const feedbackStatusSchema = z.enum(["open", "resolved", "all"]);
 
 const server = new McpServer({
   name: "agent-gui-plan-review",
@@ -60,10 +61,10 @@ server.registerTool(
   {
     title: "List plan events",
     description:
-      "Read graph plan review events or events after a known event id. Event targets are GraphPlanTarget objects, so an agent can decide whether to reply, replace the full graph, or apply a targeted graph mutation.",
-    inputSchema: { sessionId: z.string(), afterEventId: z.string().optional() },
+      "Read graph plan review events or events after a known event id. By default, this returns only open user feedback that has not been handled by a post_agent_reply disposition. Use feedbackStatus='all' for the full audit log.",
+    inputSchema: { sessionId: z.string(), afterEventId: z.string().optional(), feedbackStatus: feedbackStatusSchema.default("open") },
   },
-  async ({ sessionId, afterEventId }) => jsonResult(await graphStore.listPlanEvents(sessionId, afterEventId)),
+  async ({ sessionId, afterEventId, feedbackStatus }) => jsonResult(await graphStore.listPlanEvents(sessionId, { afterEventId, feedbackStatus })),
 );
 
 server.registerTool(
@@ -71,14 +72,14 @@ server.registerTool(
   {
     title: "Post agent reply",
     description:
-      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, edge, or iframe.",
+      "Reply to a user feedback thread on a GraphPlanTarget. Handling a feedback item requires posting this reply with a disposition; non-open dispositions hide that feedback from the default list_plan_events view.",
     inputSchema: {
       sessionId: z.string(),
       revision: z.number().int().positive(),
       replyToEventId: z.string(),
       target: serverGraphPlanTargetSchema,
       body: z.string(),
-      disposition: feedbackDispositionSchema.optional(),
+      disposition: feedbackDispositionSchema,
     },
   },
   async (input) => jsonResult(await graphStore.postAgentReply(input)),
@@ -171,14 +172,14 @@ type CreateGraphPlanSessionResult = {
 type GraphPlanSessionStore = {
   createGraphPlanSession(graphPlan: GraphPlanDocument): Promise<CreateGraphPlanSessionResult>;
   getPlanSession(sessionId: string): Promise<PlanSession>;
-  listPlanEvents(sessionId: string, afterEventId?: string): Promise<PlanEvent[]>;
+  listPlanEvents(sessionId: string, options?: { afterEventId?: string; feedbackStatus?: "open" | "resolved" | "all" }): Promise<PlanEvent[]>;
   postAgentReply(input: {
     sessionId: string;
     revision: number;
     replyToEventId: string;
     target: unknown;
     body: string;
-    disposition?: unknown;
+    disposition: unknown;
   }): Promise<AgentReplyEvent>;
   replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession>;
   mutateGraphPlan(input: ServerGraphPlanMutationInput): Promise<GraphPlanMutationResult>;

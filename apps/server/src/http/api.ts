@@ -34,7 +34,8 @@ export function createApi() {
   app.get("/api/sessions/:sessionId/events", async (c) => {
     const sessionId = c.req.param("sessionId");
     const afterEventId = c.req.query("afterEventId");
-    return c.json({ events: await store.listPlanEvents(sessionId, afterEventId) });
+    const feedbackStatus = parseFeedbackStatus(c.req.query("feedbackStatus"));
+    return c.json({ events: await store.listPlanEvents(sessionId, { afterEventId, feedbackStatus }) });
   });
 
   app.post("/api/graph-plan/validate", async (c) => {
@@ -97,6 +98,10 @@ export function createApi() {
   app.get("/events/sessions/:sessionId", (c) => sessionEventStream(c, c.req.param("sessionId")));
 
   return app;
+}
+
+function parseFeedbackStatus(value: string | undefined) {
+  return value === "open" || value === "resolved" || value === "all" ? value : "all";
 }
 
 async function readOptionalJson<T>(request: { json: () => Promise<unknown> }): Promise<T | null> {
