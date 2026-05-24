@@ -1,7 +1,6 @@
 import type {
   AgentReplyEvent,
   GraphPlanDocument,
-  GraphPlanMutationInput,
   GraphPlanMutationResult,
   GraphPlanValidationMode,
   GraphPlanValidationSummary,
@@ -11,7 +10,6 @@ import type {
 } from "@agent-gui/plan-schema";
 import {
   graphPlanDocumentSchema,
-  graphPlanMutationInputSchema,
   graphPlanValidationModeSchema,
   normalizeGraphPlanForAuthoring,
   replaceGraphPlanInputSchema,
@@ -20,6 +18,10 @@ import { Hono } from "hono";
 import { ZodError } from "zod";
 import { publishSessionEvent } from "../realtime/sessionStream";
 import { store as sessionStore } from "../http/api";
+import {
+  serverGraphPlanMutationInputSchema,
+  type ServerGraphPlanMutationInput,
+} from "../domain/graphPlanMutationSchemas";
 
 type ToolRequest = {
   tool: string;
@@ -75,7 +77,7 @@ export function createMcpHttpRoutes() {
           return c.json(event);
         }
         case "mutate_graph_plan": {
-          const result = await store.mutateGraphPlan(graphPlanMutationInputSchema.parse(input));
+          const result = await store.mutateGraphPlan(serverGraphPlanMutationInputSchema.parse(input));
           publishGraphRevisionEvents(result.session);
           return c.json(result);
         }
@@ -141,7 +143,7 @@ type GraphPlanSessionStore = {
     disposition?: unknown;
   }): Promise<AgentReplyEvent>;
   replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession>;
-  mutateGraphPlan(input: GraphPlanMutationInput): Promise<GraphPlanMutationResult>;
+  mutateGraphPlan(input: ServerGraphPlanMutationInput): Promise<GraphPlanMutationResult>;
   validateGraphPlanDocument(
     graphPlan: GraphPlanDocument,
     mode?: GraphPlanValidationMode,

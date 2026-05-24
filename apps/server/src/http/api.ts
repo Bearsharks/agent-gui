@@ -1,5 +1,6 @@
-import type { GraphPlanDocument, GraphPlanTarget, GraphPlanValidationMode } from "@agent-gui/plan-schema";
+import type { GraphPlanDocument, GraphPlanValidationMode } from "@agent-gui/plan-schema";
 import { Hono } from "hono";
+import type { ServerGraphPlanTarget } from "../domain/graphPlanMutationSchemas";
 import { fixtureGraphPlan } from "../domain/samplePlan";
 import { publishSessionEvent, sessionEventStream } from "../realtime/sessionStream";
 import { FileSessionStore } from "../store/fileStore";
@@ -41,7 +42,7 @@ export function createApi() {
 
   app.post("/api/sessions/:sessionId/feedback", async (c) => {
     const sessionId = c.req.param("sessionId");
-    const body = (await c.req.json()) as { target: GraphPlanTarget; message: string; intent?: never };
+    const body = (await c.req.json()) as { target: ServerGraphPlanTarget; message: string; intent?: never };
     const event = await store.postUserFeedback({ sessionId, ...body });
     publishSessionEvent({ type: "event.created", sessionId, payload: event });
     publishSessionEvent({ type: "session.updated", sessionId });

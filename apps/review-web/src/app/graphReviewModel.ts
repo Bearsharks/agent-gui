@@ -16,6 +16,7 @@ export type GraphSelection = {
   itemId?: string;
   itemType?: Extract<GraphPlanTarget, { type: "block_item" }>["itemType"];
   edgeId?: string;
+  iframeId?: string;
   prototypeId?: string;
   tabId?: string;
 };
@@ -72,7 +73,9 @@ export function normalizeSelection(document: GraphPlanDocument, index: GraphInde
       : undefined;
   const itemId = blockId ? selection.itemId : undefined;
   const edgeId = selection.edgeId && index.edgesByKey.has(edgeKey(graphId, selection.edgeId)) ? selection.edgeId : undefined;
-  return { graphId, nodeId, blockId, itemId, itemType: selection.itemType, edgeId, prototypeId: selection.prototypeId, tabId: selection.tabId };
+  const node = nodeId ? index.nodesByKey.get(nodeKey(graphId, nodeId)) : undefined;
+  const iframeId = node?.iframes?.some((iframe) => iframe.id === selection.iframeId) ? selection.iframeId : undefined;
+  return { graphId, nodeId, blockId, itemId, itemType: selection.itemType, edgeId, iframeId, prototypeId: selection.prototypeId, tabId: selection.tabId };
 }
 
 export function selectionFromSearch(document: GraphPlanDocument, index: GraphIndex, search: string): GraphSelection {
@@ -83,6 +86,7 @@ export function selectionFromSearch(document: GraphPlanDocument, index: GraphInd
     blockId: params.get("block") ?? undefined,
     itemId: params.get("item") ?? undefined,
     edgeId: params.get("edge") ?? undefined,
+    iframeId: params.get("iframe") ?? undefined,
     tabId: params.get("tab") ?? params.get("piece") ?? undefined,
   });
 }
@@ -94,11 +98,15 @@ export function selectionToSearch(selection: GraphSelection): string {
   if (selection.blockId) params.set("block", selection.blockId);
   if (selection.itemId) params.set("item", selection.itemId);
   if (selection.edgeId) params.set("edge", selection.edgeId);
+  if (selection.iframeId) params.set("iframe", selection.iframeId);
   if (selection.tabId) params.set("tab", selection.tabId);
   return params.toString();
 }
 
 export function selectionToTarget(selection: GraphSelection): GraphPlanTarget {
+  if (selection.iframeId && selection.nodeId) {
+    return { type: "iframe", graphId: selection.graphId, nodeId: selection.nodeId, iframeId: selection.iframeId };
+  }
   if (selection.tabId && selection.prototypeId && selection.nodeId && selection.blockId) {
     return {
       type: "prototype_tab",
@@ -131,6 +139,7 @@ export function targetToSelection(target: GraphPlanTarget, fallbackGraphId: stri
   if (target.type === "plan") return { graphId: fallbackGraphId };
   if (target.type === "graph") return { graphId: target.graphId };
   if (target.type === "node") return { graphId: target.graphId, nodeId: target.nodeId };
+  if (target.type === "iframe") return { graphId: target.graphId, nodeId: target.nodeId, iframeId: target.iframeId };
   if (target.type === "block") return { graphId: target.graphId, nodeId: target.nodeId, blockId: target.blockId };
   if (target.type === "edge") return { graphId: target.graphId, edgeId: target.edgeId };
   if (target.type === "block_item") {
@@ -160,6 +169,7 @@ export function targetKey(target: GraphPlanTarget): string {
   if (target.type === "plan") return "plan";
   if (target.type === "graph") return `graph:${target.graphId}`;
   if (target.type === "node") return nodeKey(target.graphId, target.nodeId);
+  if (target.type === "iframe") return `iframe:${target.graphId}:${target.nodeId}:${target.iframeId}`;
   if (target.type === "block") return blockKey(target.graphId, target.nodeId, target.blockId);
   if (target.type === "edge") return edgeKey(target.graphId, target.edgeId);
   if (target.type === "block_item") return `item:${target.graphId}:${target.nodeId}:${target.blockId}:${target.itemId}`;
@@ -189,6 +199,11 @@ export function breadcrumbSegmentsForTarget(target: GraphPlanTarget, index: Grap
   if ("nodeId" in target) {
     const node = index.nodesByKey.get(nodeKey(target.graphId, target.nodeId));
     parts.push({ label: node?.title ?? target.nodeId, target: { type: "node", graphId: target.graphId, nodeId: target.nodeId } });
+  }
+  if (target.type === "iframe") {
+    const node = index.nodesByKey.get(nodeKey(target.graphId, target.nodeId));
+    const iframe = node?.iframes?.find((candidate) => candidate.id === target.iframeId);
+    parts.push({ label: iframe?.description ?? target.iframeId, target });
   }
   if ("blockId" in target) {
     const block = index.blocksByKey.get(blockKey(target.graphId, target.nodeId, target.blockId));

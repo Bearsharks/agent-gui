@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graph Linear Rollout Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2933;
+        background: #f7f8fa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(960px, 100%);
+        border: 1px solid #d6dde6;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 12px 32px rgba(31, 41, 51, 0.08);
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .badge {
+        align-self: start;
+        padding: 5px 8px;
+        border: 1px solid #9db5d1;
+        border-radius: 5px;
+        color: #1d5f96;
+        font-size: 12px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        padding: 20px;
+      }
+
+      .step {
+        min-height: 180px;
+        border: 1px solid #dbe3ec;
+        border-radius: 7px;
+        padding: 14px;
+        background: #fbfcfe;
+      }
+
+      .step strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .step p,
+      li {
+        color: #52606d;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 12px;
+        }
+
+        .steps {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Graph schema rollout</h1>
+        <span class="badge">linear graph fixture</span>
+      </header>
+      <section class="steps" aria-label="Rollout phases">
+        <article class="step">
+          <strong>Discovery</strong>
+          <p>Map current review assumptions to graph, node, block, and iframe targets.</p>
+          <ul>
+            <li>Target naming checked</li>
+            <li>Fixture coverage recorded</li>
+          </ul>
+        </article>
+        <article class="step">
+          <strong>Implementation</strong>
+          <p>Track schema, adapter, and target UI work as owned child graph nodes.</p>
+          <ul>
+            <li>Schema artifact linked</li>
+            <li>Compatibility risk visible</li>
+          </ul>
+        </article>
+        <article class="step">
+          <strong>Verification gate</strong>
+          <p>Compare old and graph sessions with stable local iframe previews.</p>
+          <ul>
+            <li>Typecheck</li>
+            <li>Build</li>
+            <li>Browser fixture review</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

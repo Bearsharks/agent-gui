@@ -3,12 +3,11 @@ import { Button } from "@agent-gui/design-system";
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge as FlowEdge, type Node as FlowNode, type NodeMouseHandler } from "@xyflow/react";
 import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
-import { BlockDetail, blockItemCount } from "./BlockDetail";
 import { labelBlockType, labelNodeKind, labelStatus } from "./graphReviewLabels";
 import { blockKey, conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
 
 type ReviewFlowNode = FlowNode<{ label: ReactNode; target: GraphSelection }, "default">;
-type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge }>;
+type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge; graphId?: string }>;
 
 const elk = new ELK();
 
@@ -54,7 +53,9 @@ export function GraphPane({
           nodesConnectable={false}
           elementsSelectable
           onNodeClick={handleNodeClick}
-          onEdgeClick={(_event, edge) => onSelect({ graphId: graph.id, edgeId: edge.id })}
+          onEdgeClick={(_event, edge) => {
+            if (edge.data?.edge && edge.data.graphId) onSelect({ graphId: edge.data.graphId, edgeId: edge.data.edge.id });
+          }}
         >
           <Background color="#d8cfc0" gap={24} />
           <MiniMap pannable zoomable nodeStrokeWidth={3} />
@@ -90,11 +91,11 @@ export function SelectedNodeDetail({
 }) {
   const nodeGraphId = expandedNodeSelection.graphId;
   const childGraphIds = getChildGraphIds(node);
-  const selectedBlock = selection.graphId === nodeGraphId && selection.nodeId === node.id && selection.blockId
-    ? node.blocks.find((block) => block.id === selection.blockId)
-    : undefined;
+  const iframes = node.iframes ?? [];
+  const activeIframe = selection.graphId === nodeGraphId && selection.nodeId === node.id
+    ? iframes.find((iframe) => iframe.id === selection.iframeId) ?? iframes[0]
+    : iframes[0];
   const nodeIssueCount = issueCountForTarget(index, { type: "node", graphId: nodeGraphId, nodeId: node.id });
-  const totalItemCount = node.blocks.reduce((sum, block) => sum + blockItemCount(block), 0);
   return (
     <aside className="selected-node-overlay">
       <div className="selected-node-resize-handle" onMouseDown={onResizeStart} aria-hidden="true" />
@@ -110,50 +111,67 @@ export function SelectedNodeDetail({
       </header>
       <div className="selected-node-meta-strip">
         <span>블록 {node.blocks.length}개</span>
-        <span>항목 {totalItemCount}개</span>
+        {iframes.length > 0 ? <span>iframe {iframes.length}개</span> : null}
         {childGraphIds.length > 0 ? <span>하위 그래프 {childGraphIds.length}개</span> : null}
         {node.status ? <span>{labelStatus(node.status)}</span> : null}
         {nodeIssueCount > 0 ? <span className="issue-chip">이슈 {nodeIssueCount}개</span> : null}
       </div>
-      <div className="selected-node-layout">
-        <nav className="selected-node-block-list" aria-label={`${node.title} block list`}>
-          {node.blocks.map((block) => {
-            const issueCount = issueCountForTarget(index, { type: "block", graphId: nodeGraphId, nodeId: node.id, blockId: block.id });
-            return (
-              <button
-                className={`selected-node-block-list-item ${selectedBlock?.id === block.id ? "selected" : ""}`}
-                key={block.id}
-                onClick={() => onSelect({ graphId: nodeGraphId, nodeId: node.id, blockId: block.id })}
-              >
-                <span className="selected-node-block-list-item-title">
-                  <small>{labelBlockType(block.type)}</small>
-                  <strong>{block.title ?? labelBlockType(block.type)}</strong>
-                </span>
-                {block.summary ? <em>{block.summary}</em> : null}
-                {issueCount > 0 ? <span className="selected-node-block-list-item-meta">이슈 {issueCount}개</span> : null}
-              </button>
-            );
-          })}
-        </nav>
-        <section className="selected-node-block-detail" aria-label="Selected block detail">
-          {selectedBlock ? (
-            <BlockDetail
-              block={selectedBlock}
-              graphId={nodeGraphId}
-              nodeId={node.id}
-              index={index}
-              selection={selection}
-              issueCount={issueCountForTarget(index, { type: "block", graphId: nodeGraphId, nodeId: node.id, blockId: selectedBlock.id })}
-              onSelect={onSelect}
-              onTargetSelect={onTargetSelect}
-            />
-          ) : (
-            <div className="selected-node-empty-detail">
-              <strong>노드 전체가 선택되었습니다</strong>
-              <span>왼쪽 블록을 선택하면 해당 블록으로 피드백 대상이 좁혀지고 상세 내용이 표시됩니다.</span>
-            </div>
-          )}
+      <div className="selected-node-primary-detail">
+        <section className="selected-node-info-card">
+          <strong>노드 정보</strong>
+          {node.summary ? <p>{node.summary}</p> : <p className="muted">요약 없음</p>}
+          {childGraphIds.length > 0 ? <span>연결된 하위 그래프: {childGraphIds.join(", ")}</span> : null}
         </section>
+        {iframes.length > 0 ? (
+          <section className="selected-node-iframe-panel" aria-label={`${node.title} iframe preview`}>
+            <div className="iframe-tab-list" role="tablist">
+              {iframes.map((iframe) => (
+                <button
+                  className={activeIframe?.id === iframe.id && selection.iframeId === iframe.id ? "selected" : ""}
+                  key={iframe.id}
+                  onClick={() => onSelect({ graphId: nodeGraphId, nodeId: node.id, iframeId: iframe.id })}
+                  type="button"
+                >
+                  {iframe.description}
+                </button>
+              ))}
+            </div>
+            {activeIframe ? (
+              <iframe
+                className="selected-node-iframe-preview"
+                src={activeIframe.url}
+                title={activeIframe.description}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              />
+            ) : null}
+          </section>
+        ) : (
+          <section className="selected-node-empty-detail">
+            <strong>iframe 없음</strong>
+            <span>이 노드에는 연결된 sandbox iframe preview가 없습니다.</span>
+          </section>
+        )}
+        {node.blocks.length > 0 ? (
+          <section className="selected-node-block-summary" aria-label={`${node.title} block summary`}>
+            <strong>블록 요약</strong>
+            <div>
+              {node.blocks.map((block) => {
+                const issueCount = issueCountForTarget(index, { type: "block", graphId: nodeGraphId, nodeId: node.id, blockId: block.id });
+                return (
+                  <button
+                    key={block.id}
+                    onClick={() => onTargetSelect({ type: "block", graphId: nodeGraphId, nodeId: node.id, blockId: block.id })}
+                    type="button"
+                  >
+                    <span>{labelBlockType(block.type)}</span>
+                    <strong>{block.title ?? labelBlockType(block.type)}</strong>
+                    {issueCount > 0 ? <em>이슈 {issueCount}개</em> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
       </div>
       {childGraphIds.length > 0 ? <div className="selected-node-overlay-footer">현재 그래프: {displayGraph.title}</div> : null}
       {footer}
@@ -247,6 +265,7 @@ function buildFallbackFlowNodes(
 ): ReviewFlowNode[] {
   const baseNodes: ReviewFlowNode[] = orderedNodes.map((node, nodeIndex): ReviewFlowNode => {
     const childGraphIds = getChildGraphIds(node);
+    const iframeCount = node.iframes?.length ?? 0;
     const issueCount = issueCountForTarget(index, { type: "node", graphId: graph.id, nodeId: node.id });
     const selected = selection.graphId === graph.id && selection.nodeId === node.id;
     return {
@@ -265,6 +284,7 @@ function buildFallbackFlowNodes(
             {node.summary ? <span className="node-summary">{node.summary}</span> : null}
             <span className="node-meta">
               <span>블록 {node.blocks.length}개</span>
+              {iframeCount > 0 ? <span>iframe {iframeCount}</span> : null}
               {childGraphIds.length > 0 ? <span>하위 그래프</span> : null}
               {issueCount > 0 ? <span className="issue-chip">{issueCount}</span> : null}
             </span>
@@ -280,6 +300,8 @@ function buildFallbackFlowNodes(
       const depth = nestedGraphDepth(graph.id, childGraph.id, index);
       return childGraph.nodes.map((node, nodeIndex): ReviewFlowNode => {
         const selected = selection.graphId === childGraph.id && selection.nodeId === node.id;
+        const iframeCount = node.iframes?.length ?? 0;
+        const issueCount = issueCountForTarget(index, { type: "node", graphId: childGraph.id, nodeId: node.id });
         return {
           id: childFlowNodeId(childGraph.id, node.id),
           type: "default",
@@ -295,6 +317,8 @@ function buildFallbackFlowNodes(
                 <strong>{node.title}</strong>
                 <span className="node-meta">
                   <span>블록 {node.blocks.length}개</span>
+                  {iframeCount > 0 ? <span>iframe {iframeCount}</span> : null}
+                  {issueCount > 0 ? <span className="issue-chip">{issueCount}</span> : null}
                 </span>
               </div>
             ),
@@ -312,10 +336,10 @@ function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection, expans
     target: edge.to,
     label: conditionLabel(edge),
     type: "smoothstep",
-    animated: edge.kind === "conditional" || selection.edgeId === edge.id,
-    className: selection.edgeId === edge.id ? "review-flow-edge selected" : "review-flow-edge",
+    animated: edge.kind === "conditional" || (selection.graphId === graph.id && selection.edgeId === edge.id),
+    className: selection.graphId === graph.id && selection.edgeId === edge.id ? "review-flow-edge selected" : "review-flow-edge",
     markerEnd: { type: MarkerType.ArrowClosed },
-    data: { edge },
+    data: { edge, graphId: graph.id },
   }));
   const childEdges =
     visibleNestedGraphIds(graph, expansionSelection, index).flatMap((childGraphId) => {
@@ -333,7 +357,7 @@ function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection, expans
             animated: false,
             className: "review-flow-edge child-graph-edge",
             markerEnd: { type: MarkerType.ArrowClosed },
-            data: {},
+            data: { graphId: childGraph.id },
           }))
         : [];
       const internalEdges: ReviewFlowEdge[] = childGraph.edges.map((edge) => ({
@@ -342,10 +366,10 @@ function buildFlowEdges(graph: GraphPlanGraph, selection: GraphSelection, expans
         target: childFlowNodeId(childGraph.id, edge.to),
         label: conditionLabel(edge),
         type: "smoothstep",
-        animated: edge.kind === "conditional",
-        className: "review-flow-edge child-graph-edge",
+        animated: edge.kind === "conditional" || (selection.graphId === childGraph.id && selection.edgeId === edge.id),
+        className: `review-flow-edge child-graph-edge ${selection.graphId === childGraph.id && selection.edgeId === edge.id ? "selected" : ""}`,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge },
+        data: { edge, graphId: childGraph.id },
       }));
       return [...refEdges, ...internalEdges];
     });

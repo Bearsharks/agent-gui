@@ -2,7 +2,6 @@ import type {
   AgentReplyEvent,
   FeedbackDisposition,
   GraphPlanDocument,
-  GraphPlanMutationInput,
   GraphPlanMutationResult,
   GraphPlanTarget,
   GraphPlanValidationMode,
@@ -13,8 +12,6 @@ import type {
 } from "@agent-gui/plan-schema";
 import {
   graphPlanDocumentSchema,
-  graphPlanMutationInputSchema,
-  graphPlanTargetSchema,
   planSessionSchema,
   replaceGraphPlanInputSchema,
   validateGraphPlan,
@@ -23,6 +20,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyGraphPlanMutations } from "../domain/graphPlanMutations";
+import {
+  serverGraphPlanMutationInputSchema,
+  serverGraphPlanTargetSchema,
+  type ServerGraphPlanMutationInput,
+  type ServerGraphPlanTarget,
+} from "../domain/graphPlanMutationSchemas";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
@@ -89,7 +92,7 @@ export class FileSessionStore {
 
   async postUserFeedback(input: {
     sessionId: string;
-    target: GraphPlanTarget;
+    target: ServerGraphPlanTarget;
     message: string;
     intent?: UserFeedbackEvent["intent"];
   }): Promise<UserFeedbackEvent> {
@@ -99,7 +102,7 @@ export class FileSessionStore {
       type: "user.feedback",
       sessionId: session.id,
       revision: session.revision,
-      target: graphPlanTargetSchema.parse(input.target),
+      target: serverGraphPlanTargetSchema.parse(input.target) as GraphPlanTarget,
       intent: input.intent,
       message: input.message,
       createdAt: new Date().toISOString(),
@@ -115,7 +118,7 @@ export class FileSessionStore {
     sessionId: string;
     revision: number;
     replyToEventId: string;
-    target: GraphPlanTarget;
+    target: ServerGraphPlanTarget;
     body: string;
     disposition?: FeedbackDisposition;
   }): Promise<AgentReplyEvent> {
@@ -126,7 +129,7 @@ export class FileSessionStore {
       sessionId: session.id,
       revision: input.revision,
       replyToEventId: input.replyToEventId,
-      target: graphPlanTargetSchema.parse(input.target),
+      target: serverGraphPlanTargetSchema.parse(input.target) as GraphPlanTarget,
       body: input.body,
       disposition: input.disposition,
       createdAt: new Date().toISOString(),
@@ -166,9 +169,9 @@ export class FileSessionStore {
     });
   }
 
-  async mutateGraphPlan(input: GraphPlanMutationInput): Promise<GraphPlanMutationResult> {
+  async mutateGraphPlan(input: ServerGraphPlanMutationInput): Promise<GraphPlanMutationResult> {
     const session = await this.getPlanSession(input.sessionId);
-    const parsedInput = graphPlanMutationInputSchema.parse(input);
+    const parsedInput = serverGraphPlanMutationInputSchema.parse(input);
     if (session.revision !== parsedInput.baseRevision) {
       throw new Error(`baseRevision ${parsedInput.baseRevision} does not match current revision ${session.revision}`);
     }

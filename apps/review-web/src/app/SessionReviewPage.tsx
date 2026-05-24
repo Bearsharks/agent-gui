@@ -111,12 +111,7 @@ export function SessionReviewPage() {
 
   function selectGraphNode(next: GraphSelection) {
     if (!session || !sessionIndex) return;
-    const normalizedNode = normalizeSelection(session.graphPlan, sessionIndex, next);
-    const firstBlockId = normalizedNode.nodeId ? sessionIndex.nodesByKey.get(nodeKey(normalizedNode.graphId, normalizedNode.nodeId))?.blocks[0]?.id : undefined;
-    const normalized = normalizeSelection(session.graphPlan, sessionIndex, {
-      ...normalizedNode,
-      blockId: normalizedNode.blockId ?? firstBlockId,
-    });
+    const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
     setSelection(normalized);
     setFeedbackTarget(selectionToTarget(normalized));
     setExpandedNodeSelection(normalized.nodeId ? normalized : null);

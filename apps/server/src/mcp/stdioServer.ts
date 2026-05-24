@@ -4,7 +4,6 @@ import { z } from "zod";
 import type {
   AgentReplyEvent,
   GraphPlanDocument,
-  GraphPlanMutationInput,
   GraphPlanMutationResult,
   GraphPlanValidationMode,
   GraphPlanValidationSummary,
@@ -16,13 +15,16 @@ import {
   feedbackDispositionSchema,
   graphPlanChangeSummarySchema,
   graphPlanDocumentSchema,
-  graphPlanMutationOperationSchema,
-  graphPlanTargetSchema,
   graphPlanValidationModeSchema,
   normalizeGraphPlanForAuthoring,
   validationPolicySchema,
 } from "@agent-gui/plan-schema";
 import { FileSessionStore } from "../store/fileStore";
+import {
+  serverGraphPlanMutationOperationSchema,
+  serverGraphPlanTargetSchema,
+  type ServerGraphPlanMutationInput,
+} from "../domain/graphPlanMutationSchemas";
 
 const store = new FileSessionStore();
 const graphStore = store as unknown as GraphPlanSessionStore;
@@ -37,7 +39,7 @@ server.registerTool(
   {
     title: "Create graph plan session",
     description:
-      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, block, block_item, edge, prototype_tab, and artifact_range. The graph document is validated before it is stored.",
+      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, block, block_item, edge, iframe, prototype_tab, and artifact_range. The graph document is validated before it is stored.",
     inputSchema: { graphPlan: graphPlanDocumentSchema },
   },
   async ({ graphPlan }) => jsonResult(await graphStore.createGraphPlanSession(graphPlan)),
@@ -69,12 +71,12 @@ server.registerTool(
   {
     title: "Post agent reply",
     description:
-      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, block, block_item, edge, prototype_tab, or artifact_range.",
+      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, block, block_item, edge, iframe, prototype_tab, or artifact_range.",
     inputSchema: {
       sessionId: z.string(),
       revision: z.number().int().positive(),
       replyToEventId: z.string(),
-      target: graphPlanTargetSchema,
+      target: serverGraphPlanTargetSchema,
       body: z.string(),
       disposition: feedbackDispositionSchema.optional(),
     },
@@ -87,12 +89,12 @@ server.registerTool(
   {
     title: "Mutate graph plan",
     description:
-      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including node additions, edge additions, subgraph additions, block appends/replacements, field updates, prototype tab updates, and artifact range updates. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
+      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including node additions, edge additions, subgraph additions, block appends/replacements, field updates, iframe add/update/remove operations, prototype tab updates, and artifact range updates. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
       mode: z.literal("atomic").default("atomic"),
-      operations: z.array(graphPlanMutationOperationSchema).min(1),
+      operations: z.array(serverGraphPlanMutationOperationSchema).min(1),
       changeSummary: graphPlanChangeSummarySchema,
       validationPolicy: validationPolicySchema.default("block_errors"),
     },
@@ -179,7 +181,7 @@ type GraphPlanSessionStore = {
     disposition?: unknown;
   }): Promise<AgentReplyEvent>;
   replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession>;
-  mutateGraphPlan(input: GraphPlanMutationInput): Promise<GraphPlanMutationResult>;
+  mutateGraphPlan(input: ServerGraphPlanMutationInput): Promise<GraphPlanMutationResult>;
   validateGraphPlanDocument(
     graphPlan: GraphPlanDocument,
     mode?: GraphPlanValidationMode,

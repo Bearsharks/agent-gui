@@ -15,6 +15,7 @@ const honoListener = getRequestListener(app.fetch);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
 const reviewRoot = path.join(repoRoot, "apps/review-web");
+const graphPrototypeRoot = path.join(repoRoot, "docs/prototypes");
 const todoPrototypePath = path.join(repoRoot, "fixtures/todo-list-prototype/index.html");
 
 const server = createServer((req, res) => {
@@ -25,6 +26,10 @@ const server = createServer((req, res) => {
   }
   if (url.startsWith("/prototypes/todo-list")) {
     void serveHtmlFile(todoPrototypePath, res);
+    return;
+  }
+  if (url.startsWith("/prototypes/")) {
+    void servePrototypeFile(url, res);
     return;
   }
   if (url.startsWith("/sessions/")) {
@@ -72,6 +77,17 @@ async function serveIndex(url: string, root: string, vite: Awaited<ReturnType<ty
     res.statusCode = 500;
     res.end(String(error));
   }
+}
+
+async function servePrototypeFile(url: string, res: import("node:http").ServerResponse) {
+  const pathname = new URL(url, "http://localhost:8787").pathname;
+  const fileName = path.basename(pathname);
+  if (!fileName.endsWith(".html")) {
+    res.statusCode = 404;
+    res.end("Prototype route not found");
+    return;
+  }
+  await serveHtmlFile(path.join(graphPrototypeRoot, fileName), res);
 }
 
 async function serveHtmlFile(filePath: string, res: import("node:http").ServerResponse) {

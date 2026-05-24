@@ -2,15 +2,19 @@ import {
   graphPlanBlockSchema,
   graphPlanDocumentSchema,
   graphPlanGraphSchema,
-  graphPlanMutationOperationSchema,
   type GraphPlanBlock,
   type GraphPlanDocument,
   type GraphPlanEdge,
   type GraphPlanGraph,
-  type GraphPlanMutationOperation,
   type GraphPlanNode,
 } from "@agent-gui/plan-schema";
 import { ZodError } from "zod";
+import {
+  graphPlanIframeSchema,
+  serverGraphPlanMutationOperationSchema,
+  type GraphPlanIframe,
+  type ServerGraphPlanMutationOperation,
+} from "./graphPlanMutationSchemas";
 
 export class GraphPlanMutationError extends Error {
   constructor(message: string) {
@@ -21,7 +25,7 @@ export class GraphPlanMutationError extends Error {
 
 export function applyGraphPlanMutations(
   graphPlan: GraphPlanDocument,
-  operations: GraphPlanMutationOperation[],
+  operations: ServerGraphPlanMutationOperation[],
 ): GraphPlanDocument {
   if (operations.length === 0) {
     throw new GraphPlanMutationError("Graph plan mutation requires at least one operation.");
@@ -30,7 +34,7 @@ export function applyGraphPlanMutations(
   let nextDocument = parseDocument(structuredClone(graphPlan), "Input graph plan is invalid");
 
   operations.forEach((rawOperation, index) => {
-    const parsedOperation = graphPlanMutationOperationSchema.safeParse(rawOperation);
+    const parsedOperation = serverGraphPlanMutationOperationSchema.safeParse(rawOperation);
     if (!parsedOperation.success) {
       throw new GraphPlanMutationError(`Operation ${index} is invalid: ${formatZodError(parsedOperation.error)}`);
     }
@@ -43,7 +47,7 @@ export function applyGraphPlanMutations(
 
 function applyGraphPlanMutation(
   document: GraphPlanDocument,
-  operation: GraphPlanMutationOperation,
+  operation: ServerGraphPlanMutationOperation,
   index: number,
 ): GraphPlanDocument {
   try {
@@ -188,6 +192,24 @@ function applyGraphPlanMutation(
         }
         return parseDocument(document, "Attached graph_ref block produces an invalid graph plan");
       }
+      case "add_iframe": {
+        const node = findNode(document, operation.target.graphId, operation.target.nodeId) as GraphPlanNodeWithIframes;
+        assertMissingIframe(node, operation.iframe.id, operation.target.graphId, operation.target.nodeId);
+        node.iframes = [...(node.iframes ?? []), operation.iframe];
+        return parseDocument(document, "Added iframe produces an invalid graph plan");
+      }
+      case "update_iframe": {
+        const iframe = findIframe(document, operation.target.graphId, operation.target.nodeId, operation.target.iframeId);
+        Object.assign(iframe, operation.fields);
+        parseIframe(iframe, "Updated iframe fields produce an invalid iframe");
+        return parseDocument(document, "Updated iframe fields produce an invalid graph plan");
+      }
+      case "remove_iframe": {
+        const node = findNode(document, operation.target.graphId, operation.target.nodeId) as GraphPlanNodeWithIframes;
+        const iframeIndex = findIframeIndex(node, operation.target.iframeId, operation.target.graphId, operation.target.nodeId);
+        node.iframes?.splice(iframeIndex, 1);
+        return parseDocument(document, "Removed iframe produces an invalid graph plan");
+      }
       default:
         return assertNever(operation);
     }
@@ -220,6 +242,14 @@ function parseGraph(graph: unknown, context: string): GraphPlanGraph {
 
 function parseBlock(block: unknown, context: string): GraphPlanBlock {
   const result = graphPlanBlockSchema.safeParse(block);
+  if (!result.success) {
+    throw new GraphPlanMutationError(`${context}: ${formatZodError(result.error)}`);
+  }
+  return result.data;
+}
+
+function parseIframe(iframe: unknown, context: string): GraphPlanIframe {
+  const result = graphPlanIframeSchema.safeParse(iframe);
   if (!result.success) {
     throw new GraphPlanMutationError(`${context}: ${formatZodError(result.error)}`);
   }
@@ -281,6 +311,27 @@ function findBlockIndex(node: GraphPlanNode, blockId: string, graphId: string, n
 function assertMissingBlock(node: GraphPlanNode, blockId: string, graphId: string, nodeId: string): void {
   if (node.blocks.some((block) => block.id === blockId)) {
     throw new GraphPlanMutationError(`Block "${blockId}" already exists in node "${nodeId}" of graph "${graphId}".`);
+  }
+}
+
+type GraphPlanNodeWithIframes = GraphPlanNode & { iframes?: GraphPlanIframe[] };
+
+function findIframe(document: GraphPlanDocument, graphId: string, nodeId: string, iframeId: string): GraphPlanIframe {
+  const node = findNode(document, graphId, nodeId) as GraphPlanNodeWithIframes;
+  return (node.iframes ?? [])[findIframeIndex(node, iframeId, graphId, nodeId)];
+}
+
+function findIframeIndex(node: GraphPlanNodeWithIframes, iframeId: string, graphId: string, nodeId: string): number {
+  const iframeIndex = (node.iframes ?? []).findIndex((candidate) => candidate.id === iframeId);
+  if (iframeIndex === -1) {
+    throw new GraphPlanMutationError(`Iframe "${iframeId}" was not found in node "${nodeId}" of graph "${graphId}".`);
+  }
+  return iframeIndex;
+}
+
+function assertMissingIframe(node: GraphPlanNodeWithIframes, iframeId: string, graphId: string, nodeId: string): void {
+  if ((node.iframes ?? []).some((iframe) => iframe.id === iframeId)) {
+    throw new GraphPlanMutationError(`Iframe "${iframeId}" already exists in node "${nodeId}" of graph "${graphId}".`);
   }
 }
 
