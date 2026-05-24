@@ -1,6 +1,9 @@
 import type { GraphPlanDocument } from "@agent-gui/plan-schema";
-import { prototypeReviewGraphPlanFixture } from "@agent-gui/plan-schema";
+import { graphPlanFixtures } from "@agent-gui/plan-schema";
 
-export function fixtureGraphPlan(): GraphPlanDocument {
-  return structuredClone(prototypeReviewGraphPlanFixture);
+export type FixtureScenario = keyof typeof graphPlanFixtures;
+
+export function fixtureGraphPlan(scenario: string = "prototype"): GraphPlanDocument {
+  const key = scenario in graphPlanFixtures ? (scenario as FixtureScenario) : "prototype";
+  return structuredClone(graphPlanFixtures[key]);
 }

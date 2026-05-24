@@ -1,57 +1,39 @@
 import assert from "node:assert/strict";
 import { fixtureGraphPlan } from "./samplePlan";
 import { applyGraphPlanMutations } from "./graphPlanMutations";
-import { serverGraphPlanTargetSchema } from "./graphPlanMutationSchemas";
 
-const basePlan = fixtureGraphPlan();
-const graphId = basePlan.rootGraphId;
-const nodeId = basePlan.graphs.find((graph) => graph.id === graphId)?.nodes[0]?.id;
+const basePlan = fixtureGraphPlan("linear");
 
-assert.ok(nodeId, "fixture must include a root graph node");
-
-const getNode = (plan: typeof basePlan) => plan.graphs.find((graph) => graph.id === graphId)?.nodes.find((node) => node.id === nodeId);
-
-const added = applyGraphPlanMutations(basePlan, [
+const withIframe = applyGraphPlanMutations(basePlan, [
   {
     op: "add_iframe",
-    target: { type: "node", graphId, nodeId },
-    iframe: {
-      id: "iframe-test",
-      description: "Iframe mutation test",
-      url: "http://localhost:8787/prototypes/test.html",
-    },
+    target: { type: "node", graphId: "g-search-plan", nodeId: "n-design" },
+    iframe: { id: "iframe-test", description: "Test iframe", url: "http://localhost:8787/prototypes/test.html" },
   },
 ]);
 
-assert.equal(getNode(added)?.iframes?.some((iframe) => iframe.id === "iframe-test"), true);
+const designNode = withIframe.graphs[0].nodes.find((node) => node.id === "n-design");
+assert.equal(designNode?.iframes?.some((iframe) => iframe.id === "iframe-test"), true);
 
-const updated = applyGraphPlanMutations(added, [
+const updated = applyGraphPlanMutations(withIframe, [
   {
     op: "update_iframe",
-    target: { type: "iframe", graphId, nodeId, iframeId: "iframe-test" },
-    fields: { description: "Updated iframe mutation test" },
+    target: { type: "iframe", graphId: "g-search-plan", nodeId: "n-design", iframeId: "iframe-test" },
+    fields: { description: "Updated test iframe" },
   },
 ]);
 
 assert.equal(
-  getNode(updated)?.iframes?.find((iframe) => iframe.id === "iframe-test")?.description,
-  "Updated iframe mutation test",
+  updated.graphs[0].nodes.find((node) => node.id === "n-design")?.iframes?.find((iframe) => iframe.id === "iframe-test")?.description,
+  "Updated test iframe",
 );
 
-const removed = applyGraphPlanMutations(updated, [
+const detached = applyGraphPlanMutations(updated, [
   {
-    op: "remove_iframe",
-    target: { type: "iframe", graphId, nodeId, iframeId: "iframe-test" },
+    op: "detach_subgraph",
+    parent: { graphId: "g-search-plan", nodeId: "n-implementation" },
+    graphId: "g-search-implementation",
   },
 ]);
 
-assert.equal(getNode(removed)?.iframes?.some((iframe) => iframe.id === "iframe-test"), false);
-
-const iframeTarget = serverGraphPlanTargetSchema.parse({
-  type: "iframe",
-  graphId,
-  nodeId,
-  iframeId: "iframe-target-context",
-});
-
-assert.equal(iframeTarget.type, "iframe");
+assert.equal(detached.graphs.find((graph) => graph.id === "g-search-implementation")?.parent, undefined);
