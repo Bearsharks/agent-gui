@@ -1,11 +1,11 @@
 ---
 name: plan-gui-mcp
-description: Use Agent GUI's current graph-plan MCP workflow to create browser-reviewable GraphPlanDocument sessions, attach prototype iframe tabs, inspect feedback events, reply or revise plans, validate graph targets, and confirm approval. Trigger when the user asks to use Agent GUI, Plan GUI, graph plan review, MCP plan sessions, browser plan review, prototype tabs, revision/approval loops, or wants an implementation plan reviewed before code changes.
+description: Use Agent GUI's current graph/html MCP workflow to create browser-reviewable GraphPlanDocument sessions, attach node iframe HTML entries, inspect graph/node/edge/iframe feedback events, reply or revise plans, validate graph targets, and confirm approval. Trigger when the user asks to use Agent GUI, Plan GUI, graph plan review, MCP plan sessions, browser plan review, node iframe previews, revision/approval loops, or wants an implementation plan reviewed before code changes.
 ---
 
 # Plan GUI MCP
 
-Use this skill to create and operate Agent GUI graph-plan review sessions. The current model is graph-based: sessions contain a `GraphPlanDocument`, not the older step-based `PlanDraft`.
+Use this skill to create and operate Agent GUI graph plan review sessions. The current model is graph/html based: MCP owns flow structure, and node iframe HTML owns detailed presentation.
 
 ## Current Model
 
@@ -24,7 +24,7 @@ type GraphPlanDocument = {
 };
 ```
 
-Each graph contains nodes and edges:
+Each graph owns its nodes and edges:
 
 ```ts
 type GraphPlanGraph = {
@@ -37,7 +37,11 @@ type GraphPlanGraph = {
   edges: GraphPlanEdge[];
   layout?: { mode: "linear" | "dag" | "swimlane" | "tree" | "freeform"; order?: string[] };
 };
+```
 
+Each node can own subgraphs and iframe entries:
+
+```ts
 type GraphPlanNode = {
   id: string;
   kind: "section" | "action" | "decision" | "checkpoint" | "review" | "artifact" | "note" | `x-${string}`;
@@ -45,11 +49,28 @@ type GraphPlanNode = {
   summary?: string;
   blocks: GraphPlanBlock[];
   ownedGraphIds?: string[];
+  iframes?: {
+    id: string;
+    description: string;
+    url: string;
+  }[];
   status?: "open" | "needs_revision" | "accepted" | "blocked" | "complete" | "rejected";
 };
 ```
 
-Use stable readable IDs: `g-implementation`, `n-validation`, `b-prototype`, `task-add-todo`, `tab-filter`.
+Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `iframe-before-after`.
+
+## Graph And Iframe Rules
+
+- Store all graphs in top-level `graphs[]`.
+- Store edges as graph-level `edges[]`.
+- Use `ownedGraphIds` to connect a node to child graphs.
+- Put detailed screens, comparisons, checklist UI, and prototype states in node iframe HTML.
+- Use `iframes[].description` as the UI tab label.
+- Keep `iframes[].id` unique within the node.
+- Use only local explicit-port HTTP iframe URLs:
+  - `http://localhost:<port>/...`
+  - `http://127.0.0.1:<port>/...`
 
 ## Targets
 
@@ -60,6 +81,7 @@ type GraphPlanTarget =
   | { type: "plan" }
   | { type: "graph"; graphId: string }
   | { type: "node"; graphId: string; nodeId: string }
+  | { type: "iframe"; graphId: string; nodeId: string; iframeId: string }
   | { type: "block"; graphId: string; nodeId: string; blockId: string }
   | { type: "block_item"; graphId: string; nodeId: string; blockId: string; itemId: string; itemType?: BlockItemType }
   | { type: "edge"; graphId: string; edgeId: string }
@@ -67,78 +89,26 @@ type GraphPlanTarget =
   | { type: "artifact_range"; graphId: string; nodeId: string; blockId: string; artifactId: string; path?: string; lineStart?: number; lineEnd?: number };
 ```
 
-`BlockItemType` values: `task`, `check`, `criterion`, `option`, `evidence`, `finding`, `verification`, `hypothesis`, `experiment`, `score`, `risk`, `artifact`, `change`, `migration_step`.
-
-Prefer precise targets. If feedback is about a prototype screen state, target `prototype_tab`. If it is about a row inside a task/checklist/criteria block, target `block_item`.
+Prefer precise targets. If feedback is about a node's iframe tab, target `iframe`. If it is about the graph flow, target `graph`, `node`, or `edge`.
 
 ## Blocks
 
-Use only the block types needed for the plan. Common choices:
+Use blocks only when structured graph-side information helps MCP, validation, or reviewer context. Do not move iframe UI details into blocks.
 
-- `text`: freeform body plus optional `outputDefinitions`.
-- `task_list`: implementation work items. Each item can have `target`.
-- `checklist`: manual checks with `required`, `status`, `owner`.
-- `criteria`: approval conditions with `required`, `status`.
-- `review_bundle`: review prompt, linked targets, acceptance criteria, optional `prototypeRef`.
-- `prototype`: iframe tabs for visual/interactive review.
+Common block choices:
+
+- `text`: concise graph-side context.
+- `task_list`: implementation work items.
+- `checklist`: manual checks.
+- `criteria`: approval conditions.
+- `review_bundle`: review prompt and linked targets.
 - `risk`: risks with severity and mitigation.
 - `verification`: command/manual/test/metric checks.
-- `checkpoint_outcome`: final gate result and determining targets.
+- `checkpoint_outcome`: final gate result.
 - `artifact`: files, URLs, code refs, generated outputs.
 - `graph_ref`: references owned or external subgraphs.
 
-Other supported specialist blocks include `choice_set`, `comparison`, `evidence`, `synthesis`, `changelog`, `investigation`, and `migration`.
-
-### Common Metadata
-
-Every block can include:
-
-- `id`, `type`, `title`, `summary`, `status`
-- `links: { target, purpose }[]`
-- `outputDefinitions: { key, label?, valueType, required?, allowedValues?, producedBy? }[]`
-- `revisionMeta`
-- `metadata`
-
-Use `links` and `outputDefinitions` when they help the reviewer understand what this block affects or produces. Do not invent metadata just to fill fields.
-
-## Prototype Tabs
-
-Prototype review is now a graph `prototype` block with URL tabs. Do not use the removed `pieces` model.
-
-```ts
-{
-  id: "b-prototype",
-  type: "prototype",
-  title: "Todo List 프로토타입",
-  prototypeId: "proto-todo-list",
-  revision: 1,
-  tabs: [
-    {
-      id: "tab-filter",
-      title: "필터 상태",
-      url: "http://localhost:8787/prototypes/todo-list?view=filter",
-      summary: "전체/진행 중/완료 필터를 검토한다.",
-      context: { graphId: "g-plan", nodeId: "n-implementation", blockId: "b-ui-tasks", itemId: "task-filter" },
-      relatedTargets: [
-        {
-          target: { type: "block_item", graphId: "g-plan", nodeId: "n-implementation", blockId: "b-ui-tasks", itemId: "task-filter", itemType: "task" },
-          purpose: "validates",
-          note: "이 탭은 필터 구현 작업의 목표 화면이다."
-        }
-      ]
-    }
-  ]
-}
-```
-
-Rules:
-
-- Use one tab per reviewable screen state, mode, or prototype URL.
-- The iframe URL owns its internal UI. Do not model buttons or panels inside the iframe as graph artifacts.
-- Use `context` for the primary graph location the tab explains.
-- Use `relatedTargets` to show what the tab validates, shows, or tests.
-- Allowed tab relation purposes: `explains`, `validates`, `tests_interaction`, `shows_state`.
-- Local HTTP prototype URLs must be `localhost` or `127.0.0.1`; HTTPS is also allowed.
+The `prototype` block remains supported by the schema, but node `iframes[]` are the preferred UI entry points for graph/html review.
 
 ## MCP Tools
 
@@ -163,40 +133,32 @@ curl -s -X POST http://localhost:8787/mcp/call \
   --data-binary @payload.json
 ```
 
-HTTP payload shape:
-
-```json
-{
-  "tool": "create_graph_plan_session",
-  "input": { "graphPlan": { "schemaVersion": "graph-plan/v1" } }
-}
-```
-
 ## Standard Workflow
 
 1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
-2. Draft a focused `GraphPlanDocument` with explicit graph/node/block IDs.
-3. Add prototype HTML/routes when visual review helps. Serve local prototypes from the same server, then connect URLs through a `prototype` block.
-4. If authoring from loose notes or generated JSON, run `normalize_graph_plan` first and inspect `changes` plus `schemaIssues`.
-5. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
-6. Create the session with `create_graph_plan_session`.
-7. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
-8. When feedback is ready, read `list_plan_events`.
-9. Reply with `post_agent_reply` for explanation-only feedback.
-10. Default to `mutate_graph_plan` for revisions. Node additions, edge additions, subgraph additions, block appends/replacements, and field updates are all mutations.
-11. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
+2. Draft a focused `GraphPlanDocument` with explicit graph/node/edge/iframe IDs.
+3. Add local HTML routes under `docs/prototypes` or another local server when visual review helps.
+4. Attach HTML entry points through `node.iframes[]`.
+5. If authoring from loose notes or generated JSON, run `normalize_graph_plan` first and inspect `changes` plus `schemaIssues`.
+6. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
+7. Create the session with `create_graph_plan_session`.
+8. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
+9. When feedback is ready, read `list_plan_events`.
+10. Reply with `post_agent_reply` for explanation-only feedback.
+11. Default to `mutate_graph_plan` for revisions.
+12. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
 
-## Revision Tool Choice
+## Mutation Choice
 
-Use `mutate_graph_plan` unless the whole document truly needs replacement. Do not choose `replace_graph_plan` merely because the change is structural.
+Use `mutate_graph_plan` unless the whole document truly needs replacement.
 
 Use `mutate_graph_plan` for:
 
-- Adding an interview question node and connecting it with an edge.
-- Appending a block or replacing one block.
-- Updating node title, summary, status, or a block's fields.
-- Adding a subgraph or attaching a `graph_ref` block.
-- Updating prototype tabs or target links.
+- Adding nodes, edges, and subgraphs.
+- Updating node title, summary, status, or iframe entries.
+- Adding, updating, or removing iframe entries.
+- Appending or replacing a block.
+- Updating target links or validation context.
 
 Use `replace_graph_plan` only for:
 
@@ -206,81 +168,84 @@ Use `replace_graph_plan` only for:
 
 `replace_graph_plan` requires `replacementRationale`. If you cannot explain why targeted mutations are insufficient, use `mutate_graph_plan`.
 
-Interview question additions should be a mutation:
+## Iframe Mutation Examples
+
+Add an iframe entry:
 
 ```json
 {
-  "sessionId": "plan_123",
-  "baseRevision": 2,
-  "operations": [
-    {
-      "op": "add_node",
-      "graphId": "g-interview",
-      "node": {
-        "id": "n-q3",
-        "kind": "section",
-        "title": "Q3. 개인본/공개본 관계",
-        "blocks": [
-          { "id": "b-q3-question", "type": "text", "title": "질문", "body": "개인 레시피와 공개 레시피는 같은 데이터를 공유하나요?" }
-        ]
-      }
-    },
-    { "op": "add_edge", "graphId": "g-interview", "edge": { "id": "e-q2-q3", "from": "n-q2", "to": "n-q3", "kind": "sequence" } }
+  "op": "add_iframe",
+  "target": { "type": "node", "graphId": "g-review", "nodeId": "n-result-review" },
+  "iframe": {
+    "id": "iframe-before-after",
+    "description": "Before/after comparison",
+    "url": "http://localhost:8787/prototypes/revision-before-after.html"
+  }
+}
+```
+
+Update an iframe entry:
+
+```json
+{
+  "op": "update_iframe",
+  "target": { "type": "iframe", "graphId": "g-review", "nodeId": "n-result-review", "iframeId": "iframe-before-after" },
+  "fields": {
+    "description": "Revision before/after comparison"
+  }
+}
+```
+
+Remove an iframe entry:
+
+```json
+{
+  "op": "remove_iframe",
+  "target": { "type": "iframe", "graphId": "g-review", "nodeId": "n-result-review", "iframeId": "iframe-before-after" }
+}
+```
+
+## Minimal Examples
+
+Minimal node with iframe:
+
+```json
+{
+  "id": "n-review",
+  "kind": "review",
+  "title": "수정 결과 리뷰",
+  "summary": "사용자 피드백 반영 결과를 확인한다.",
+  "blocks": [
+    { "id": "b-context", "type": "text", "title": "Context", "body": "리뷰 대상과 결정 기준을 요약한다." }
   ],
-  "changeSummary": { "structure": ["인터뷰 Q3 노드와 Q2->Q3 연결을 추가했다."] }
+  "iframes": [
+    {
+      "id": "iframe-result-review",
+      "description": "수정 결과 리뷰 화면",
+      "url": "http://localhost:8787/prototypes/graph-revision-loop.html"
+    }
+  ]
 }
 ```
 
-## Minimal Block Examples
-
-Use these shapes when validation errors complain about required fields:
-
-```json
-{ "id": "b-text", "type": "text", "title": "Scope", "body": "What is in and out." }
-```
-
-```json
-{
-  "id": "b-tasks",
-  "type": "task_list",
-  "items": [{ "id": "task-api", "label": "Add API route", "status": "open" }]
-}
-```
+Minimal edge:
 
 ```json
 {
-  "id": "b-criteria",
-  "type": "criteria",
-  "criteria": [{ "id": "criterion-ready", "label": "Build passes", "required": true, "status": "pending" }]
+  "id": "e-review-fix",
+  "from": "n-review",
+  "to": "n-fix",
+  "kind": "loop",
+  "label": "needs revision"
 }
 ```
-
-```json
-{
-  "id": "b-artifact",
-  "type": "artifact",
-  "artifacts": [{ "id": "artifact-session", "kind": "url", "title": "Review session", "ref": "http://localhost:8787/sessions/plan_123" }]
-}
-```
-
-```json
-{
-  "id": "b-comparison",
-  "type": "comparison",
-  "criteria": [{ "id": "criterion-effort", "label": "Effort", "required": true, "status": "pending" }],
-  "options": [{ "id": "option-a", "label": "Small change" }],
-  "scores": [{ "optionId": "option-a", "criterionId": "criterion-effort", "rating": "high", "note": "Lowest risk." }]
-}
-```
-
-`normalize_graph_plan` accepts common shorthand such as task `text`, artifact `label`/`uri`, session-like URL artifacts, and simple comparison `columns`/`rows`/`cells`. Treat its output as a draft; `validate_graph_plan` remains the publish gate.
 
 ## Runtime Gotchas
 
-- If a tool rejects `prototype_tab` and expects `prototype_piece`, the server or MCP process is stale. Restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
-- Existing stored sessions may contain older data. UI code should tolerate missing optional fields, but new sessions should use `prototype_tab`.
+- If iframe targets or iframe mutation ops are rejected, restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
+- Existing stored sessions may contain optional fields missing from current fixtures. UI code should tolerate missing optional fields.
 - HTTP calls from Node may hit sandbox network restrictions. `curl` is usually approved in this repo.
-- If adding a new prototype route in `apps/server/src/main.ts`, restart `pnpm dev` before relying on the clean route.
+- If adding a new HTML route under `docs/prototypes`, restart `pnpm dev` before relying on the route.
 
 ## Local Commands
 
@@ -289,6 +254,8 @@ Use these shapes when validation errors complain about required fields:
 - List HTTP tools: `curl -s http://localhost:8787/mcp/tools`
 - Notify agent after browser feedback: `pnpm planctl notify <sessionId>`
 - Validate repo changes: `pnpm typecheck` and `pnpm build`
+- Validate schema tests: `pnpm --filter @agent-gui/plan-schema test`
+- Validate server tests: `pnpm --dir apps/server test`
 
 ## User-Facing Response
 
@@ -299,4 +266,4 @@ After creating a session, provide the URL and next action:
 http://localhost:8787/sessions/<sessionId>
 ```
 
-If you created prototype URLs, list the main route briefly and mention that prototype tabs are available inside the plan UI.
+If you created iframe HTML URLs, mention that iframe tabs are available inside the selected node detail panel.

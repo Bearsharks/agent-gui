@@ -338,6 +338,124 @@ pre {
   overflow: hidden;
 }
 
+.selected-node-primary-detail {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-color: #8a8680 transparent;
+  scrollbar-width: thin;
+}
+
+.selected-node-primary-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.selected-node-primary-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.selected-node-primary-detail::-webkit-scrollbar-thumb {
+  background: #8a8680;
+  border-radius: 999px;
+}
+
+.selected-node-info-card,
+.selected-node-iframe-panel,
+.selected-node-block-summary {
+  background: #fffdf8;
+  border: 1px solid #d8cfc0;
+  border-radius: 6px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.selected-node-info-card strong,
+.selected-node-block-summary > strong {
+  font-size: 12px;
+}
+
+.selected-node-info-card p {
+  color: #6b665e;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.selected-node-info-card span {
+  color: #6b665e;
+  font-size: 10px;
+}
+
+.iframe-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.iframe-tab-list button {
+  background: #f8f4ec;
+  border: 1px solid #d8cfc0;
+  border-radius: 5px;
+  color: #20201d;
+  cursor: pointer;
+  font-weight: 750;
+  padding: 4px 7px;
+}
+
+.iframe-tab-list button.selected {
+  background: #edf4fa;
+  border-color: rgba(36, 106, 168, 0.7);
+  color: #1f5f95;
+}
+
+.selected-node-iframe-preview {
+  background: #fff;
+  border: 1px solid #d8cfc0;
+  border-radius: 6px;
+  box-sizing: border-box;
+  height: min(48vh, 420px);
+  min-height: 260px;
+  width: 100%;
+}
+
+.selected-node-block-summary > div {
+  display: grid;
+  gap: 5px;
+}
+
+.selected-node-block-summary button {
+  align-items: center;
+  background: #f8f4ec;
+  border: 1px solid #d8cfc0;
+  border-radius: 5px;
+  color: #20201d;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.selected-node-block-summary button span,
+.selected-node-block-summary button em {
+  color: #6b665e;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.selected-node-block-summary button strong {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .selected-node-block-list {
   align-content: start;
   display: grid;

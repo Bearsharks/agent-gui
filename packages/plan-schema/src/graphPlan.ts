@@ -55,6 +55,7 @@ export const graphPlanTargetSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("plan") }),
   z.object({ type: z.literal("graph"), graphId: z.string() }),
   z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
+  z.object({ type: z.literal("iframe"), graphId: z.string(), nodeId: z.string(), iframeId: z.string() }),
   z.object({ type: z.literal("block"), graphId: z.string(), nodeId: z.string(), blockId: z.string() }),
   z.object({
     type: z.literal("artifact_range"),
@@ -568,12 +569,29 @@ const checkpointOutcomeSchema = z.object({
   sourceEventIds: z.array(z.string()).optional(),
 });
 
+const localIframeUrlSchema = z.string().url().refine(
+  (value) => {
+    const url = new URL(value);
+    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.port.length > 0;
+  },
+  { message: "Iframe URL must be local http with an explicit port." },
+);
+
+export const graphPlanIframeSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  url: localIframeUrlSchema,
+});
+
+export type GraphPlanIframe = z.infer<typeof graphPlanIframeSchema>;
+
 export const graphPlanNodeSchema = z.object({
   id: z.string(),
   kind: z.union([z.enum(["section", "action", "decision", "checkpoint", "review", "artifact", "note"]), z.string().regex(/^x-[a-z0-9._-]+$/)]),
   title: z.string(),
   summary: z.string().optional(),
   blocks: z.array(graphPlanBlockSchema),
+  iframes: z.array(graphPlanIframeSchema).optional(),
   ownedGraphIds: z.array(z.string()).optional(),
   status: graphPlanReviewStatusSchema.optional(),
   links: z.array(graphPlanLinkSchema).optional(),

@@ -24,6 +24,7 @@ type ValidationIndex = {
   nodes: Map<string, GraphPlanNode>;
   blocks: Map<string, GraphPlanBlock>;
   edges: Map<string, { graph: GraphPlanGraph; edgeId: string }>;
+  iframes: Map<string, { graphId: string; nodeId: string; iframeId: string }>;
   blockItems: Map<string, { type?: string }>;
   blockOutputs: Map<string, Map<string, GraphPlanOutputDefinition>>;
   prototypeTabs: Map<string, { graphId: string; nodeId: string; blockId: string; prototypeId: string; tabId: string }>;
@@ -100,6 +101,7 @@ function buildIndex(document: GraphPlanDocument, issues: GraphPlanValidationIssu
     nodes: new Map(),
     blocks: new Map(),
     edges: new Map(),
+    iframes: new Map(),
     blockItems: new Map(),
     blockOutputs: new Map(),
     prototypeTabs: new Map(),
@@ -125,6 +127,7 @@ function buildIndex(document: GraphPlanDocument, issues: GraphPlanValidationIssu
         addIssue(issues, "error", "duplicate_node_id", `Duplicate node id '${node.id}' in graph '${graph.id}'.`, nodeKey);
       }
       index.nodes.set(nodeKey, node);
+      indexNodeIframes(index, graph.id, node, issues);
 
       for (const block of node.blocks) {
         const blockKey = blockKeyFor(graph.id, node.id, block.id);
@@ -139,6 +142,18 @@ function buildIndex(document: GraphPlanDocument, issues: GraphPlanValidationIssu
   }
 
   return index;
+}
+
+function indexNodeIframes(index: ValidationIndex, graphId: string, node: GraphPlanNode, issues: GraphPlanValidationIssue[]): void {
+  const seen = new Set<string>();
+  for (const iframe of node.iframes ?? []) {
+    const key = iframeKeyFor(graphId, node.id, iframe.id);
+    if (seen.has(iframe.id)) {
+      addIssue(issues, "error", "duplicate_iframe_id", `Duplicate iframe id '${iframe.id}' in node '${node.id}'.`, key);
+    }
+    seen.add(iframe.id);
+    index.iframes.set(key, { graphId, nodeId: node.id, iframeId: iframe.id });
+  }
 }
 
 function indexBlockItems(index: ValidationIndex, graphId: string, nodeId: string, block: GraphPlanBlock): void {
@@ -718,6 +733,11 @@ function validateTarget(target: GraphPlanTarget | undefined, index: ValidationIn
     case "node":
       if (!index.nodes.has(nodeKeyFor(target.graphId, target.nodeId))) addIssue(issues, severity, "missing_target_node", `Target node '${target.graphId}/${target.nodeId}' does not exist.`, path, { target });
       return;
+    case "iframe":
+      if (!index.iframes.has(iframeKeyFor(target.graphId, target.nodeId, target.iframeId))) {
+        addIssue(issues, severity, "missing_target_iframe", `Target iframe '${target.graphId}/${target.nodeId}/${target.iframeId}' does not exist.`, path, { target });
+      }
+      return;
     case "block":
       if (!index.blocks.has(blockKeyFor(target.graphId, target.nodeId, target.blockId))) addIssue(issues, severity, "missing_target_block", `Target block '${target.graphId}/${target.nodeId}/${target.blockId}' does not exist.`, path, { target });
       return;
@@ -823,6 +843,10 @@ function blockKeyFor(graphId: string, nodeId: string, blockId: string): string {
 
 function blockItemKeyFor(graphId: string, nodeId: string, blockId: string, itemId: string): string {
   return `${blockKeyFor(graphId, nodeId, blockId)}/item:${itemId}`;
+}
+
+function iframeKeyFor(graphId: string, nodeId: string, iframeId: string): string {
+  return `${nodeKeyFor(graphId, nodeId)}/iframe:${iframeId}`;
 }
 
 function edgeKeyFor(graphId: string, edgeId: string): string {

@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan GUI MCP"
-  short_description: "Create graph plan MCP review sessions"
-  default_prompt: "Use $plan-gui-mcp to create a graph-plan Agent GUI session with prototype tabs and handle review feedback."
+  short_description: "Create graph/html MCP review sessions"
+  default_prompt: "Use $plan-gui-mcp to create a graph/html Agent GUI review session with node iframe tabs and handle targeted feedback."

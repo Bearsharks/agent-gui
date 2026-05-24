@@ -1,6 +1,15 @@
 import { graphPlanDocumentSchema, type GraphPlanBlock, type GraphPlanDocument } from "./graphPlan";
 import { assertGraphPlanSemantics } from "./graphPlanSemanticValidator";
 
+const prototypeBaseUrl = "http://localhost:8787/prototypes";
+
+const iframePreviews = {
+  linearRollout: `${prototypeBaseUrl}/graph-linear-rollout.html`,
+  graphReview: `${prototypeBaseUrl}/phase5-graph-review-keyscreen.html`,
+  prototypeTargetContext: `${prototypeBaseUrl}/graph-prototype-target-context.html`,
+  revisionLoop: `${prototypeBaseUrl}/graph-revision-loop.html`,
+};
+
 const blockCatalogTarget = (blockId: string) => ({ type: "block" as const, graphId: "g-prototype-review", nodeId: "n-block-catalog", blockId });
 
 const blockCatalogBlocks: GraphPlanBlock[] = [
@@ -359,6 +368,7 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
           id: "n-discovery",
           kind: "section",
           title: "Discovery",
+          iframes: [{ id: "iframe-rollout-overview", description: "Linear rollout overview preview", url: iframePreviews.linearRollout }],
           blocks: [{ id: "b-discovery", type: "task_list", items: [{ id: "t-assumptions", label: "Map current review assumptions to graph targets" }] }],
         },
         {
@@ -372,6 +382,10 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
           id: "n-verification",
           kind: "checkpoint",
           title: "Verification gate",
+          iframes: [
+            { id: "iframe-rollout-gate", description: "Rollout verification gate preview", url: iframePreviews.linearRollout },
+            { id: "iframe-review-keyscreen", description: "Graph review keyscreen used for old/new session comparison", url: iframePreviews.graphReview },
+          ],
           blocks: [
             {
               id: "b-verification",
@@ -423,6 +437,7 @@ export const linearPhaseGraphPlanFixture = graphPlanDocumentSchema.parse({
           id: "n-ui",
           kind: "action",
           title: "Update target UI",
+          iframes: [{ id: "iframe-target-ui", description: "Graph target UI keyscreen preview", url: iframePreviews.graphReview }],
           blocks: [{ id: "b-ui-tasks", type: "task_list", items: [{ id: "t-target-labels", label: "Render graph target labels" }] }],
         },
       ],
@@ -452,6 +467,10 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
           kind: "review",
           title: "프로토타입 검토",
           ownedGraphIds: ["g-prototype-states"],
+          iframes: [
+            { id: "iframe-target-context", description: "Prototype target context review surface", url: iframePreviews.prototypeTargetContext },
+            { id: "iframe-graph-review", description: "Graph review keyscreen with selected target context", url: iframePreviews.graphReview },
+          ],
           blocks: [
             {
               id: "b-review",
@@ -474,7 +493,7 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
                 {
                   id: "tab-review",
                   title: "리뷰 UI",
-                  url: "http://localhost:8787",
+                  url: iframePreviews.prototypeTargetContext,
                   relatedTargets: [
                     {
                       target: { type: "block", graphId: "g-prototype-review", nodeId: "n-review", blockId: "b-review" },
@@ -501,6 +520,7 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
           kind: "artifact",
           title: "전체 블록 카탈로그",
           summary: "가능한 모든 블록 타입과 채워진 샘플 컨텐츠",
+          iframes: [{ id: "iframe-block-catalog", description: "Block catalog review preview", url: iframePreviews.graphReview }],
           blocks: blockCatalogBlocks,
         },
         {
@@ -522,7 +542,13 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
       layout: { mode: "linear", order: ["n-default", "n-tab-selected", "n-commenting"] },
       nodes: [
         { id: "n-default", kind: "artifact", title: "기본 상태", blocks: [{ id: "b-default", type: "text", body: "선택된 프로토타입 탭이 없다." }] },
-        { id: "n-tab-selected", kind: "artifact", title: "탭 선택 상태", blocks: [{ id: "b-selected", type: "text", body: "사이드바가 탭의 연결 대상 경로를 표시한다." }] },
+        {
+          id: "n-tab-selected",
+          kind: "artifact",
+          title: "탭 선택 상태",
+          iframes: [{ id: "iframe-tab-selected", description: "Selected prototype tab state preview", url: iframePreviews.prototypeTargetContext }],
+          blocks: [{ id: "b-selected", type: "text", body: "사이드바가 탭의 연결 대상 경로를 표시한다." }],
+        },
         {
           id: "n-commenting",
           kind: "review",
@@ -570,12 +596,154 @@ export const prototypeReviewGraphPlanFixture = graphPlanDocumentSchema.parse({
           id: "n-thread-visible",
           kind: "checkpoint",
           title: "스레드 표시 확인",
+          iframes: [{ id: "iframe-thread-visible", description: "Feedback thread visibility preview", url: iframePreviews.prototypeTargetContext }],
           blocks: [{ id: "b-thread-criteria", type: "criteria", criteria: [{ id: "crit-thread-target", label: "저장된 댓글이 같은 target thread 아래에 보인다" }] }],
         },
       ],
       edges: [
         { id: "e-draft-submit", from: "n-draft-comment", to: "n-submit-comment", kind: "sequence" },
         { id: "e-submit-visible", from: "n-submit-comment", to: "n-thread-visible", kind: "sequence" },
+      ],
+    },
+  ],
+}) satisfies GraphPlanDocument;
+
+export const reviewRevisionLoopGraphPlanFixture = graphPlanDocumentSchema.parse({
+  schemaVersion: "graph-plan/v1",
+  id: "fixture-review-revision-loop",
+  title: "Review feedback to targeted revision",
+  goal: "Show how graph feedback events drive scoped revision work and approval.",
+  rootGraphId: "g-revision-loop",
+  currentRevision: 2,
+  graphs: [
+    {
+      id: "g-revision-loop",
+      title: "Review and revision loop",
+      layout: { mode: "linear", order: ["n-current-review", "n-targeted-revision", "n-approval"] },
+      nodes: [
+        {
+          id: "n-current-review",
+          kind: "review",
+          title: "Current revision review",
+          iframes: [{ id: "iframe-current-review", description: "Current graph review state before revision", url: iframePreviews.graphReview }],
+          blocks: [
+            {
+              id: "b-current-review",
+              type: "review_bundle",
+              prompt: "Does the selected target explain why the user feedback was filed?",
+              linkedTargets: [{ type: "node", graphId: "g-revision-loop", nodeId: "n-current-review" }],
+              acceptanceCriteria: [{ id: "crit-target-cause", label: "Feedback cause and target are visible" }],
+              reviewTrace: {
+                sourceEventIds: ["evt-feedback-target-context"],
+                resolution: "addressed",
+                changedTargets: [{ type: "node", graphId: "g-revision-loop", nodeId: "n-targeted-revision" }],
+              },
+            },
+          ],
+        },
+        {
+          id: "n-targeted-revision",
+          kind: "action",
+          title: "Targeted revision work",
+          ownedGraphIds: ["g-targeted-revision-work"],
+          iframes: [
+            { id: "iframe-revision-loop", description: "Revision timeline and target mapping preview", url: iframePreviews.revisionLoop },
+            { id: "iframe-revised-target-context", description: "Revised target context prototype preview", url: iframePreviews.prototypeTargetContext },
+          ],
+          blocks: [
+            { id: "b-revision-work", type: "graph_ref", graphId: "g-targeted-revision-work", relationship: "revision_work", ownership: "owned" },
+            {
+              id: "b-revision-changelog",
+              type: "changelog",
+              fromRevision: 1,
+              toRevision: 2,
+              entries: [
+                {
+                  id: "change-target-labels",
+                  summary: "Clarified selected target labels and prototype context copy.",
+                  sourceEventIds: ["evt-feedback-target-context"],
+                  changedTargets: [
+                    { type: "block", graphId: "g-targeted-revision-work", nodeId: "n-label-copy", blockId: "b-label-copy" },
+                    { type: "block", graphId: "g-targeted-revision-work", nodeId: "n-prototype-copy", blockId: "b-prototype-copy" },
+                  ],
+                  mappings: [
+                    {
+                      id: "map-old-label-to-revised-copy",
+                      changeKind: "split",
+                      sourceEventIds: ["evt-feedback-target-context"],
+                      previousTargets: [{ type: "node", graphId: "g-revision-loop", nodeId: "n-current-review" }],
+                      newTargets: [
+                        { type: "block", graphId: "g-targeted-revision-work", nodeId: "n-label-copy", blockId: "b-label-copy" },
+                        { type: "block", graphId: "g-targeted-revision-work", nodeId: "n-prototype-copy", blockId: "b-prototype-copy" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+              reviewTrace: {
+                sourceEventIds: ["evt-feedback-target-context"],
+                resolution: "addressed",
+                changedTargets: [{ type: "node", graphId: "g-revision-loop", nodeId: "n-targeted-revision" }],
+              },
+            },
+          ],
+        },
+        {
+          id: "n-approval",
+          kind: "checkpoint",
+          title: "Approval checkpoint",
+          iframes: [{ id: "iframe-approval-state", description: "Approval-ready revision loop preview", url: iframePreviews.revisionLoop }],
+          blocks: [
+            {
+              id: "b-approval",
+              type: "checkpoint_outcome",
+              result: "pending",
+              determiningRefs: [{ type: "block", graphId: "g-revision-loop", nodeId: "n-targeted-revision", blockId: "b-revision-changelog" }],
+            },
+          ],
+        },
+      ],
+      edges: [
+        { id: "e-review-revision", from: "n-current-review", to: "n-targeted-revision", kind: "sequence" },
+        { id: "e-revision-approval", from: "n-targeted-revision", to: "n-approval", kind: "sequence" },
+      ],
+    },
+    {
+      id: "g-targeted-revision-work",
+      title: "Targeted revision work detail",
+      owner: { graphId: "g-revision-loop", nodeId: "n-targeted-revision", blockId: "b-revision-work" },
+      layout: { mode: "linear", order: ["n-label-copy", "n-prototype-copy", "n-event-timeline"] },
+      nodes: [
+        {
+          id: "n-label-copy",
+          kind: "action",
+          title: "Target label copy",
+          blocks: [{ id: "b-label-copy", type: "text", body: "Rename ambiguous target labels so reviewers can distinguish node, block, and prototype tab targets." }],
+        },
+        {
+          id: "n-prototype-copy",
+          kind: "action",
+          title: "Prototype context label",
+          iframes: [{ id: "iframe-prototype-copy", description: "Prototype context label revision preview", url: iframePreviews.prototypeTargetContext }],
+          blocks: [{ id: "b-prototype-copy", type: "text", body: "Add concise copy that explains which graph target the prototype state is validating." }],
+        },
+        {
+          id: "n-event-timeline",
+          kind: "checkpoint",
+          title: "Event timeline mapping",
+          iframes: [{ id: "iframe-event-timeline", description: "Old target to revised target timeline preview", url: iframePreviews.revisionLoop }],
+          blocks: [
+            {
+              id: "b-event-timeline",
+              type: "criteria",
+              criteria: [{ id: "crit-old-new-targets", label: "Timeline shows the original feedback target and the revised targets together" }],
+            },
+          ],
+        },
+      ],
+      edges: [
+        { id: "e-label-prototype", from: "n-label-copy", to: "n-prototype-copy", kind: "sequence" },
+        { id: "e-prototype-timeline", from: "n-prototype-copy", to: "n-event-timeline", kind: "sequence" },
       ],
     },
   ],
@@ -675,6 +843,7 @@ export const decisionBranchGraphPlanFixture = graphPlanDocumentSchema.parse({
 export const graphPlanFixtures = [
   linearPhaseGraphPlanFixture,
   prototypeReviewGraphPlanFixture,
+  reviewRevisionLoopGraphPlanFixture,
   decisionBranchGraphPlanFixture,
 ];
 

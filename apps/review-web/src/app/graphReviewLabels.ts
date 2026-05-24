@@ -41,6 +41,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   plan: "계획",
   graph: "그래프",
   node: "노드",
+  iframe: "iframe",
   block: "블록",
   block_item: "블록 항목",
   edge: "연결",
