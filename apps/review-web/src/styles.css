@@ -143,17 +143,26 @@ pre {
 }
 
 .feedback-bar {
-  align-items: start;
+  align-items: center;
   background: #fffdf8;
   border-top: 1px solid #d8cfc0;
   display: grid;
   gap: 5px;
-  grid-template-columns: minmax(0, auto) auto minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 5px 7px;
 }
 
-.feedback-bar input {
-  height: 30px;
+.feedback-bar textarea {
+  grid-column: 1;
+  line-height: 1.25;
+  min-height: 46px;
+  padding: 5px 7px;
+  resize: none;
+}
+
+.feedback-bar > button {
+  align-self: stretch;
+  grid-column: 2;
 }
 
 .feedback-target-path {
@@ -161,6 +170,7 @@ pre {
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
+  grid-column: 1;
   min-width: 0;
   overflow: hidden;
 }

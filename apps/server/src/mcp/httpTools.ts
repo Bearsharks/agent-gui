@@ -9,13 +9,14 @@ import type {
   ReplaceGraphPlanInput,
 } from "@agent-gui/plan-schema";
 import {
+  feedbackDispositionSchema,
   graphPlanDocumentSchema,
   graphPlanValidationModeSchema,
   normalizeGraphPlanForAuthoring,
   replaceGraphPlanInputSchema,
 } from "@agent-gui/plan-schema";
 import { Hono } from "hono";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { publishSessionEvent } from "../realtime/sessionStream";
 import { store as sessionStore } from "../http/api";
 import {
@@ -29,6 +30,7 @@ type ToolRequest = {
 };
 
 const store = sessionStore as unknown as GraphPlanSessionStore;
+const feedbackStatusSchema = z.enum(["open", "resolved", "all"]).default("open");
 
 export function createMcpHttpRoutes() {
   const app = new Hono();
@@ -62,15 +64,21 @@ export function createMcpHttpRoutes() {
         case "get_graph_plan_session":
           return c.json(await store.getPlanSession(input.sessionId as string));
         case "list_plan_events":
-          return c.json(await store.listPlanEvents(input.sessionId as string, input.afterEventId as string | undefined));
+          return c.json(
+            await store.listPlanEvents(input.sessionId as string, {
+              afterEventId: input.afterEventId as string | undefined,
+              feedbackStatus: feedbackStatusSchema.parse(input.feedbackStatus),
+            }),
+          );
         case "post_agent_reply": {
+          const disposition = feedbackDispositionSchema.parse(input.disposition);
           const event = await store.postAgentReply({
             sessionId: input.sessionId as string,
             revision: input.revision as number,
             replyToEventId: input.replyToEventId as string,
             target: input.target,
             body: input.body as string,
-            disposition: input.disposition,
+            disposition,
           });
           publishSessionEvent({ type: "event.created", sessionId: event.sessionId, payload: event });
           publishSessionEvent({ type: "session.updated", sessionId: event.sessionId });
@@ -133,14 +141,14 @@ type CreateGraphPlanSessionResult = {
 type GraphPlanSessionStore = {
   createGraphPlanSession(graphPlan: GraphPlanDocument): Promise<CreateGraphPlanSessionResult>;
   getPlanSession(sessionId: string): Promise<PlanSession>;
-  listPlanEvents(sessionId: string, afterEventId?: string): Promise<PlanEvent[]>;
+  listPlanEvents(sessionId: string, options?: { afterEventId?: string; feedbackStatus?: "open" | "resolved" | "all" }): Promise<PlanEvent[]>;
   postAgentReply(input: {
     sessionId: string;
     revision: number;
     replyToEventId: string;
     target: unknown;
     body: string;
-    disposition?: unknown;
+    disposition: unknown;
   }): Promise<AgentReplyEvent>;
   replaceGraphPlan(input: ReplaceGraphPlanInput): Promise<PlanSession>;
   mutateGraphPlan(input: ServerGraphPlanMutationInput): Promise<GraphPlanMutationResult>;
