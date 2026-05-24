@@ -32,7 +32,7 @@ docs/prototypes        node iframe preview용 로컬 HTML fixture
 - [handoff.md](docs/handoff.md): 최근 검증 상태와 세션 기록
 - [graph-plan-overview.md](docs/graph-plan-overview.md): 그래프 기반 플랜 목표와 모델 설명
 - [graph-plan-todo.md](docs/graph-plan-todo.md): 그래프 기반 플랜 구현 투두리스트
-- [graph_html_mcp_interview_summary.md](graph_html_mcp_interview_summary.md): graph/html 중심 MCP 모델과 UI 방향
+- [graph_html_mcp_interview_summary.md](docs/html-first/graph_html_mcp_interview_summary.md): graph/html 중심 MCP 모델과 UI 방향
 
 ## Run Locally
 
@@ -78,7 +78,7 @@ Codex에 등록된 MCP server는 다음 tool을 제공합니다.
 기본 흐름:
 
 1. 에이전트가 `create_graph_plan_session`으로 graph plan session을 만듭니다.
-2. 사용자가 브라우저에서 graph, node, edge, iframe, block 등에 피드백을 남깁니다.
+2. 사용자가 브라우저에서 graph, node, edge, iframe에 피드백을 남깁니다.
 3. 사용자가 `pnpm planctl notify <sessionId>`로 에이전트 확인이 필요하다고 표시합니다.
 4. 에이전트가 `list_plan_events`로 피드백을 읽습니다.
 5. 에이전트가 `post_agent_reply`로 답변하거나 `mutate_graph_plan` / `replace_graph_plan`으로 새 revision을 만듭니다.
@@ -94,11 +94,9 @@ Node는 하위 graph id와 iframe entry를 가질 수 있습니다.
 ```ts
 type GraphPlanNode = {
   id: string;
-  kind: string;
   title: string;
-  summary?: string;
-  blocks: GraphPlanBlock[];
-  ownedGraphIds?: string[];
+  description?: string;
+  subGraphs?: string[];
   iframes?: {
     id: string;
     description: string;

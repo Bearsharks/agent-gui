@@ -13,7 +13,9 @@ export function createApi() {
   app.get("/api/health", (c) => c.json({ ok: true }));
 
   app.post("/api/fixture-session", async (c) => {
-    const result = await store.createGraphPlanSession(fixtureGraphPlan());
+    const body = await readOptionalJson<{ scenario?: string }>(c.req);
+    const scenario = c.req.query("scenario") ?? body?.scenario ?? "prototype";
+    const result = await store.createGraphPlanSession(fixtureGraphPlan(scenario));
     publishSessionEvent({ type: "session.updated", sessionId: result.sessionId });
     return c.json(result);
   });
@@ -95,4 +97,12 @@ export function createApi() {
   app.get("/events/sessions/:sessionId", (c) => sessionEventStream(c, c.req.param("sessionId")));
 
   return app;
+}
+
+async function readOptionalJson<T>(request: { json: () => Promise<unknown> }): Promise<T | null> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return null;
+  }
 }

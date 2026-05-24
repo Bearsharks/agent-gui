@@ -39,7 +39,7 @@ server.registerTool(
   {
     title: "Create graph plan session",
     description:
-      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, block, block_item, edge, iframe, prototype_tab, and artifact_range. The graph document is validated before it is stored.",
+      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, edge, and iframe. The graph document is validated before it is stored.",
     inputSchema: { graphPlan: graphPlanDocumentSchema },
   },
   async ({ graphPlan }) => jsonResult(await graphStore.createGraphPlanSession(graphPlan)),
@@ -71,7 +71,7 @@ server.registerTool(
   {
     title: "Post agent reply",
     description:
-      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, block, block_item, edge, iframe, prototype_tab, or artifact_range.",
+      "Reply to a user feedback thread on a GraphPlanTarget. The target should match or narrow the original feedback target and may be plan, graph, node, edge, or iframe.",
     inputSchema: {
       sessionId: z.string(),
       revision: z.number().int().positive(),
@@ -89,7 +89,7 @@ server.registerTool(
   {
     title: "Mutate graph plan",
     description:
-      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including node additions, edge additions, subgraph additions, block appends/replacements, field updates, iframe add/update/remove operations, prototype tab updates, and artifact range updates. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
+      "Default tool for revising an existing graph plan. Apply targeted GraphPlanMutationOperation items atomically, including graph, node, edge, subgraph, and iframe add/update/remove operations. Prefer this over replace_graph_plan unless the whole document must be regenerated.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
@@ -107,7 +107,7 @@ server.registerTool(
   {
     title: "Replace graph plan",
     description:
-      "Replace the full GraphPlanDocument only when targeted mutations would be misleading or unsafe, such as importing a regenerated document, redesigning most graphs, or intentionally remapping target identities. Do not use for adding interview questions, adding nodes/edges, appending blocks, or updating a few fields; use mutate_graph_plan for those. Requires a concrete replacementRationale.",
+      "Replace the full GraphPlanDocument only when targeted mutations would be misleading or unsafe, such as importing a regenerated document, redesigning most graphs, or intentionally remapping target identities. Do not use for adding nodes, edges, subgraphs, iframe entries, or updating a few fields; use mutate_graph_plan for those. Requires a concrete replacementRationale.",
     inputSchema: {
       sessionId: z.string(),
       baseRevision: z.number().int().positive(),
@@ -125,7 +125,7 @@ server.registerTool(
   {
     title: "Normalize graph plan",
     description:
-      "Normalize common authoring shorthand before strict validation. Copies item text to label, artifact label/uri to title/ref, normalizes session-like artifact URLs to kind=url, converts simple comparison columns/rows/cells into criteria/options/scores, and returns remaining schema issues with hints.",
+      "Normalize common graph/html authoring shorthand before strict validation and return schema issues with hints. The current model is graph, node, edge, subGraphs, and node iframes.",
     inputSchema: {
       graphPlan: z.unknown(),
       mode: graphPlanValidationModeSchema.default("draft"),

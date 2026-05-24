@@ -1,43 +1,17 @@
 import { z } from "zod";
 import {
-  graphPlanBlockSchema,
   graphPlanDocumentSchema,
   graphPlanEdgeSchema,
   graphPlanGraphSchema,
+  graphPlanIframeSchema,
   graphPlanNodeSchema,
   graphPlanTargetSchema,
 } from "./graphPlan";
 import { graphPlanValidationSummarySchema } from "./graphPlanValidation";
 
-export const graphPlanSessionStatusSchema = z.enum([
-  "draft",
-  "needs_agent",
-  "agent_replied",
-  "revision_ready",
-  "approved",
-  "rejected",
-]);
-
-export const feedbackDispositionSchema = z.enum([
-  "open",
-  "answered",
-  "incorporated_in_revision",
-  "rejected",
-  "needs_user_clarification",
-]);
-
-export const graphPlanFeedbackIntentSchema = z
-  .enum([
-    "revise",
-    "simplify",
-    "make_more_radical",
-    "make_more_conservative",
-    "reassess_risk",
-    "verify_against_code",
-    "rename",
-    "question",
-  ])
-  .optional();
+export const graphPlanSessionStatusSchema = z.enum(["draft", "needs_agent", "agent_replied", "revision_ready", "approved", "rejected"]);
+export const feedbackDispositionSchema = z.enum(["open", "answered", "incorporated_in_revision", "rejected", "needs_user_clarification"]);
+export const graphPlanFeedbackIntentSchema = z.enum(["revise", "simplify", "rename", "question"]).optional();
 
 export const graphPlanChangeSummarySchema = z.object({
   structure: z.array(z.string()).default([]),
@@ -89,12 +63,7 @@ export const userApprovalEventSchema = z.object({
   createdAt: z.string(),
 });
 
-export const planEventSchema = z.discriminatedUnion("type", [
-  userFeedbackEventSchema,
-  agentReplyEventSchema,
-  agentRevisionEventSchema,
-  userApprovalEventSchema,
-]);
+export const planEventSchema = z.discriminatedUnion("type", [userFeedbackEventSchema, agentReplyEventSchema, agentRevisionEventSchema, userApprovalEventSchema]);
 
 export const planSessionSchema = z.object({
   id: z.string(),
@@ -118,83 +87,58 @@ export const replaceGraphPlanInputSchema = z.object({
   validationPolicy: validationPolicySchema.default("block_errors"),
 });
 
-const graphPlanMutationBaseSchema = z.object({
-  op: z.string(),
-});
-
-const targetMutationBaseSchema = graphPlanMutationBaseSchema.extend({
-  target: graphPlanTargetSchema,
-});
-
 export const graphPlanMutationOperationSchema = z.discriminatedUnion("op", [
-  // Deprecated for agent authoring. Prefer the dedicated replace_graph_plan tool when the whole document must be replaced.
   z.object({ op: z.literal("replace_document"), graphPlan: graphPlanDocumentSchema }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("update_node_fields"),
-    target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
-    fields: graphPlanNodeSchema.omit({ id: true, blocks: true }).partial(),
-  }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("update_block_fields"),
-    target: z.object({ type: z.literal("block"), graphId: z.string(), nodeId: z.string(), blockId: z.string() }),
-    fields: z.record(z.string(), z.unknown()),
-  }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("replace_block"),
-    target: z.object({ type: z.literal("block"), graphId: z.string(), nodeId: z.string(), blockId: z.string() }),
-    block: graphPlanBlockSchema,
-  }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("append_block"),
-    target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
-    block: graphPlanBlockSchema,
-  }),
-  z.object({ op: z.literal("add_node"), graphId: z.string(), node: graphPlanNodeSchema }),
-  z.object({ op: z.literal("add_edge"), graphId: z.string(), edge: graphPlanEdgeSchema }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("remove_node"),
-    target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
-    policy: z
-      .object({
-        edges: z.enum(["error", "remove", "reconnect"]).default("error"),
-        ownedGraphs: z.enum(["error", "remove", "detach"]).default("error"),
-        feedbackTargets: z.enum(["error", "preserve_as_historical"]).default("preserve_as_historical"),
-        revisionTargets: z.enum(["error", "preserve_as_historical"]).default("preserve_as_historical"),
-      })
-      .optional(),
-  }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("remove_edge"),
-    target: z.object({ type: z.literal("edge"), graphId: z.string(), edgeId: z.string() }),
-  }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("rewire_edge"),
-    target: z.object({ type: z.literal("edge"), graphId: z.string(), edgeId: z.string() }),
-    from: z.string().optional(),
-    to: z.string().optional(),
-    policy: z
-      .object({
-        validateReachability: z.boolean().default(true),
-        preserveCondition: z.boolean().default(true),
-      })
-      .optional(),
+  z.object({
+    op: z.literal("update_graph"),
+    target: z.object({ type: z.literal("graph"), graphId: z.string() }),
+    fields: graphPlanGraphSchema.omit({ id: true, nodes: true, edges: true }).partial(),
   }),
   z.object({
-    op: z.literal("add_subgraph"),
-    parent: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
+    op: z.literal("add_graph"),
     graph: graphPlanGraphSchema,
-    attach: z
-      .object({
-        mode: z.enum(["none", "graph_ref_block"]).default("none"),
-        blockId: z.string().optional(),
-        relationship: z.string().optional(),
-      })
-      .optional(),
   }),
-  targetMutationBaseSchema.extend({
-    op: z.literal("attach_graph_ref"),
+  z.object({
+    op: z.literal("remove_graph"),
+    target: z.object({ type: z.literal("graph"), graphId: z.string() }),
+  }),
+  z.object({
+    op: z.literal("update_node"),
     target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
-    block: graphPlanBlockSchema,
+    fields: graphPlanNodeSchema.omit({ id: true }).partial(),
+  }),
+  z.object({ op: z.literal("add_node"), graphId: z.string(), node: graphPlanNodeSchema }),
+  z.object({ op: z.literal("remove_node"), target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }) }),
+  z.object({ op: z.literal("add_edge"), graphId: z.string(), edge: graphPlanEdgeSchema }),
+  z.object({
+    op: z.literal("update_edge"),
+    target: z.object({ type: z.literal("edge"), graphId: z.string(), edgeId: z.string() }),
+    fields: graphPlanEdgeSchema.omit({ id: true }).partial(),
+  }),
+  z.object({ op: z.literal("remove_edge"), target: z.object({ type: z.literal("edge"), graphId: z.string(), edgeId: z.string() }) }),
+  z.object({
+    op: z.literal("attach_subgraph"),
+    parent: z.object({ graphId: z.string(), nodeId: z.string() }),
+    graphId: z.string(),
+  }),
+  z.object({
+    op: z.literal("detach_subgraph"),
+    parent: z.object({ graphId: z.string(), nodeId: z.string() }),
+    graphId: z.string(),
+  }),
+  z.object({
+    op: z.literal("add_iframe"),
+    target: z.object({ type: z.literal("node"), graphId: z.string(), nodeId: z.string() }),
+    iframe: graphPlanIframeSchema,
+  }),
+  z.object({
+    op: z.literal("update_iframe"),
+    target: z.object({ type: z.literal("iframe"), graphId: z.string(), nodeId: z.string(), iframeId: z.string() }),
+    fields: graphPlanIframeSchema.omit({ id: true }).partial(),
+  }),
+  z.object({
+    op: z.literal("remove_iframe"),
+    target: z.object({ type: z.literal("iframe"), graphId: z.string(), nodeId: z.string(), iframeId: z.string() }),
   }),
 ]);
 

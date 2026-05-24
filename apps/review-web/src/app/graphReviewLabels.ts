@@ -42,42 +42,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   graph: "그래프",
   node: "노드",
   iframe: "iframe",
-  block: "블록",
-  block_item: "블록 항목",
   edge: "연결",
-  prototype_tab: "프로토타입 탭",
-  artifact_range: "산출물 범위",
-};
-
-export const BLOCK_TYPE_LABELS: Record<string, string> = {
-  text: "텍스트",
-  graph_ref: "하위 그래프",
-  task_list: "작업 목록",
-  checklist: "체크리스트",
-  criteria: "기준",
-  review_bundle: "리뷰 묶음",
-  prototype: "프로토타입",
-  choice_set: "선택지",
-  comparison: "비교",
-  evidence: "근거",
-  synthesis: "종합",
-  risk: "위험",
-  verification: "검증",
-  checkpoint_outcome: "체크포인트 결과",
-  artifact: "산출물",
-  changelog: "변경 기록",
-  investigation: "조사",
-  migration: "마이그레이션",
-};
-
-export const NODE_KIND_LABELS: Record<string, string> = {
-  section: "섹션",
-  action: "작업",
-  decision: "결정",
-  checkpoint: "체크포인트",
-  review: "리뷰",
-  artifact: "산출물",
-  note: "노트",
 };
 
 export const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -90,14 +55,6 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
 export function labelStatus(value: string | undefined): string {
   if (!value) return "";
   return STATUS_LABELS[value] ?? value;
-}
-
-export function labelBlockType(value: string): string {
-  return BLOCK_TYPE_LABELS[value] ?? value;
-}
-
-export function labelNodeKind(value: string): string {
-  return NODE_KIND_LABELS[value] ?? value;
 }
 
 export function labelTargetType(value: string): string {
