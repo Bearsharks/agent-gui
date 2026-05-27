@@ -27,8 +27,19 @@ export function createApi() {
     return c.json(result);
   });
 
+  app.get("/api/sessions", async (c) => {
+    return c.json({ sessions: await store.listPlanSessions() });
+  });
+
   app.get("/api/sessions/:sessionId", async (c) => {
     return c.json(await store.getPlanSession(c.req.param("sessionId")));
+  });
+
+  app.delete("/api/sessions/:sessionId", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    await store.deletePlanSession(sessionId);
+    publishSessionEvent({ type: "session.updated", sessionId });
+    return c.json({ sessionId, deleted: true });
   });
 
   app.get("/api/sessions/:sessionId/events", async (c) => {

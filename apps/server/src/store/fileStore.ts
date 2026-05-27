@@ -17,7 +17,7 @@ import {
   replaceGraphPlanInputSchema,
   validateGraphPlan,
 } from "@agent-gui/plan-schema";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyGraphPlanMutations } from "../domain/graphPlanMutations";
@@ -85,6 +85,33 @@ export class FileSessionStore {
   async getPlanSession(sessionId: string): Promise<PlanSession> {
     const file = await readFile(this.sessionPath(sessionId), "utf8");
     return planSessionSchema.parse(JSON.parse(file));
+  }
+
+  async deletePlanSession(sessionId: string): Promise<void> {
+    await rm(path.dirname(this.sessionPath(sessionId)), { force: true, recursive: true });
+  }
+
+  async listPlanSessions(): Promise<PlanSession[]> {
+    try {
+      const entries = await readdir(SESSION_DATA_ROOT, { withFileTypes: true });
+      const sessions = await Promise.all(
+        entries
+          .filter((entry) => entry.isDirectory())
+          .map(async (entry) => {
+            try {
+              return await this.getPlanSession(entry.name);
+            } catch {
+              return null;
+            }
+          }),
+      );
+      return sessions
+        .filter((session): session is PlanSession => session !== null)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+      throw error;
+    }
   }
 
   async listPlanEvents(sessionId: string, options: ListPlanEventsOptions = {}): Promise<PlanEvent[]> {

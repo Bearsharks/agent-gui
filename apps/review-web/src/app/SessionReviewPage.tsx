@@ -1,8 +1,9 @@
 import type { GraphPlanGraph, GraphPlanTarget, GraphPlanValidationIssue, PlanEvent, PlanSession } from "@agent-gui/plan-schema";
 import { Badge, Button } from "@agent-gui/design-system";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { approveSession, createFixtureSession, fetchSession, postFeedback } from "../api/client";
+import { approveSession, fetchSession, postFeedback } from "../api/client";
 import { GraphPane, SelectedNodeDetail } from "./GraphPane";
+import { SessionListPage } from "./SessionListPage";
 import {
   breadcrumbForTarget,
   breadcrumbSegmentsForTarget,
@@ -79,12 +80,6 @@ export function SessionReviewPage() {
     [session?.graphPlan, sessionIndex, selection?.edgeId, selection?.graphId, selection?.iframeId, selection?.nodeId],
   );
 
-  async function startFixture() {
-    const result = await createFixtureSession();
-    window.history.pushState(null, "", `/sessions/${result.sessionId}`);
-    setSessionId(result.sessionId);
-  }
-
   const updateSelection = useCallback((next: GraphSelection) => {
     if (!session || !sessionIndex) return;
     const normalized = normalizeSelection(session.graphPlan, sessionIndex, next);
@@ -121,15 +116,7 @@ export function SessionReviewPage() {
   }
 
   if (!sessionId) {
-    return (
-      <main className="empty-page">
-        <section className="empty-card">
-          <h1>그래프 HTML 리뷰</h1>
-          <p>graph/html 기준 fixture session을 생성합니다.</p>
-          <Button onClick={startFixture}>예제 세션 생성</Button>
-        </section>
-      </main>
-    );
+    return <SessionListPage />;
   }
 
   if (!session || !selection || !sessionIndex || !normalizedSelection) return <main className="empty-page">세션 불러오는 중...</main>;

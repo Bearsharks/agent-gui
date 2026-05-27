@@ -64,6 +64,206 @@ pre {
   padding: 20px;
 }
 
+.session-list-page {
+  align-content: start;
+  box-sizing: border-box;
+  display: grid;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.session-list-header {
+  align-items: center;
+  border-bottom: 1px solid #d8cfc0;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding-bottom: 14px;
+}
+
+.session-list-header h1 {
+  font-size: 24px;
+  line-height: 1.15;
+  margin: 0 0 5px;
+}
+
+.session-list-header p {
+  color: #6b665e;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.session-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.session-list-message {
+  align-content: center;
+  background: #fffdf8;
+  border: 1px solid #d8cfc0;
+  border-radius: 8px;
+  color: #6b665e;
+  display: grid;
+  gap: 4px;
+  min-height: 96px;
+  padding: 18px;
+}
+
+.session-list-message strong {
+  color: #20201d;
+}
+
+.session-grid {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+}
+
+.session-card {
+  background: #fffdf8;
+  border: 1px solid #d8cfc0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(57, 45, 25, 0.08);
+  color: #20201d;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px;
+  position: relative;
+  text-decoration: none;
+}
+
+.session-card:hover {
+  border-color: rgba(36, 106, 168, 0.5);
+  box-shadow: 0 12px 30px rgba(57, 45, 25, 0.12);
+}
+
+.session-card-link {
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.session-card-copy {
+  display: grid;
+  gap: 8px;
+  padding-right: 52px;
+}
+
+.session-card-copy h2 {
+  font-size: 15px;
+  line-height: 1.25;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-card-copy p {
+  color: #6b665e;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  min-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-card-badges,
+.session-card-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.session-card-meta {
+  color: #6b665e;
+  font-size: 10px;
+  justify-content: space-between;
+}
+
+.session-delete-button {
+  background: #fff;
+  border: 1px solid #f1b3b3;
+  border-radius: 6px;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.session-delete-button:hover {
+  background: #fff1f1;
+}
+
+.mini-graph-preview {
+  display: block;
+  height: 150px;
+  width: 100%;
+}
+
+.mini-graph-background {
+  fill: #f3efe6;
+  stroke: #d8cfc0;
+}
+
+.mini-graph-edge {
+  fill: none;
+  stroke: #8d9aa8;
+  stroke-width: 1.6;
+}
+
+.mini-graph-edge.conditional {
+  stroke: #246aa8;
+  stroke-dasharray: 4 3;
+}
+
+.mini-graph-edge.loop {
+  stroke: #a77221;
+  stroke-dasharray: 5 3;
+}
+
+.mini-graph-preview marker path {
+  fill: #8d9aa8;
+}
+
+.mini-graph-node rect {
+  fill: #fffdf8;
+  stroke: #d8cfc0;
+}
+
+.mini-graph-node text {
+  fill: #20201d;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.mini-graph-empty {
+  align-content: center;
+  background: #f3efe6;
+  border: 1px solid #d8cfc0;
+  border-radius: 6px;
+  color: #6b665e;
+  display: grid;
+  font-size: 12px;
+  height: 150px;
+  text-align: center;
+}
+
 .graph-review-shell {
   display: grid;
   grid-template-rows: 46px minmax(0, 1fr);
@@ -870,6 +1070,15 @@ pre {
 }
 
 @media (max-width: 900px) {
+  .session-list-header {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .session-list-actions {
+    justify-content: flex-start;
+  }
+
   .graph-review-shell {
     min-width: 0;
   }
