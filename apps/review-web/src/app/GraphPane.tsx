@@ -7,11 +7,12 @@ import {
   MiniMap,
   Position,
   ReactFlow,
+  ViewportPortal,
   type Edge as FlowEdge,
   type Node as FlowNode,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import { useMemo, type MouseEvent, type ReactNode } from "react";
+import { useMemo, type MouseEvent, type ReactNode, type SyntheticEvent } from "react";
 import { conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
 import { MarkdownView } from "./MarkdownView";
 
@@ -37,7 +38,7 @@ export function GraphPane({
   onSelect: (selection: GraphSelection) => void;
   onNodeSelect: (selection: GraphSelection) => void;
 }) {
-  const { nodes, edges } = useGraphFlowModel(document, index, selection);
+  const { nodes, edges, selectedNodeOverlay } = useGraphFlowModel(document, index, selection);
   const handleNodeClick: NodeMouseHandler<ReviewFlowNode> = (_event, node) => onNodeSelect(node.data.target);
 
   return (
@@ -61,6 +62,23 @@ export function GraphPane({
           <Background color="#d8cfc0" gap={24} />
           <MiniMap pannable zoomable nodeStrokeWidth={3} />
           <Controls showInteractive={false} />
+          {selectedNodeOverlay ? (
+            <ViewportPortal>
+              <section
+                className="review-flow-node-markdown-overlay nodrag nopan nowheel"
+                aria-label={`${selectedNodeOverlay.node.title} markdown detail`}
+                onClick={stopGraphInteraction}
+                onMouseDown={stopGraphInteraction}
+                onPointerDown={stopGraphInteraction}
+                onWheel={stopGraphInteraction}
+                onWheelCapture={stopGraphInteraction}
+                style={{ transform: `translate(${selectedNodeOverlay.x}px, ${selectedNodeOverlay.y}px)` }}
+              >
+                {selectedNodeOverlay.node.markdownDesc ? <MarkdownView markdown={selectedNodeOverlay.node.markdownDesc} /> : <p className="muted">본문 없음</p>}
+                {selectedNodeOverlay.childGraphIds.length > 0 ? <span>연결된 하위 그래프: {selectedNodeOverlay.childGraphIds.join(", ")}</span> : null}
+              </section>
+            </ViewportPortal>
+          ) : null}
         </ReactFlow>
       </div>
     </aside>
@@ -71,7 +89,6 @@ export function SelectedNodeDetail({
   graph,
   node,
   selection,
-  index,
   planRevision,
   onSelect,
   onClose,
@@ -80,7 +97,6 @@ export function SelectedNodeDetail({
   graph: GraphPlanGraph;
   node: GraphPlanNode;
   selection: GraphSelection;
-  index: GraphIndex;
   planRevision: number;
   onSelect: (selection: GraphSelection) => void;
   onClose: () => void;
@@ -89,7 +105,6 @@ export function SelectedNodeDetail({
   const iframes = node.iframes ?? [];
   const activeIframe = iframes.find((iframe) => iframe.id === selection.iframeId) ?? iframes[0];
   const activeIframeUrl = activeIframe ? iframeUrlWithRevision(activeIframe.url, planRevision) : undefined;
-  const childGraphIds = getChildGraphIds(node);
 
   return (
     <aside className="selected-node-overlay">
@@ -104,10 +119,6 @@ export function SelectedNodeDetail({
         </Button>
       </header>
       <div className="selected-node-primary-detail">
-        <section className="selected-node-markdown-card">
-          {node.markdownDesc ? <MarkdownView markdown={node.markdownDesc} /> : <p className="muted">본문 없음</p>}
-          {childGraphIds.length > 0 ? <span>연결된 하위 그래프: {childGraphIds.join(", ")}</span> : null}
-        </section>
         {iframes.length > 0 ? (
           <section className="selected-node-iframe-panel" aria-label={`${node.title} iframe preview`}>
             <div className="iframe-tab-list" role="tablist">
@@ -135,12 +146,16 @@ export function SelectedNodeDetail({
         ) : (
           <section className="selected-node-empty-detail">
             <strong>iframe 없음</strong>
-            <span>이 노드에는 연결된 sandbox iframe preview가 없습니다.</span>
+            <span>이 노드에는 외부 프로젝트가 제공한 local URL iframe preview가 연결되어 있지 않습니다.</span>
           </section>
         )}
       </div>
     </aside>
   );
+}
+
+function stopGraphInteraction(event: SyntheticEvent): void {
+  event.stopPropagation();
 }
 
 function iframeUrlWithRevision(url: string, planRevision: number): string {
@@ -161,6 +176,7 @@ function useGraphFlowModel(document: GraphPlanDocument, index: GraphIndex, selec
     return {
       nodes: buildFlowNodes(document, index, selection, graphLayouts),
       edges: buildFlowEdges(document, index, selection),
+      selectedNodeOverlay: buildSelectedNodeOverlay(document, index, selection, graphLayouts),
     };
   }, [document, index, selection]);
 }
@@ -206,6 +222,26 @@ function buildFlowNodes(
       } satisfies ReviewFlowNode;
     });
   });
+}
+
+function buildSelectedNodeOverlay(
+  document: GraphPlanDocument,
+  index: GraphIndex,
+  selection: GraphSelection,
+  graphLayouts: Map<string, GraphLayout>,
+): { node: GraphPlanNode; childGraphIds: string[]; x: number; y: number } | undefined {
+  if (!selection.nodeId) return undefined;
+  const graph = index.graphsById.get(selection.graphId);
+  const node = index.nodesByKey.get(nodeKey(selection.graphId, selection.nodeId));
+  if (!graph || !node) return undefined;
+  const nodeIndex = graph.nodes.findIndex((candidate) => candidate.id === node.id);
+  const position = graphLayouts.get(graph.id)?.nodePositions.get(node.id) ?? { x: Math.max(0, nodeIndex) * (NODE_WIDTH + COLUMN_GAP), y: 0 };
+  return {
+    node,
+    childGraphIds: getChildGraphIds(node),
+    x: position.x + NODE_WIDTH / 2,
+    y: position.y + NODE_HEIGHT + 10,
+  };
 }
 
 function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection): ReviewFlowEdge[] {

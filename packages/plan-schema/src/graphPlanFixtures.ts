@@ -172,6 +172,7 @@ function node(id: string, title: string, markdownDesc: string, htmlFile: string)
         id: `iframe-${id.replace(/^n-/, "")}`,
         description: `${title} 상세 화면`,
         url: `${prototypeBaseUrl}/${previewFile}?node=${id}`,
+        entryPath: `docs/prototypes/${previewFile}`,
       },
     ],
   };

@@ -12,6 +12,7 @@ export const graphPlanIframeSchema = z.object({
   id: z.string(),
   description: z.string(),
   url: localIframeUrlSchema,
+  entryPath: z.string().min(1).optional(),
 }).strict();
 
 export const graphPlanNodeSchema = z.object({

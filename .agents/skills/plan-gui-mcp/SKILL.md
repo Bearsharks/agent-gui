@@ -48,6 +48,7 @@ type GraphPlanNode = {
     id: string;
     description: string;
     url: string;
+    entryPath?: string;
   }[];
 };
 ```
@@ -60,11 +61,16 @@ Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `if
 - Store edges as graph-level `edges[]`; do not embed edges inside nodes.
 - Use `node.subGraphs[]` to connect a node to child graphs.
 - Set each child graph's `parent` to the owning `{ graphId, nodeId }`.
-- Use `markdownDesc` for document, graph, and node descriptions. It is markdown.
-- The review UI renders node `markdownDesc` with a markdown viewer in the right detail panel and derives graph-card summary text from the same field.
-- Put detailed screens, comparisons, checklist UI, prototype states, and review questions in node iframe HTML.
+- Use `markdownDesc` for concise document, graph, and node context. It is markdown and optional.
+- The review UI renders selected node `markdownDesc` as a graph overlay and derives graph-card summary text from the same field.
+- Choose between `markdownDesc` and iframe HTML deliberately:
+  - Use `markdownDesc` for node purpose, decisions, review results, and short textual context that should be readable directly in the graph.
+  - Use iframe HTML for actual UI states, prototypes, before/after comparisons, dense checklists, tables, panels, or interactions that are easier to judge visually.
+  - When both are useful, keep `markdownDesc` as the decision summary and put the detailed screen or review UI in iframe HTML.
+  - Do not put long bodies into every `markdownDesc`; split long work into a subgraph or iframe HTML.
 - Use `iframes[].description` as the UI tab label.
 - Keep `iframes[].id` unique within the node.
+- Set `iframes[].entryPath` when the iframe URL is backed by a workspace source entry that an agent should read later. Keep it to the entry file path only; put scenario meaning, state details, and review guidance in `description`, `markdownDesc`, or the iframe HTML itself.
 - Use only local explicit-port HTTP iframe URLs:
   - `http://localhost:<port>/...`
   - `http://127.0.0.1:<port>/...`
@@ -112,15 +118,16 @@ curl -s -X POST http://localhost:8787/mcp/call \
 
 1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
 2. Draft a focused `GraphPlanDocument` with explicit graph/node/edge/iframe IDs.
-3. Add local HTML routes under `docs/prototypes` or another local server when visual review helps.
-4. Attach HTML entry points through `node.iframes[]`.
-5. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
-6. Create the session with `create_graph_plan_session`.
-7. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
-8. When feedback is ready, read `list_plan_events`; by default it returns only unhandled user feedback.
-9. Handle every feedback item by calling `post_agent_reply` with a disposition. This is required even when a graph mutation also addresses the feedback.
-10. Default to `mutate_graph_plan` for revisions.
-11. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
+3. When visual review helps, prefer a preview URL served by the target project, such as `http://localhost:5173/...`.
+4. Use `docs/prototypes` only for Agent GUI fixture/debug HTML in this repo, not as the default place for real project previews.
+5. Attach HTML entry points through `node.iframes[]`.
+6. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
+7. Create the session with `create_graph_plan_session`.
+8. Share `http://localhost:8787/sessions/<sessionId>` and ask the user to review.
+9. When feedback is ready, read `list_plan_events`; by default it returns only unhandled user feedback.
+10. Handle every feedback item by calling `post_agent_reply` with a disposition. This is required even when a graph mutation also addresses the feedback.
+11. Default to `mutate_graph_plan` for revisions.
+12. Re-validate, then confirm approval with `get_graph_plan_session` or `mark_plan_approved` when appropriate.
 
 ## Feedback Handling
 
@@ -190,7 +197,8 @@ Add an iframe entry:
   "iframe": {
     "id": "iframe-before-after",
     "description": "Before/after comparison",
-    "url": "http://localhost:8787/prototypes/revision-before-after.html"
+    "url": "http://localhost:5173/agent-gui-preview/revision-before-after",
+    "entryPath": "src/agent-gui-preview/revision-before-after.tsx"
   }
 }
 ```
@@ -202,7 +210,8 @@ Update an iframe entry:
   "op": "update_iframe",
   "target": { "type": "iframe", "graphId": "g-review", "nodeId": "n-result-review", "iframeId": "iframe-before-after" },
   "fields": {
-    "description": "Revision before/after comparison"
+    "description": "Revision before/after comparison",
+    "entryPath": "src/agent-gui-preview/revision-before-after.tsx"
   }
 }
 ```
@@ -227,7 +236,8 @@ Minimal node with iframe:
     {
       "id": "iframe-result-review",
       "description": "수정 결과 리뷰 화면",
-      "url": "http://localhost:8787/prototypes/graph-revision-loop.html"
+      "url": "http://localhost:5173/agent-gui-preview/revision-review",
+      "entryPath": "src/agent-gui-preview/revision-review.tsx"
     }
   ]
 }
@@ -238,7 +248,7 @@ Minimal node with iframe:
 - If iframe targets or iframe mutation ops are rejected, restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
 - Existing stored sessions may contain old fields; create a new session for graph/html validation.
 - HTTP calls from Node may hit sandbox network restrictions. `curl` is usually approved in this repo.
-- If adding a new HTML route under `docs/prototypes`, restart `pnpm dev` before relying on the route.
+- If using fixture/debug HTML under `docs/prototypes`, restart `pnpm dev` before relying on the route.
 
 ## Local Commands
 

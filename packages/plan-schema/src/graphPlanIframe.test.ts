@@ -38,6 +38,15 @@ function reviewNode(overrides: Partial<GraphPlanDocument["graphs"][number]["node
 {
   const plan = basePlan(
     reviewNode({
+      iframes: [{ id: "preview", description: "Fixture app preview", url: "http://localhost:8787/review", entryPath: "previews/review.tsx" }],
+    }),
+  );
+  assertEqual(plan.graphs[0].nodes[0].iframes?.[0]?.entryPath, "previews/review.tsx");
+}
+
+{
+  const plan = basePlan(
+    reviewNode({
       iframes: [
         { id: "preview", description: "Fixture app preview", url: "http://localhost:8787/review" },
         { id: "preview", description: "Duplicate preview", url: "http://127.0.0.1:8787/review" },
@@ -57,6 +66,13 @@ assertEqual(
 assertEqual(
   graphPlanDocumentSchema.safeParse(
     rawPlan(reviewNode({ iframes: [{ id: "preview", description: "Local file", url: "file:///tmp/review.html" }] })),
+  ).success,
+  false,
+);
+
+assertEqual(
+  graphPlanDocumentSchema.safeParse(
+    rawPlan(reviewNode({ iframes: [{ id: "preview", description: "Fixture app preview", url: "http://localhost:8787/review", entryPath: "" }] })),
   ).success,
   false,
 );

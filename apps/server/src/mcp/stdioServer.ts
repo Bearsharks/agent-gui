@@ -40,7 +40,7 @@ server.registerTool(
   {
     title: "Create graph plan session",
     description:
-      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, edge, and iframe. Document, graph, and node markdownDesc fields are markdown; node markdownDesc is rendered in the right detail panel. The graph document is validated before it is stored.",
+      "Create a browser review session from a GraphPlanDocument. Targets in the session use GraphPlanTarget kinds: plan, graph, node, edge, and iframe. Document, graph, and node markdownDesc fields are markdown; selected node markdownDesc is rendered as a graph overlay, while node iframes render external project-provided local URL previews in the detail panel. Iframe entryPath is optional and points to the workspace source entry behind the iframe URL. The graph document is validated before it is stored.",
     inputSchema: { graphPlan: graphPlanDocumentSchema },
   },
   async ({ graphPlan }) => jsonResult(await graphStore.createGraphPlanSession(graphPlan)),
@@ -126,7 +126,7 @@ server.registerTool(
   {
     title: "Normalize graph plan",
     description:
-      "Normalize common graph/html authoring shorthand before strict validation and return schema issues with hints. The current model is graph, node markdownDesc, edge, subGraphs, and node iframes.",
+      "Normalize common graph/html authoring shorthand before strict validation and return schema issues with hints. The current model is graph, node markdownDesc, edge, subGraphs, and node iframes with optional entryPath.",
     inputSchema: {
       graphPlan: z.unknown(),
       mode: graphPlanValidationModeSchema.default("draft"),

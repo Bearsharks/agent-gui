@@ -1,0 +1,538 @@
+goal: >
+  data/sessions/plan_cc0dd205/session.json의 승인된 revision 7 Agent GUI
+  preview-runtime 계획을, graph node, subgraph node, node-owned iframe HTML,
+  승인된 feedback 결과를 누락하지 않고 구현한다.
+
+source:
+  session_file: data/sessions/plan_cc0dd205/session.json
+  approved_session_id: plan_cc0dd205
+  approved_revision: 7
+  validation:
+    mode: publish
+    error_count: 0
+    warning_count: 0
+    publish_ready: true
+  iframe_html:
+    - file: docs/prototypes/preview-kit-review.html
+      role: 노드 소유 근거 화면
+      mapping_rule: >
+        iframe HTML은 독립 artifact로 해석하지 않는다. 반드시 해당 URL을
+        iframes[]로 참조한 GraphPlanNode의 컨텐츠/근거로 병합해서 해석한다.
+
+constraints:
+  - 승인된 graph plan revision을 실행의 단일 source of truth로 삼는다.
+  - 모든 root graph node와 subgraph node는 implemented, verified, deferred, rejected 중 하나의 산출물 상태로 매핑되어야 한다.
+  - iframe HTML 컨텐츠는 acceptance criteria를 만들기 전에 반드시 소유 node evidence bundle에 병합한다.
+  - Agent GUI는 실제 프로젝트 preview HTML의 소유자가 되지 않는다. 대상 프로젝트가 preview app과 local HTTP URL을 소유한다.
+  - 실제 preview 흐름의 기본값은 대상 프로젝트 localhost URL이다. docs/prototypes는 Agent GUI fixture/debug 컨텐츠로만 사용한다.
+  - markdownDesc는 선택 필드이며 간결해야 한다. 길거나 시각적인 내용은 iframe HTML 또는 subgraph로 분리한다.
+  - PreviewShell과 PreviewPanel은 최소 범위로 유지한다. 이 seed에서는 StateMatrix, BeforeAfter, ChecklistPanel, route helper, manifest helper를 추가하지 않는다.
+  - 변경 파일 목록만 보고 완료 선언하지 않는다. 완료 여부는 traceability matrix와 대조해서 판단한다.
+
+ontology_schema:
+  name: GraphPlanExecutionSeed
+  fields:
+    - name: node_evidence_bundle
+      type: object
+      description: graph node, markdownDesc, iframe HTML 근거, subgraph 연결, edge 맥락을 묶은 실행 단위.
+    - name: required_output
+      type: object
+      description: node evidence bundle에서 도출된 구체 파일, 코드 동작, 문서, 검증 산출물.
+    - name: traceability_matrix
+      type: array
+      description: graph node와 iframe evidence를 required output 및 acceptance criteria에 연결하는 추적 표.
+    - name: verification_record
+      type: object
+      description: 각 output 구현을 증명하는 명령과 브라우저 확인 결과.
+
+node_evidence_bundles:
+  - graph_id: g-preview-runtime-strategy
+    node_id: n-boundary
+    title: 역할 경계 정리
+    iframe_evidence:
+      - iframe_id: iframe-boundary
+        panel: strategy
+        extracted_context:
+          - Agent GUI는 review state, feedback routing, iframe reference를 소유한다.
+          - 대상 프로젝트는 실제 UI, preview serving, scenario meaning을 소유한다.
+          - core schema/UI는 외부 프로젝트 URL을 지원할 수 있고, source entry 역추적은 optional entryPath로 보완한다. 수정이 필요한 곳은 schema, skill 문구, fixture 설명, UI 도움말이다.
+    required_outputs:
+      - AGENTS.md가 iframe entry를 대상 프로젝트 local HTTP preview 진입점으로 설명한다.
+      - Review UI 문구가 Agent GUI가 iframe HTML을 소유한다고 암시하지 않는다.
+    acceptance_criteria:
+      - AC-BND-001
+      - AC-BND-002
+
+  - graph_id: g-preview-runtime-strategy
+    node_id: n-preview-kit
+    title: PreviewShell 패널 그리드
+    iframe_evidence:
+      - iframe_id: iframe-kit-shape
+        panel: kit
+        extracted_context:
+          - PreviewShell은 page padding, header, responsive grid container를 제공한다.
+          - PreviewPanel은 title과 children을 받는다.
+          - desktop은 2열, 좁은 화면은 1열을 사용한다.
+          - StateMatrix, BeforeAfter, ChecklistPanel, route helper, manifest helper는 제외한다.
+    required_outputs:
+      - templates/preview-app-vite에 사용 가능한 PreviewShell 컴포넌트가 있다.
+      - templates/preview-app-vite에 사용 가능한 PreviewPanel 컴포넌트가 있다.
+      - template 예시는 project-owned children을 사용하는 2패널 반응형 layout을 보여준다.
+    acceptance_criteria:
+      - AC-KIT-001
+      - AC-KIT-002
+      - AC-KIT-003
+
+  - graph_id: g-preview-runtime-strategy
+    node_id: n-no-npm-adoption
+    title: npm 없는 도입 방식
+    iframe_evidence:
+      - iframe_id: iframe-no-npm-adoption
+        panel: adoption
+        extracted_context:
+          - template copy가 선택된 도입 방식이다.
+          - 복사된 preview app은 대상 프로젝트가 소유한다.
+          - local file dependency와 vendor/subtree는 보류한다.
+    required_outputs:
+      - templates/preview-app-vite는 README만 있는 폴더가 아니라 복사 가능한 starter 폴더다.
+      - starter는 @agent-gui/preview-kit npm 배포를 요구하지 않는다.
+    acceptance_criteria:
+      - AC-TPL-001
+      - AC-TPL-002
+
+  - graph_id: g-preview-runtime-strategy
+    node_id: n-risk-review
+    title: 리스크 검토
+    iframe_evidence:
+      - iframe_id: iframe-risk-review
+        panel: risks
+        extracted_context:
+          - 리스크: skill 문서가 실제 preview를 docs/prototypes 아래에 만들도록 학습시킬 수 있다.
+          - 리스크: MCP tool description이 오래된 markdownDesc 위치를 설명할 수 있다.
+          - 리스크: fixture serving이 실제 runtime 모델처럼 보일 수 있다.
+          - 리스크: preview-kit이 PreviewShell/PreviewPanel보다 커져 프로젝트 디자인시스템을 침범할 수 있다.
+          - 리스크: 긴 markdownDesc overlay가 graph zoom/scroll 사용성을 해칠 수 있다.
+    required_outputs:
+      - 각 리스크는 방어선과 구현 작업에 연결되어 있다.
+      - 구현에는 markdownDesc overlay scroll/zoom 개선이 포함된다.
+    acceptance_criteria:
+      - AC-RISK-001
+      - AC-UI-002
+
+  - graph_id: g-preview-runtime-strategy
+    node_id: n-interface-impact
+    title: MCP/스킬/인터페이스 검토 결과
+    subgraphs:
+      - g-final-change-work
+    iframe_evidence:
+      - iframe_id: iframe-interface-impact
+        panel: interfaceImpact
+        extracted_context:
+          - GraphPlan iframe URL은 이미 대상 프로젝트 localhost URL을 허용한다.
+          - https와 file URL은 현재 contract 밖이다.
+          - GraphPane은 sandbox iframe src를 렌더링하고 preview DOM을 검사하지 않는다.
+          - /prototypes는 개발 fixture route다.
+          - plan-gui-mcp와 MCP description 문구를 수정해야 한다.
+    required_outputs:
+      - plan-gui-mcp skill은 대상 프로젝트 preview URL을 우선하고 docs/prototypes를 fixture/debug로 낮춘다.
+      - MCP create_graph_plan_session description이 현재 UI와 일치한다.
+      - Review UI helper text는 iframe preview가 외부 프로젝트 local URL임을 설명한다.
+    acceptance_criteria:
+      - AC-SKILL-001
+      - AC-MCP-001
+      - AC-UI-001
+
+  - graph_id: g-final-change-work
+    node_id: n-final-preview-shell-contract
+    title: PreviewShell 패널 계약 고정
+    iframe_evidence:
+      - iframe_id: iframe-final-work-plan
+        panel: workPlan
+        extracted_context:
+          - PreviewShell panel contract가 첫 실행 작업이다.
+          - required outputs는 skill 지침, MCP description, UI copy, 소비 프로젝트 가이드, typecheck, browser verification을 포함한다.
+    required_outputs:
+      - templates/preview-app-vite 안에 PreviewShell과 PreviewPanel을 구현한다.
+      - PreviewShell/PreviewPanel 범위를 최소로 유지한다.
+      - template 예시는 두 컴포넌트 사용법을 보여준다.
+    acceptance_criteria:
+      - AC-KIT-001
+      - AC-KIT-002
+      - AC-KIT-003
+
+  - graph_id: g-final-change-work
+    node_id: n-final-skill-update
+    title: plan-gui-mcp 스킬 지침 수정
+    required_outputs:
+      - .agents/skills/plan-gui-mcp/SKILL.md는 markdownDesc가 간결하고 선택적인 필드라고 설명한다.
+      - skill은 markdownDesc와 iframe HTML 중 무엇을 선택할지 기준을 제공한다.
+      - skill은 대상 프로젝트 preview URL을 우선하고 docs/prototypes를 fixture/debug 전용으로 표시한다.
+    acceptance_criteria:
+      - AC-SKILL-001
+      - AC-SKILL-002
+
+  - graph_id: g-final-change-work
+    node_id: n-final-mcp-ui-copy
+    title: MCP tool/UI 설명 정렬
+    required_outputs:
+      - apps/server/src/mcp/stdioServer.ts는 node markdownDesc를 right detail panel이 아니라 graph overlay로 설명한다.
+      - Review UI의 iframe empty/helper copy는 preview가 외부 프로젝트 local URL이라고 설명한다.
+    acceptance_criteria:
+      - AC-MCP-001
+      - AC-UI-001
+
+  - graph_id: g-final-change-work
+    node_id: n-final-consumer-guide
+    title: 사용 프로젝트 임시 가이드 문서 작성
+    required_outputs:
+      - Consumer guide가 template copy 폴더 안에 있다.
+      - guide는 대상 프로젝트 소유권, local HTTP URL serving, iframe 등록, PreviewShell/PreviewPanel 사용법, docs/prototypes 비사용 원칙을 설명한다.
+    acceptance_criteria:
+      - AC-DOC-001
+      - AC-DOC-002
+
+  - graph_id: g-final-change-work
+    node_id: n-final-markdown-scroll-fix
+    title: markdownDesc overlay 스크롤 개선
+    required_outputs:
+      - overlay wheel/touchpad scroll이 React Flow zoom/pan으로 전파되지 않는다.
+      - overlay text는 선택/복사 가능하다.
+      - overlay 밖 canvas zoom/pan은 유지된다.
+    acceptance_criteria:
+      - AC-UI-002
+      - AC-UI-003
+
+  - graph_id: g-final-change-work
+    node_id: n-final-verify
+    title: 검증 및 화면 확인
+    required_outputs:
+      - typecheck가 통과한다.
+      - server와 plan-schema tests가 통과한다.
+      - browser에서 graph/subgraph, iframe preview, overlay interaction을 확인한다.
+      - traceability matrix에 명시적 deferred/rejected 없이 pending output이 남지 않는다.
+    acceptance_criteria:
+      - AC-VERIFY-001
+      - AC-VERIFY-002
+      - AC-TRACE-001
+
+execution_order:
+  - from: n-boundary
+    to: n-preview-kit
+    kind: sequence
+  - from: n-preview-kit
+    to: n-interface-impact
+    kind: sequence
+  - from: n-interface-impact
+    to: n-final-preview-shell-contract
+    kind: subgraph-entry
+  - from: n-final-preview-shell-contract
+    to: n-final-skill-update
+    kind: sequence
+  - from: n-final-preview-shell-contract
+    to: n-final-consumer-guide
+    kind: sequence
+  - from: n-final-skill-update
+    to: n-final-mcp-ui-copy
+    kind: sequence
+  - from: n-final-mcp-ui-copy
+    to: n-final-markdown-scroll-fix
+    kind: sequence
+  - from: n-final-mcp-ui-copy
+    to: n-final-verify
+    kind: sequence
+  - from: n-final-consumer-guide
+    to: n-final-verify
+    kind: dependency
+  - from: n-final-markdown-scroll-fix
+    to: n-final-verify
+    kind: dependency
+  - from: n-interface-impact
+    to: n-no-npm-adoption
+    kind: sequence
+  - from: n-no-npm-adoption
+    to: n-risk-review
+    kind: sequence
+
+acceptance_criteria:
+  - id: AC-BND-001
+    statement: AGENTS.md는 node iframe이 대상 프로젝트 local HTTP HTML/preview app 진입점이라고 설명한다.
+    verify:
+      command: rg -n "대상 프로젝트.*local HTTP|target-project" AGENTS.md
+      expected: matching ownership wording exists
+
+  - id: AC-BND-002
+    statement: 사용자/에이전트 지침은 docs/prototypes를 실제 preview 기본 작성 위치로 제시하지 않는다.
+    verify:
+      command: rg -n "docs/prototypes" .agents/skills/plan-gui-mcp/SKILL.md AGENTS.md templates/preview-app-vite/README.md
+      expected: every match labels docs/prototypes as fixture, debug, or non-real-preview usage
+
+  - id: AC-KIT-001
+    statement: templates/preview-app-vite에는 PreviewShell과 PreviewPanel 구현이 있다.
+    verify:
+      command: rg -n "function PreviewShell|const PreviewShell|export .*PreviewShell|function PreviewPanel|const PreviewPanel|export .*PreviewPanel" templates/preview-app-vite
+      expected: both PreviewShell and PreviewPanel implementation/export are found
+
+  - id: AC-KIT-002
+    statement: PreviewShell은 desktop 2열, narrow 1열 반응형 패널 grid를 구현한다.
+    verify:
+      command: rg -n "grid-template-columns|repeat\\(2|minmax|@media" templates/preview-app-vite
+      expected: responsive grid styles exist
+
+  - id: AC-KIT-003
+    statement: preview template은 PreviewShell/PreviewPanel 사용을 보여주며 제외된 helper abstraction을 구현하지 않는다.
+    verify:
+      command: rg -n "PreviewShell|PreviewPanel" templates/preview-app-vite
+      expected: usage example exists
+    forbidden:
+      command: rg -n "StateMatrix|BeforeAfter|ChecklistPanel|manifest|route helper" templates/preview-app-vite
+      expected: no implementation references
+
+  - id: AC-TPL-001
+    statement: templates/preview-app-vite는 README만 있는 폴더가 아니라 복사 가능한 starter 폴더다.
+    verify:
+      - command: test -f templates/preview-app-vite/package.json
+      - command: test -f templates/preview-app-vite/src/main.tsx
+      - command: test -f templates/preview-app-vite/src/preview-shell.tsx
+
+  - id: AC-TPL-002
+    statement: starter는 project local code를 사용하며 publish된 @agent-gui/preview-kit package를 요구하지 않는다.
+    verify:
+      command: rg -n "@agent-gui/preview-kit" templates/preview-app-vite/package.json
+      expected: no dependency match
+
+  - id: AC-SKILL-001
+    statement: plan-gui-mcp skill은 대상 프로젝트 preview URL을 우선하고 docs/prototypes를 fixture/debug 전용으로 표시한다.
+    verify:
+      command: rg -n "target project|target-project|docs/prototypes.*fixture|fixture/debug" .agents/skills/plan-gui-mcp/SKILL.md
+      expected: matching guidance exists
+
+  - id: AC-SKILL-002
+    statement: plan-gui-mcp skill에는 markdownDesc와 iframe HTML 선택 기준이 있다.
+    verify:
+      command: rg -n "markdownDesc.*iframe HTML|Choose between" .agents/skills/plan-gui-mcp/SKILL.md
+      expected: selection criteria exists
+
+  - id: AC-MCP-001
+    statement: MCP create_graph_plan_session description은 selected node markdownDesc를 right detail panel이 아니라 graph overlay로 설명한다.
+    verify:
+      command: rg -n "graph overlay|right detail panel" apps/server/src/mcp/stdioServer.ts
+      expected: graph overlay wording exists and stale right-detail markdown wording is absent
+
+  - id: AC-UI-001
+    statement: Review UI 문구는 iframe preview가 외부 프로젝트 local URL preview라고 설명한다.
+    verify:
+      command: rg -n "외부 프로젝트.*local URL|external project-provided local URL" apps/review-web/src
+      expected: matching UI copy exists
+
+  - id: AC-UI-002
+    statement: markdownDesc overlay wheel event가 graph zoom/pan으로 전파되지 않는다.
+    verify:
+      command: rg -n "nowheel|overscroll-behavior|onWheel" apps/review-web/src/app/GraphPane.tsx apps/review-web/src/styles.css
+      expected: wheel containment implementation exists
+    browser_check: wheel over overlay leaves React Flow viewport transform unchanged while overlay remains scrollable
+
+  - id: AC-UI-003
+    statement: markdownDesc overlay text는 선택/복사 가능하다.
+    verify:
+      command: 'rg -n "user-select: text|nodrag|nopan" apps/review-web/src/styles.css apps/review-web/src/app/GraphPane.tsx'
+      expected: text selection and drag/pan blocking markers exist
+
+  - id: AC-DOC-001
+    statement: Consumer guide는 template copy 폴더 안에 있다.
+    verify:
+      command: test -f templates/preview-app-vite/README.md
+
+  - id: AC-DOC-002
+    statement: Consumer guide는 project ownership, local HTTP URL serving, iframe registration, PreviewShell/PreviewPanel usage, docs/prototypes non-usage를 설명한다.
+    verify:
+      command: rg -n "Ownership|local HTTP|GraphPlanNode.iframes|PreviewShell|docs/prototypes" templates/preview-app-vite/README.md
+      expected: all concepts are covered
+
+  - id: AC-RISK-001
+    statement: 각 리스크는 실제 구현 방어선과 연결되어 있다.
+    verify:
+      - command: rg -n "target project|fixture/debug" .agents/skills/plan-gui-mcp/SKILL.md
+      - command: rg -n "graph overlay" apps/server/src/mcp/stdioServer.ts
+      - command: rg -n "docs/prototypes.*실사용|Do Not Use|실사용 preview" templates/preview-app-vite/README.md
+      - command: rg -n "PreviewShell|PreviewPanel" templates/preview-app-vite
+      - command: rg -n "nowheel|overscroll-behavior|onWheel" apps/review-web/src/app/GraphPane.tsx apps/review-web/src/styles.css
+
+  - id: AC-VERIFY-001
+    statement: Typecheck가 통과한다.
+    verify:
+      command: pnpm typecheck
+
+  - id: AC-VERIFY-002
+    statement: Server와 plan-schema tests가 통과한다.
+    verify:
+      - command: pnpm --dir apps/server test
+      - command: pnpm --filter @agent-gui/plan-schema test
+
+  - id: AC-TRACE-001
+    statement: 이 seed의 모든 node-owned required output이 implemented, verified, deferred, rejected 중 하나로 명시된다.
+    verify:
+      manual_review: traceability_matrix.status에 pending이 남아 있으면 완료 선언 금지
+
+traceability_matrix:
+  - node: n-boundary
+    iframe: iframe-boundary
+    required_output: AGENTS.md iframe ownership wording
+    acceptance: AC-BND-001
+    status: verified
+  - node: n-interface-impact
+    iframe: iframe-interface-impact
+    required_output: fixture/debug wording and MCP/UI ownership alignment
+    acceptance: AC-BND-002, AC-MCP-001, AC-UI-001
+    status: verified
+  - node: n-preview-kit
+    iframe: iframe-kit-shape
+    required_output: PreviewShell implementation
+    acceptance: AC-KIT-001
+    status: verified
+  - node: n-preview-kit
+    iframe: iframe-kit-shape
+    required_output: PreviewPanel implementation
+    acceptance: AC-KIT-001
+    status: verified
+  - node: n-preview-kit
+    iframe: iframe-kit-shape
+    required_output: responsive two-column/one-column shell
+    acceptance: AC-KIT-002
+    status: verified
+  - node: n-final-preview-shell-contract
+    iframe: iframe-final-work-plan
+    required_output: PreviewShell/PreviewPanel contract implemented first and documented as minimal
+    acceptance: AC-KIT-001, AC-KIT-002, AC-KIT-003
+    status: verified
+  - node: n-no-npm-adoption
+    iframe: iframe-no-npm-adoption
+    required_output: copyable templates/preview-app-vite starter
+    acceptance: AC-TPL-001
+    status: verified
+  - node: n-no-npm-adoption
+    iframe: iframe-no-npm-adoption
+    required_output: starter does not depend on published @agent-gui/preview-kit package
+    acceptance: AC-TPL-002
+    status: verified
+  - node: n-final-consumer-guide
+    iframe: null
+    required_output: template folder README guide
+    acceptance: AC-DOC-001, AC-DOC-002
+    status: verified
+  - node: n-final-skill-update
+    iframe: null
+    required_output: plan-gui-mcp target-project URL and markdownDesc/html criteria
+    acceptance: AC-SKILL-001, AC-SKILL-002
+    status: verified
+  - node: n-final-mcp-ui-copy
+    iframe: null
+    required_output: MCP description and review UI copy alignment
+    acceptance: AC-MCP-001, AC-UI-001
+    status: verified
+  - node: n-final-markdown-scroll-fix
+    iframe: null
+    required_output: overlay wheel containment and text selection
+    acceptance: AC-UI-002, AC-UI-003
+    status: verified
+  - node: n-risk-review
+    iframe: iframe-risk-review
+    required_output: risk-to-defense implementation checks
+    acceptance: AC-RISK-001
+    status: verified
+  - node: n-final-verify
+    iframe: null
+    required_output: typecheck, package tests, browser verification
+    acceptance: AC-VERIFY-001, AC-VERIFY-002
+    status: verified
+
+verification_record:
+  static_checks:
+    - command: >-
+        ruby -e 'require "yaml"; seed=YAML.load_file("data/seeds/plan_cc0dd205.ko.seed.yaml"); p({goal: !!seed["goal"], ac_count: seed["acceptance_criteria"].length, trace_rows: seed["traceability_matrix"].length, ambiguity_kind: seed.dig("metadata", "ambiguity_score_kind")})'
+      result: passed
+    - command: rg -n "대상 프로젝트.*local HTTP|target-project" AGENTS.md
+      result: passed
+    - command: rg -n "docs/prototypes" .agents/skills/plan-gui-mcp/SKILL.md AGENTS.md templates/preview-app-vite/README.md
+      result: passed; every match labels docs/prototypes as fixture, debug, or non-real-preview usage
+    - command: rg -n "function PreviewShell|const PreviewShell|export .*PreviewShell|function PreviewPanel|const PreviewPanel|export .*PreviewPanel" templates/preview-app-vite
+      result: passed
+    - command: rg -n "grid-template-columns|repeat\\(2|minmax|@media" templates/preview-app-vite
+      result: passed
+    - command: rg -n "PreviewShell|PreviewPanel" templates/preview-app-vite
+      result: passed
+    - command: rg -n "StateMatrix|BeforeAfter|ChecklistPanel|manifest|route helper" templates/preview-app-vite
+      result: passed; no matches
+    - command: test -f templates/preview-app-vite/package.json && test -f templates/preview-app-vite/src/main.tsx && test -f templates/preview-app-vite/src/preview-shell.tsx
+      result: passed
+    - command: rg -n "@agent-gui/preview-kit" templates/preview-app-vite/package.json
+      result: passed; no dependency match
+    - command: rg -n "target project|target-project|docs/prototypes.*fixture|fixture/debug" .agents/skills/plan-gui-mcp/SKILL.md
+      result: passed
+    - command: rg -n "markdownDesc.*iframe HTML|Choose between" .agents/skills/plan-gui-mcp/SKILL.md
+      result: passed
+    - command: rg -n "graph overlay|right detail panel" apps/server/src/mcp/stdioServer.ts
+      result: passed
+    - command: rg -n "외부 프로젝트.*local URL|external project-provided local URL" apps/review-web/src
+      result: passed
+    - command: rg -n "nowheel|overscroll-behavior|onWheel" apps/review-web/src/app/GraphPane.tsx apps/review-web/src/styles.css
+      result: passed
+    - command: 'rg -n "user-select: text|nodrag|nopan" apps/review-web/src/styles.css apps/review-web/src/app/GraphPane.tsx'
+      result: passed
+    - command: test -f templates/preview-app-vite/README.md
+      result: passed
+    - command: rg -n "Ownership|local HTTP|GraphPlanNode.iframes|PreviewShell|docs/prototypes" templates/preview-app-vite/README.md
+      result: passed
+  build_and_tests:
+    - command: pnpm --dir templates/preview-app-vite typecheck
+      result: passed
+    - command: pnpm --dir templates/preview-app-vite exec vite build --outDir /private/tmp/agent-gui-preview-template-build --emptyOutDir
+      result: passed
+    - command: pnpm typecheck
+      result: passed
+    - command: pnpm --dir apps/server test
+      result: passed
+    - command: pnpm --filter @agent-gui/plan-schema test
+      result: passed
+  browser_checks:
+    - target: http://127.0.0.1:5174/
+      result: PreviewShell rendered with two PreviewPanel instances and desktop grid columns "614px 614px".
+    - target: http://localhost:8787/sessions/plan_cc0dd205?graph=g-final-change-work&node=n-final-skill-update
+      result: selected node markdownDesc rendered as graph overlay with class "review-flow-node-markdown-overlay nodrag nopan nowheel", overscroll-behavior "contain", user-select "text", scrollHeight 553, clientHeight 258.
+    - target: markdownDesc overlay
+      result: mouse wheel over overlay left React Flow viewport transform unchanged.
+    - target: markdownDesc overlay text
+      result: actual mouse drag selected overlay text while React Flow viewport transform remained unchanged.
+
+evaluation_principles:
+  - name: 파일 diff보다 traceability 우선
+    weight: 0.35
+    description: 완료 판단은 변경 파일 목록이 아니라 승인된 node evidence와 AC coverage에서 시작한다.
+  - name: Node-owned HTML 해석
+    weight: 0.2
+    description: iframe HTML evidence는 반드시 소유 graph node에 붙은 상태로 output과 criteria를 도출한다.
+  - name: 최소 범위 유지
+    weight: 0.15
+    description: PreviewShell/PreviewPanel은 최소 범위로 유지하고 추측성 helper를 추가하지 않는다.
+  - name: 런타임 동작 정확성
+    weight: 0.15
+    description: 상호작용 동작 변경은 브라우저에서 검증한다.
+  - name: 문서 일관성
+    weight: 0.15
+    description: skill, MCP description, AGENTS guidance, template docs가 같은 ownership model을 말해야 한다.
+
+exit_conditions:
+  - 모든 acceptance_criteria가 통과한다.
+  - traceability_matrix에 pending required_output이 남아 있지 않다.
+  - deferred 또는 rejected output은 명시적 이유와 사용자 승인이 있다.
+  - 최종 보고에는 각 graph node의 implemented/verified/deferred 상태가 포함된다.
+
+metadata:
+  seed_version: 1
+  generated_from: agent-gui graph/html session plus node-owned iframe HTML
+  generated_at: "2026-05-27"
+  ambiguity_score: 0.18
+  ambiguity_score_kind: manual_estimate
+  notes:
+    - MCP 기반 ooo seed generation은 의도적으로 사용하지 않았다.
+    - 이 seed는 ouroboros-seed skill 구조를 참고한 manual fallback-style crystallization이다.
+    - 3개 sub-agent 판결 결과를 반영해 edge 누락, traceability row 누락, risk 검증 약점을 보강한 한국어 버전이다.

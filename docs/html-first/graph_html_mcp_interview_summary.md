@@ -150,7 +150,8 @@ Edge 최소 필드:
         {
           "id": "if-revision-review",
           "description": "수정 결과 리뷰 화면",
-          "url": "http://localhost:3000/agent-review/search-panel/revision-review"
+          "url": "http://localhost:3000/agent-review/search-panel/revision-review",
+          "entryPath": "src/agent-review/search-panel/revision-review.tsx"
         }
       ]
     }
@@ -171,7 +172,7 @@ iframe에 넣을 HTML은 중앙 artifact 저장소가 아니라 에이전트가 
 
 노드는 선택적으로 여러 iframe entry를 가진다.
 
-각 iframe entry는 의미를 과도하게 표준화하지 않고 `id`, `description`, `url`만 가진다. `id`는 MCP mutation과 feedback target을 위한 안정적인 식별자이고, `description`은 사용자가 어떤 상세 화면인지 판단할 수 있게 하는 짧은 설명이며, `url`은 에이전트가 생성한 HTML의 로컬 HTTP 진입점이다.
+각 iframe entry는 의미를 과도하게 표준화하지 않고 `id`, `description`, `url`, 선택적 `entryPath`만 가진다. `id`는 MCP mutation과 feedback target을 위한 안정적인 식별자이고, `description`은 사용자가 어떤 상세 화면인지 판단할 수 있게 하는 짧은 설명이며, `url`은 에이전트가 생성한 HTML의 로컬 HTTP 진입점이다. `entryPath`는 URL을 만든 workspace source entry 파일 경로이며, URL만으로 source를 역추적하기 어려울 때 seed 변환 workflow가 읽을 수 있는 힌트다.
 
 ```json
 {
@@ -180,23 +181,25 @@ iframe에 넣을 HTML은 중앙 artifact 저장소가 아니라 에이전트가 
   "markdownDesc": "피드백 반영 결과를 검토하고 승인 또는 재수정을 결정한다.",
   "subGraphs": [],
   "iframes": [
-    {
-      "id": "if-revision-review",
-      "description": "수정 결과 리뷰 화면",
-      "url": "http://localhost:3000/agent-review/search-panel/revision-review"
-    },
-    {
-      "id": "if-before-after",
-      "description": "이전/이후 비교 화면",
-      "url": "http://localhost:3000/agent-review/search-panel/before-after"
-    }
+      {
+        "id": "if-revision-review",
+        "description": "수정 결과 리뷰 화면",
+        "url": "http://localhost:3000/agent-review/search-panel/revision-review",
+        "entryPath": "src/agent-review/search-panel/revision-review.tsx"
+      },
+      {
+        "id": "if-before-after",
+        "description": "이전/이후 비교 화면",
+        "url": "http://localhost:3000/agent-review/search-panel/before-after",
+        "entryPath": "src/agent-review/search-panel/before-after.tsx"
+      }
   ]
 }
 ```
 
 before/after 비교, 여러 상세 화면, 탭, 비교 UI 같은 세부 표현은 여전히 HTML 내부에서 자체적으로 처리할 수 있다. 다만 한 노드에 명확히 구분되는 상세 진입점이 여러 개 필요한 경우, `iframes` 배열에 여러 entry를 둘 수 있다.
 
-중앙 스키마는 role, before/after, 상태명 같은 의미를 표준화하지 않는다. iframe entry의 의미가 필요한 경우 `iframes[].description`에 자연어로 적고, 상세 구조와 인터랙션은 각 HTML이 담당한다.
+중앙 스키마는 role, before/after, 상태명 같은 의미를 표준화하지 않는다. iframe entry의 의미가 필요한 경우 `iframes[].description`에 자연어로 적고, 상세 구조와 인터랙션은 각 HTML이 담당한다. `entryPath`에는 의미를 넣지 않고 파일 위치만 둔다.
 
 ## 9. iframe URL 허용 범위
 
@@ -283,6 +286,8 @@ Header는 현재 세션의 전역 상태를 보여준다.
 node에 `iframes`가 있으면 markdown 설명 아래에 iframe tab을 보여준다.
 
 각 tab은 iframe entry의 `description`을 label로 사용하고, 선택된 tab의 `url`을 sandbox iframe으로 렌더링한다.
+
+`entryPath`는 preview source entry를 찾기 위한 에이전트용 메타데이터이며, tab label이나 iframe 렌더링에는 사용하지 않는다.
 
 ```txt
 Right Detail Panel
@@ -425,8 +430,9 @@ iframe HTML 필수 내용:
 2. graph-level edges 검증
 3. `subGraphs` 참조와 `parent` 역참조 검증
 4. `iframes[].url` allowlist 검증
-5. Fixture A/B/C를 기반으로 한 테스트 작성
-6. 그래프와 iframe URL을 MCP가 안정적으로 생성, 조회, 수정할 수 있는 API 또는 tool contract 정리
+5. `iframes[].entryPath` optional source entry 경로 보존 검증
+6. Fixture A/B/C를 기반으로 한 테스트 작성
+7. 그래프와 iframe URL/entryPath를 MCP가 안정적으로 생성, 조회, 수정할 수 있는 API 또는 tool contract 정리
 
 ## 13. 인터뷰 메타데이터
 

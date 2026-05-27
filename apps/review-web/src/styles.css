@@ -416,6 +416,7 @@ pre {
   gap: 0;
   min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 .graph-review-main.graph-only {
@@ -423,7 +424,7 @@ pre {
 }
 
 .graph-review-main.with-detail {
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 46vw);
+  grid-template-columns: minmax(320px, 1fr) minmax(340px, 1fr);
 }
 
 .graph-pane {
@@ -496,6 +497,10 @@ pre {
   user-select: none;
 }
 
+.is-resizing-node-detail .selected-node-iframe-preview {
+  pointer-events: none;
+}
+
 .selected-node-overlay-header {
   align-items: center;
   display: flex;
@@ -548,9 +553,9 @@ pre {
   align-content: start;
   display: grid;
   gap: 8px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
-  overflow: auto;
-  padding-right: 4px;
+  overflow: hidden;
   scrollbar-color: #8a8680 transparent;
   scrollbar-width: thin;
 }
@@ -568,20 +573,17 @@ pre {
   border-radius: 999px;
 }
 
-.selected-node-markdown-card,
 .selected-node-iframe-panel {
   background: #fffdf8;
   border: 1px solid #d8cfc0;
   border-radius: 6px;
   display: grid;
   gap: 7px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-width: 0;
+  overflow: hidden;
   padding: 8px;
-}
-
-.selected-node-markdown-card > span {
-  color: #6b665e;
-  font-size: 10px;
 }
 
 .markdown-view {
@@ -676,8 +678,8 @@ pre {
   border: 1px solid #d8cfc0;
   border-radius: 6px;
   box-sizing: border-box;
-  height: min(48vh, 420px);
-  min-height: 260px;
+  height: 100%;
+  min-height: 0;
   width: 100%;
 }
 
@@ -773,6 +775,7 @@ pre {
 .review-flow-node.selected {
   border-color: rgba(36, 106, 168, 0.65) !important;
   box-shadow: 0 16px 38px rgba(57, 45, 25, 0.12);
+  z-index: 20 !important;
 }
 
 .review-flow-node.drillable {
@@ -802,6 +805,33 @@ pre {
   gap: 5px;
   min-height: 100px;
   text-align: left;
+}
+
+.review-flow-node-markdown-overlay {
+  background: rgba(255, 253, 248, 0.98);
+  border: 1px solid rgba(36, 106, 168, 0.42);
+  border-radius: 6px;
+  box-shadow: 0 18px 36px rgba(57, 45, 25, 0.18);
+  box-sizing: border-box;
+  display: grid;
+  gap: 7px;
+  left: 0;
+  max-height: 260px;
+  overscroll-behavior: contain;
+  overflow: auto;
+  padding: 9px;
+  pointer-events: auto;
+  position: absolute;
+  text-align: left;
+  top: 0;
+  user-select: text;
+  width: min(360px, 54vw);
+  z-index: 20;
+}
+
+.review-flow-node-markdown-overlay > span {
+  color: #6b665e;
+  font-size: 10px;
 }
 
 .review-flow-edge.selected .react-flow__edge-path {

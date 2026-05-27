@@ -21,11 +21,10 @@ import {
 import { labelEventType, labelStatus, labelTargetType } from "./graphReviewLabels";
 
 type DrawerKind = "history" | "activity" | "validation";
-const DETAIL_PANEL_DEFAULT_WIDTH = 560;
-const DETAIL_PANEL_MIN_RATIO = 0.3;
-const DETAIL_PANEL_MAX_RATIO = 0.58;
-const GRAPH_MIN_RATIO = 0.34;
+const DETAIL_PANEL_MIN_RATIO = 0.28;
+const DETAIL_PANEL_MAX_RATIO = 0.8;
 const DETAIL_PANEL_MIN_ABSOLUTE_WIDTH = 340;
+const GRAPH_MIN_ABSOLUTE_WIDTH = 320;
 
 function getSessionId() {
   return window.location.pathname.match(/\/sessions\/([^/]+)/)?.[1] ?? null;
@@ -37,7 +36,7 @@ export function SessionReviewPage() {
   const [selection, setSelection] = useState<GraphSelection | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<GraphPlanTarget | null>(null);
   const [openDrawer, setOpenDrawer] = useState<DrawerKind | null>(null);
-  const [detailPanelWidth, setDetailPanelWidth] = useState(DETAIL_PANEL_DEFAULT_WIDTH);
+  const [detailPanelWidth, setDetailPanelWidth] = useState<number | null>(null);
   const [isCompactDetailLayout, setIsCompactDetailLayout] = useState(() => window.innerWidth <= 920);
   const sessionIndex = useMemo(() => (session ? buildGraphIndex(session.graphPlan, session.validation.issues) : null), [session?.graphPlan, session?.validation.issues]);
 
@@ -68,7 +67,7 @@ export function SessionReviewPage() {
     function handleResize() {
       const bounds = detailPanelBounds();
       setIsCompactDetailLayout(!bounds.canResize);
-      if (bounds.canResize) setDetailPanelWidth((current) => clamp(current, bounds.min, bounds.max));
+      if (bounds.canResize) setDetailPanelWidth((current) => current === null ? null : clamp(current, bounds.min, bounds.max));
     }
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -101,7 +100,7 @@ export function SessionReviewPage() {
     const bounds = detailPanelBounds();
     if (!bounds.canResize) return;
     const startX = event.clientX;
-    const startWidth = detailPanelWidth;
+    const startWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? detailPanelWidth ?? bounds.min;
     function handleMove(moveEvent: globalThis.MouseEvent) {
       setDetailPanelWidth(clamp(startWidth - (moveEvent.clientX - startX), detailPanelBounds().min, detailPanelBounds().max));
     }
@@ -139,6 +138,7 @@ export function SessionReviewPage() {
           <Badge tone={rootIssueCount > 0 ? "warn" : "neutral"}>이슈 {rootIssueCount}개</Badge>
           <Badge>리비전 {session.revision}</Badge>
           <Badge>{labelStatus(session.status)}</Badge>
+          <Button variant="secondary" onClick={() => { window.location.href = "/"; }}>목록</Button>
           <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "history" ? null : "history"))}>변경이력</Button>
           <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "activity" ? null : "activity"))}>활동</Button>
           <Button variant="secondary" onClick={() => setOpenDrawer((current) => (current === "validation" ? null : "validation"))}>검증</Button>
@@ -148,7 +148,7 @@ export function SessionReviewPage() {
 
       <section
         className={`graph-review-main ${selectedNode ? "with-detail" : "graph-only"}`}
-        style={selectedNode && !isCompactDetailLayout ? { gridTemplateColumns: `minmax(34vw, 1fr) ${detailPanelWidth}px` } : undefined}
+        style={selectedNode && !isCompactDetailLayout && detailPanelWidth !== null ? { gridTemplateColumns: `minmax(${GRAPH_MIN_ABSOLUTE_WIDTH}px, 1fr) ${detailPanelWidth}px` } : undefined}
       >
         <div className="graph-workspace">
           <GraphPane document={session.graphPlan} index={index} selection={normalizedSelection} onSelect={updateSelection} onNodeSelect={updateSelection} />
@@ -166,7 +166,6 @@ export function SessionReviewPage() {
             graph={selectedGraph}
             node={selectedNode}
             selection={normalizedSelection}
-            index={index}
             planRevision={session.revision}
             onSelect={updateSelection}
             onClose={() => setSelection({ graphId: normalizedSelection.graphId })}
@@ -185,11 +184,11 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function detailPanelBounds(): { min: number; max: number; canResize: boolean } {
-  const viewportWidth = window.innerWidth;
-  if (viewportWidth <= 920) return { min: viewportWidth, max: viewportWidth, canResize: false };
+  const containerWidth = document.querySelector(".graph-review-main")?.getBoundingClientRect().width ?? window.innerWidth;
+  if (containerWidth <= 920) return { min: containerWidth, max: containerWidth, canResize: false };
   return {
-    min: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, viewportWidth * DETAIL_PANEL_MIN_RATIO),
-    max: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, Math.min(viewportWidth * DETAIL_PANEL_MAX_RATIO, viewportWidth * (1 - GRAPH_MIN_RATIO))),
+    min: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, containerWidth * DETAIL_PANEL_MIN_RATIO),
+    max: Math.max(DETAIL_PANEL_MIN_ABSOLUTE_WIDTH, Math.min(containerWidth * DETAIL_PANEL_MAX_RATIO, containerWidth - GRAPH_MIN_ABSOLUTE_WIDTH)),
     canResize: true,
   };
 }
