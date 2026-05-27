@@ -6,7 +6,8 @@ Agent GUI는 에이전트가 만든 graph plan을 브라우저에서 리뷰하�
 
 - Graph는 작업의 흐름, 의존성, 분기, 반복, 하위 흐름을 표현합니다.
 - Node는 사람이 선택하고 검토하는 판단 단위입니다.
-- Node의 `iframes[]`는 에이전트가 직접 구성한 HTML 상세 화면의 진입점입니다.
+- Node의 `iframes[]`는 대상 프로젝트가 제공한 local HTTP HTML/preview app 상세 화면의 진입점입니다.
+- `iframes[].entryPath`는 선택 필드이며, 해당 iframe URL을 만든 source entry 파일 경로를 workspace 기준으로 가리킵니다.
 - 상세 체크리스트, before/after 비교, 프로토타입 상태, 리뷰 질문은 React UI가 구조화해서 해석하지 않고 iframe HTML이 담당합니다.
 - Feedback/reply/revision target은 `GraphPlanTarget`으로 저장합니다.
 
@@ -101,6 +102,7 @@ type GraphPlanNode = {
     id: string;
     description: string;
     url: string;
+    entryPath?: string;
   }[];
 };
 ```
@@ -111,6 +113,8 @@ iframe URL은 기본적으로 다음만 허용합니다.
 - `http://127.0.0.1:<port>/...`
 
 같은 node 안에서 `iframes[].id`는 유일해야 합니다.
+
+`iframes[].entryPath`는 URL만으로 preview source를 역추적하기 어려울 때 사용합니다. 기타 시나리오 설명, 상태 의미, 검토 기준은 `description` 또는 iframe HTML 안에 둡니다.
 
 ## Review UI Shape
 
@@ -124,7 +128,7 @@ Right Detail Panel
 
 - Header는 title, goal, status, revision, validation, approval action을 보여줍니다.
 - Left Graph View는 root graph와 모든 하위 graph를 함께 보여주고, 하단에 compact feedback composer를 둡니다.
-- Right Detail Panel은 현재 선택한 node의 `markdownDesc`, iframe tabs, active sandbox iframe preview를 보여줍니다.
+- 선택한 node의 `markdownDesc`는 graph 위 overlay로 보여주고, Right Detail Panel은 iframe tabs와 active sandbox iframe preview를 보여줍니다.
 - iframe tab 선택 상태에서 feedback을 남기면 target은 `{ type: "iframe", graphId, nodeId, iframeId }`입니다.
 
 ## What To Inspect For POC Value
