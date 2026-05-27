@@ -1,9 +1,21 @@
 import type { GraphPlanTarget, PlanSession } from "@agent-gui/plan-schema";
 
+export async function fetchSessions(): Promise<PlanSession[]> {
+  const response = await fetch("/api/sessions");
+  if (!response.ok) throw new Error("Failed to fetch sessions");
+  const body = (await response.json()) as { sessions: PlanSession[] };
+  return body.sessions;
+}
+
 export async function fetchSession(sessionId: string): Promise<PlanSession> {
   const response = await fetch(`/api/sessions/${sessionId}`);
   if (!response.ok) throw new Error(`Failed to fetch session ${sessionId}`);
   return response.json();
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(`Failed to delete session ${sessionId}`);
 }
 
 export async function createFixtureSession(): Promise<{ sessionId: string; url: string; revision: number }> {
