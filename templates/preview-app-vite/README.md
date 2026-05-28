@@ -1,14 +1,14 @@
 # Agent GUI Preview App Template
 
-이 폴더는 npm 배포 전까지 다른 프로젝트에 임시로 복사해 쓰는 preview kit/library template입니다.
+이 폴더는 npm 배포 전까지 다른 프로젝트에 임시로 복사해 쓰는 Preview Runtime template입니다.
 
-프로토타입을 모아두는 위치가 아닙니다. 실제 PRD, spec, 화면 상태 prototype은 이 template을 복사해 간 대상 프로젝트나 별도 fixture app이 소유합니다.
+프로토타입을 모아두는 위치가 아닙니다. 실제 PRD, spec, 화면 상태 prototype, preview entry는 이 template을 복사해 간 대상 프로젝트나 별도 fixture app이 소유합니다.
 
 ## Ownership
 
-- 이 template은 재사용 가능한 shell component와 local Vite dev server 예시만 제공합니다.
+- 이 template은 재사용 가능한 shell component, preview registry, local Vite dev server 예시만 제공합니다.
 - 이 폴더 자체에 기능별 prototype, PRD, spec fixture를 누적하지 않습니다.
-- 이 폴더를 복사한 프로젝트가 실제 preview app 코드, 디자인시스템 연결, mock data, 상태 fixture를 소유합니다.
+- 이 폴더를 복사한 프로젝트가 실제 TSX entry, preview app 코드, 디자인시스템 연결, mock data, 상태 fixture를 소유합니다.
 - Agent GUI는 복사된 preview app을 생성하거나 해석하지 않습니다.
 - Agent GUI에는 복사된 preview app이 제공하는 local HTTP URL을 `GraphPlanNode.iframes[].url`로 등록합니다.
 - URL을 만든 source entry 파일을 에이전트가 나중에 읽어야 한다면 `GraphPlanNode.iframes[].entryPath`에 workspace 기준 경로를 함께 등록합니다.
@@ -16,7 +16,7 @@
 ## Basic Flow
 
 1. 이 폴더를 사용하는 프로젝트 안으로 복사합니다.
-2. `src/previews/*.tsx`에 프로젝트별 preview component를 만듭니다.
+2. `src/previews/*.tsx`에 프로젝트별 preview/prototype TSX entry를 만듭니다.
 3. `src/previews/registry.ts`에 preview id와 component를 등록합니다.
 4. preview component 안에서 `PreviewShell`, `PreviewPanel`, 프로젝트 디자인시스템, 실제 컴포넌트를 사용합니다.
 5. template dev server를 실행해 explicit port가 있는 local HTTP URL을 만듭니다.
