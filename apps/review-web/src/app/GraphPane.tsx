@@ -14,10 +14,11 @@ import {
 } from "@xyflow/react";
 import { useMemo, type MouseEvent, type ReactNode, type SyntheticEvent } from "react";
 import { conditionLabel, edgeKey, getChildGraphIds, nodeKey, targetKey, type GraphIndex, type GraphSelection } from "./graphReviewModel";
+import { reviewEdgeTypes } from "./GraphEdges";
 import { MarkdownView } from "./MarkdownView";
 
 type ReviewFlowNode = FlowNode<{ label: ReactNode; target: GraphSelection }, "default">;
-type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge; graphId?: string }>;
+type ReviewFlowEdge = FlowEdge<{ edge?: GraphPlanEdge; graphId?: string; laneOffset?: number; loopLane?: number }>;
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 116;
@@ -47,6 +48,7 @@ export function GraphPane({
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          edgeTypes={reviewEdgeTypes}
           fitView
           fitViewOptions={{ padding: 0.24 }}
           minZoom={0.25}
@@ -245,22 +247,20 @@ function buildSelectedNodeOverlay(
 }
 
 function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selection: GraphSelection): ReviewFlowEdge[] {
-  const graphEdges = document.graphs.flatMap((graph) =>
-    graph.edges.map((edge) => ({
-      id: edge.id,
-      source: flowNodeId(graph.id, edge.from),
-      target: flowNodeId(graph.id, edge.to),
-      label: edge.kind === "sequence" && !edge.label && !edge.condition ? undefined : conditionLabel(edge),
-      type: "smoothstep",
-      animated: edge.kind === "conditional" || edge.kind === "loop" || selection.edgeId === edge.id,
-      className: selection.edgeId === edge.id ? "review-flow-edge selected" : "review-flow-edge",
-      markerEnd: { type: MarkerType.ArrowClosed },
-      labelShowBg: true,
-      labelBgPadding: [5, 3] as [number, number],
-      labelBgBorderRadius: 4,
-      data: { edge, graphId: graph.id },
-    })),
-  );
+  const graphEdges = document.graphs.flatMap((graph) => {
+    const laneOffsets = edgeLaneOffsets(graph);
+    let loopLane = 0;
+    return graph.edges.map((edge) => {
+      const render = edgeRenderConfig(edge, selection.edgeId === edge.id, laneOffsets.get(edge.id) ?? 0, edge.kind === "loop" ? loopLane++ : undefined);
+      return {
+        id: edge.id,
+        source: flowNodeId(graph.id, edge.from),
+        target: flowNodeId(graph.id, edge.to),
+        ...render,
+        data: { edge, graphId: graph.id, laneOffset: render.laneOffset, loopLane: render.loopLane },
+      } satisfies ReviewFlowEdge;
+    });
+  });
   const subgraphEdges = document.graphs.flatMap((graph) =>
     graph.nodes.flatMap((node) =>
       (node.subGraphs ?? []).flatMap((childGraphId) => {
@@ -272,19 +272,85 @@ function buildFlowEdges(document: GraphPlanDocument, index: GraphIndex, selectio
           source: flowNodeId(graph.id, node.id),
           target: flowNodeId(childGraphId, firstChildNode.id),
           label: "하위 그래프",
-          type: "smoothstep",
+          type: "childGraphLink",
           animated: false,
           className: "review-flow-edge child-graph-edge",
           markerEnd: { type: MarkerType.ArrowClosed },
           labelShowBg: true,
           labelBgPadding: [5, 3] as [number, number],
           labelBgBorderRadius: 4,
-          data: { graphId: childGraphId },
+          data: { graphId: childGraphId, laneOffset: 0 },
         } satisfies ReviewFlowEdge;
       }),
     ),
   );
   return [...graphEdges, ...subgraphEdges];
+}
+
+function edgeRenderConfig(edge: GraphPlanEdge, selected: boolean, laneOffset: number, loopLane?: number) {
+  const baseClassName = `review-flow-edge ${edge.kind === "dependency" ? "dependency-edge" : ""} ${edge.kind === "conditional" ? "conditional-edge" : ""} ${selected ? "selected" : ""}`.trim();
+  if (edge.kind === "loop") {
+    return {
+      label: edge.label ?? "loop",
+      type: "loopBack",
+      animated: selected,
+      className: `review-flow-edge loop-edge ${selected ? "selected" : ""}`.trim(),
+      markerEnd: { type: MarkerType.ArrowClosed },
+      laneOffset,
+      loopLane: loopLane ?? 0,
+      zIndex: 2,
+    };
+  }
+  if (edge.kind === "dependency") {
+    return {
+      label: selected ? conditionLabel(edge) : undefined,
+      type: "forwardOffset",
+      animated: false,
+      className: baseClassName,
+      markerEnd: { type: MarkerType.ArrowClosed },
+      laneOffset,
+      labelShowBg: true,
+      labelBgPadding: [5, 3] as [number, number],
+      labelBgBorderRadius: 4,
+    };
+  }
+  return {
+    label: edge.kind === "sequence" && !edge.label && !edge.condition ? undefined : conditionLabel(edge),
+    type: "forwardOffset",
+    animated: selected,
+    className: baseClassName,
+    markerEnd: { type: MarkerType.ArrowClosed },
+    laneOffset,
+    labelShowBg: true,
+    labelBgPadding: [5, 3] as [number, number],
+    labelBgBorderRadius: 4,
+  };
+}
+
+function edgeLaneOffsets(graph: GraphPlanGraph): Map<string, number> {
+  const offsets = new Map<string, number>();
+  const edgesBySource = new Map<string, GraphPlanEdge[]>();
+
+  for (const edge of graph.edges) {
+    if (edge.kind === "loop") continue;
+    const edges = edgesBySource.get(edge.from) ?? [];
+    edges.push(edge);
+    edgesBySource.set(edge.from, edges);
+  }
+
+  for (const edges of edgesBySource.values()) {
+    const laneCount = edges.length;
+    edges.forEach((edge, index) => {
+      offsets.set(edge.id, laneOffset(index, laneCount));
+    });
+  }
+
+  return offsets;
+}
+
+function laneOffset(index: number, count: number): number {
+  if (count <= 1) return 0;
+  return (index - (count - 1) / 2) * 18;
 }
 
 function issueCountForTarget(index: GraphIndex, target: GraphPlanTarget): number {
@@ -314,7 +380,7 @@ function layoutGraphs(document: GraphPlanDocument): Map<string, GraphLayout> {
       const row = rowsByLevel.get(level) ?? 0;
       rowsByLevel.set(level, row + 1);
       nodePositions.set(node.id, {
-        x: 64 + level * (NODE_WIDTH + COLUMN_GAP),
+        x: graphBaseX(graph, layouts) + level * (NODE_WIDTH + COLUMN_GAP),
         y: laneY + row * (NODE_HEIGHT + ROW_GAP),
       });
     });
@@ -326,6 +392,13 @@ function layoutGraphs(document: GraphPlanDocument): Map<string, GraphLayout> {
   }
 
   return layouts;
+}
+
+function graphBaseX(graph: GraphPlanGraph, layouts: Map<string, GraphLayout>): number {
+  if (!graph.parent) return 64;
+  const parentPosition = layouts.get(graph.parent.graphId)?.nodePositions.get(graph.parent.nodeId);
+  if (!parentPosition) return 64;
+  return parentPosition.x;
 }
 
 function graphNodeLevels(graph: GraphPlanGraph): Map<string, number> {
