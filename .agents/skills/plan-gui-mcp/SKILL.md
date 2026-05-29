@@ -105,15 +105,6 @@ Prefer direct MCP tools when available:
 - `validate_graph_plan({ graphPlan, mode? })`
 - `mark_plan_approved({ sessionId, revision, message? })`
 
-If direct MCP tools are not available, use local HTTP:
-
-```bash
-curl -s http://localhost:8787/mcp/tools
-curl -s -X POST http://localhost:8787/mcp/call \
-  -H 'content-type: application/json' \
-  --data-binary @payload.json
-```
-
 ## Standard Workflow
 
 1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
@@ -248,7 +239,6 @@ Minimal node with iframe:
 - If iframe targets or iframe mutation ops are rejected, restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
 - Existing stored sessions may contain old fields; create a new session for graph/html validation.
 - HTTP calls from Node may hit sandbox network restrictions. `curl` is usually approved in this repo.
-- If using fixture/debug HTML under `docs/prototypes`, restart `pnpm dev` before relying on the route.
 
 ## Local Commands
 
