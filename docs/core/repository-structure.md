@@ -9,17 +9,20 @@ apps/server
 apps/review-web
   브라우저 graph plan review UI
 
-apps/prototype-runtime
-  preview/prototype runtime app
-
 packages/plan-schema
   GraphPlanDocument, GraphPlanTarget, PlanSession, PlanEvent schema
+
+packages/preview-runtime
+  npm-style iframe preview runtime package, Vite plugin, preview presets
 
 packages/design-system
   공용 디자인 시스템 컴포넌트와 토큰
 
 fixtures/review-target-app
   실제 리뷰 대상처럼 쓰는 작은 fixture app
+
+fixtures/preview-runtime-consumer
+  preview runtime package 주입 계약 검증용 fixture
 
 fixtures/checklist-prototype
   checklist 기반 prototype fixture
@@ -29,9 +32,6 @@ fixtures/todo-list-prototype
 
 fixtures/todo-prd-spec-preview
   todo PRD/spec preview fixture
-
-templates/preview-app-vite
-  preview app 작성을 위한 Vite template
 
 docs
   현재 제품 문서, core 사용자 문서, legacy 문서, prototype fixture
