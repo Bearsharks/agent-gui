@@ -1,5 +1,7 @@
 # Preview Runtime PRD
 
+작업 추적 문서는 [preview-runtime-sandbox-tasks.md](preview-runtime-sandbox-tasks.md)를 따른다.
+
 ## Product Summary
 
 Preview Runtime은 Agent GUI graph plan의 node iframe에 연결할 수 있는 local prototype preview server다.
