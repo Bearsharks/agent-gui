@@ -70,19 +70,26 @@
 
 작업 목록:
 
-- [ ] `styles` config를 generated setup module에 import
-- [ ] `aliases` config를 Vite `resolve.alias`로 변환
-- [ ] optional `.agent-gui/preview.setup.tsx` provider 지원
-- [ ] `publicDir` config 지원
-- [ ] watcher polling config 지원
-- [ ] production feature component reuse가 non-goal임을 skill/README에 명시
+- [x] `styles` config를 generated setup module에 import
+- [x] `aliases` config를 Vite `resolve.alias`로 변환
+- [x] optional `.agent-gui/preview.setup.tsx` provider 지원
+- [x] `publicDir` config 지원
+- [x] watcher polling config 지원
+- [x] production feature component reuse가 non-goal임을 skill/README에 명시
 
 검증:
 
-- [ ] CSS token import가 모든 preview에 적용되는지 확인
-- [ ] alias로 디자인시스템 component import가 되는지 확인
-- [ ] setup provider가 preview를 감싸는지 확인
-- [ ] production app `vite.config.ts` 없이 동작하는지 확인
+- [x] CSS token import가 모든 preview에 적용되는지 확인
+- [x] alias로 디자인시스템 component import가 되는지 확인
+- [x] setup provider가 preview를 감싸는지 확인
+- [x] production app `vite.config.ts` 없이 동작하는지 확인
+
+검증 기록:
+
+- 2026-05-29: `/private/tmp/agent-gui-phase2.ZBCrom`에서 `styles`, `aliases`, `setup`, `publicDir`, `watch` 설정을 추가해 dev server 실행.
+- 2026-05-29: Agent Browser로 `Setup provider active`, `Design-system alias and global CSS are active.`, `Design system button` 렌더링 확인.
+- 2026-05-29: `http://127.0.0.1:5174/agent-gui-preview/phase3.txt` public asset 응답 확인.
+- 2026-05-29: 대상 프로젝트 root에 `vite.config.ts` 없이 동작 확인.
 
 ## Phase 4: Agent GUI Integration
 
