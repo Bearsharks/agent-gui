@@ -123,6 +123,33 @@ importers:
         specifier: ^25.9.0
         version: 25.9.0
 
+  fixtures/preview-runtime-consumer:
+    dependencies:
+      '@agent-gui/preview-runtime':
+        specifier: workspace:*
+        version: link:../../packages/preview-runtime
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(tsx@4.22.3))
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.13
+        version: 8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(tsx@4.22.3)
+
   fixtures/review-target-app:
     dependencies:
       '@agent-gui/design-system':
@@ -132,6 +159,30 @@ importers:
         specifier: ^19.2.6
         version: 19.2.6
 
+  fixtures/todo-prd-spec-preview:
+    dependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(tsx@4.22.3))
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.13
+        version: 8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(tsx@4.22.3)
+
   packages/design-system:
     dependencies:
       react:
@@ -139,6 +190,22 @@ importers:
         version: 19.2.6
 
   packages/plan-schema: {}
+
+  packages/preview-runtime:
+    dependencies:
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
+      vite:
+        specifier: ^8.0.13
+        version: 8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(tsx@4.22.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.0
+        version: 25.9.0
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
 
 packages:
 

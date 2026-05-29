@@ -1,5 +1,5 @@
 {
-  "name": "agent-gui-preview-app-template",
+  "name": "@agent-gui/preview-runtime-consumer",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@agent-gui/preview-runtime": "workspace:*",
     "@vitejs/plugin-react": "^6.0.2",
     "vite": "^8.0.13",
     "typescript": "^6.0.3",

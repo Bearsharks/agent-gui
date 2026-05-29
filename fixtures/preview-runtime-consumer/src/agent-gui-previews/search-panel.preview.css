@@ -1,0 +1,30 @@
+.search-panel-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.search-panel-preview label {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.search-panel-preview input {
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  font: inherit;
+  padding: 9px 10px;
+}
+
+.search-panel-preview ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.search-panel-preview__empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 10px;
+}

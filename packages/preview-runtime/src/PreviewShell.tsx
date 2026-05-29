@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./preview-shell.css";
+import "./preview-runtime.css";
 
 export type PreviewShellProps = {
   title: string;

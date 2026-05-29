@@ -40,15 +40,17 @@ npx skills add https://github.com/Bearsharks/agent-gui/
 
 각 대상 프로젝트가 node iframe preview 화면을 local HTTP URL로 제공하기 위해 실행하는 preview runtime이다.
 
-현재는 Agent GUI repo의 Vite template을 대상 프로젝트 안으로 복사해 사용한다.
+현재 제품 계약은 npm-style runtime package와 대상 프로젝트 설정/entry의 분리다.
 
 ```txt
-templates/preview-app-vite
+node_modules/@agent-gui/preview-runtime
+target-project/agent-gui.preview.config.ts
+target-project/src/agent-gui-previews/**/*.preview.tsx
 ```
 
-복사 원본 template은 shell, preview host, registry 구조와 local web server 예시를 제공한다. 실제 preview/prototype TSX entry, mock data, 상태 fixture, 디자인시스템 연결은 대상 프로젝트가 소유한다.
+Runtime package는 shell, preset component, Vite plugin, virtual registry 생성을 제공한다. 실제 preview/prototype TSX entry, mock data, 상태 fixture, 디자인시스템 연결은 대상 프로젝트가 소유한다.
 
-목표는 대상 프로젝트가 entry file만 주입하면 여러 preview template과 공통 웹서버 shell을 통해 iframe review URL을 바로 얻는 것이다.
+목표는 대상 프로젝트가 config의 `entries` glob 아래에 entry file만 추가하면 공통 웹서버 shell을 통해 iframe review URL을 바로 얻는 것이다.
 
 ## Core Workflow
 
