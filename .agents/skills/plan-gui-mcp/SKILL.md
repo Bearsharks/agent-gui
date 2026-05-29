@@ -76,6 +76,75 @@ Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `if
   - `http://127.0.0.1:<port>/...`
 - The browser app appends `planRevision=<revision>` to iframe URLs and remounts iframe previews when the plan revision changes. Keep iframe URLs stable; do not add your own revision cache-buster unless the HTML itself needs a separate version key.
 
+## Preview Runtime Usage
+
+When a node needs a visual prototype iframe, prefer the target project's `@agent-gui/preview-runtime` setup.
+
+Responsibility boundary:
+
+- Preview runtime package owns the CLI, internal Vite app, `PreviewHost`, preview presets, and virtual registry wiring.
+- Target project owns `.agent-gui/preview.config.ts`, `.agent-gui/previews/*.preview.tsx`, optional setup/CSS, mock data, and iframe URL/entryPath values.
+- Do not ask the target project to create `vite.config.ts`, `index.html`, `src/main.tsx`, or `registry.ts` for Agent GUI preview runtime usage.
+- Preview entries are independent prototype screens. They may use the target project's design system, tokens, CSS, icons, and mock data, but they are not expected to reuse production feature components, routing, auth, or API state.
+
+Target project config:
+
+```ts
+// .agent-gui/preview.config.ts
+import { definePreviewConfig } from "@agent-gui/preview-runtime/config";
+
+export default definePreviewConfig({
+  entries: [".agent-gui/previews/**/*.preview.tsx"],
+  styles: ["src/styles/tokens.css"],
+  aliases: {
+    "@": "./src",
+  },
+  devServer: {
+    host: "127.0.0.1",
+    port: 5174,
+  },
+});
+```
+
+Preview entry:
+
+```tsx
+// .agent-gui/previews/search-panel.preview.tsx
+import { SingleScreenPreview, definePreview } from "@agent-gui/preview-runtime";
+
+export default definePreview({
+  id: "search-panel",
+  title: "Search Panel Prototype",
+  description: "검색 패널 의사결정을 위한 prototype",
+  component() {
+    return (
+      <SingleScreenPreview title="Default state">
+        <SearchPanelPrototype />
+      </SingleScreenPreview>
+    );
+  },
+});
+```
+
+Run the preview runtime from the target project:
+
+```bash
+agent-gui-preview dev
+```
+
+Use the preview id as the iframe URL query:
+
+```json
+{
+  "id": "iframe-search-panel",
+  "description": "검색 패널 prototype",
+  "url": "http://127.0.0.1:5174/?preview=search-panel",
+  "entryPath": ".agent-gui/previews/search-panel.preview.tsx"
+}
+```
+
+If no `preview` query is provided, the runtime root page lists registered previews and source paths. If a new `.preview.tsx` file is added while the dev server is running, Vite glob HMR usually picks it up; in watcher-limited environments, refresh or restart `agent-gui-preview dev`.
+
 ## Targets
 
 Feedback, relations, and mutations use `GraphPlanTarget`:
@@ -109,7 +178,7 @@ Prefer direct MCP tools when available:
 
 1. Inspect the current schema if unsure: `packages/plan-schema/src/graphPlan.ts`.
 2. Draft a focused `GraphPlanDocument` with explicit graph/node/edge/iframe IDs.
-3. When visual review helps, prefer a preview URL served by the target project, such as `http://localhost:5173/...`.
+3. When visual review helps, prefer a preview URL served by the target project's preview runtime, such as `http://127.0.0.1:5174/?preview=<id>`.
 4. Use `docs/prototypes` only for Agent GUI fixture/debug HTML in this repo, not as the default place for real project previews.
 5. Attach HTML entry points through `node.iframes[]`.
 6. Validate before creating a session: `validate_graph_plan` with `mode: "publish"` when possible.
@@ -188,8 +257,8 @@ Add an iframe entry:
   "iframe": {
     "id": "iframe-before-after",
     "description": "Before/after comparison",
-    "url": "http://localhost:5173/agent-gui-preview/revision-before-after",
-    "entryPath": "src/agent-gui-preview/revision-before-after.tsx"
+    "url": "http://127.0.0.1:5174/?preview=revision-before-after",
+    "entryPath": ".agent-gui/previews/revision-before-after.preview.tsx"
   }
 }
 ```
@@ -202,7 +271,7 @@ Update an iframe entry:
   "target": { "type": "iframe", "graphId": "g-review", "nodeId": "n-result-review", "iframeId": "iframe-before-after" },
   "fields": {
     "description": "Revision before/after comparison",
-    "entryPath": "src/agent-gui-preview/revision-before-after.tsx"
+    "entryPath": ".agent-gui/previews/revision-before-after.preview.tsx"
   }
 }
 ```
@@ -227,8 +296,8 @@ Minimal node with iframe:
     {
       "id": "iframe-result-review",
       "description": "수정 결과 리뷰 화면",
-      "url": "http://localhost:5173/agent-gui-preview/revision-review",
-      "entryPath": "src/agent-gui-preview/revision-review.tsx"
+      "url": "http://127.0.0.1:5174/?preview=revision-review",
+      "entryPath": ".agent-gui/previews/revision-review.preview.tsx"
     }
   ]
 }
@@ -243,6 +312,7 @@ Minimal node with iframe:
 ## Local Commands
 
 - Start server: `pnpm dev`
+- Start target preview runtime: `agent-gui-preview dev` from the target project that has `.agent-gui/preview.config.ts`
 - Fixture sessions: `curl -s -X POST 'http://localhost:8787/api/fixture-session?scenario=linear'`, `prototype`, or `revision`
 - List HTTP tools: `curl -s http://localhost:8787/mcp/tools`
 - Notify agent after browser feedback: `pnpm planctl notify <sessionId>`

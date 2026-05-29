@@ -72,13 +72,13 @@ npx skills add https://github.com/Bearsharks/agent-gui/
 
 Preview Runtime은 대상 프로젝트 안에서 실행되는 iframe preview runtime이다.
 
-`@agent-gui/preview-runtime`은 npm 배포를 전제로 한 runtime package다. 대상 프로젝트는 package를 설치하고, 프로젝트 안에 `agent-gui.preview.config.ts`와 preview entry 파일을 둔다. Runtime package는 host, preset component, Vite plugin, virtual registry 생성을 제공하고, 실제 preview content는 대상 프로젝트가 소유한다.
+`@agent-gui/preview-runtime`은 npm 배포를 전제로 한 runtime package다. 대상 프로젝트는 package를 설치하고, 프로젝트 안에 `.agent-gui/preview.config.ts`와 preview entry 파일을 둔다. Runtime package는 CLI, host, preset component, 내부 Vite app, virtual registry 생성을 제공하고, 실제 preview content는 대상 프로젝트가 소유한다.
 
 역할:
 
 - node 판단에 필요한 실제 화면 상태를 local HTTP URL로 제공한다.
 - before/after 비교, 체크리스트, 상태 matrix, prototype, preview 화면을 iframe으로 보여준다.
-- 대상 프로젝트의 컴포넌트, 디자인시스템, mock data, fixture state를 직접 사용한다.
+- 대상 프로젝트의 디자인시스템, token, mock data, fixture state를 직접 사용한다.
 - 프로젝트별 TSX entry file을 주입하면 preview 화면으로 렌더링한다.
 - preview preset과 공통 웹서버 shell을 제공해 entry 주입만으로 쓰기 쉽게 만든다.
 - Agent GUI graph plan node의 `iframes[].url`과 연결된다.
@@ -93,7 +93,7 @@ Agent GUI를 사용할 대상 프로젝트
 설정 파일:
 
 ```txt
-agent-gui.preview.config.ts
+.agent-gui/preview.config.ts
 ```
 
 설정 예시:
@@ -102,7 +102,7 @@ agent-gui.preview.config.ts
 import { definePreviewConfig } from "@agent-gui/preview-runtime/config";
 
 export default definePreviewConfig({
-  entries: ["src/agent-gui-previews/**/*.preview.tsx"],
+  entries: [".agent-gui/previews/**/*.preview.tsx"],
   devServer: {
     host: "127.0.0.1",
     port: 5173,
@@ -117,7 +117,7 @@ iframe entry 예시:
   "id": "iframe-project-preview",
   "description": "프로젝트 preview",
   "url": "http://127.0.0.1:5173/?preview=search-panel",
-  "entryPath": "src/agent-gui-previews/search-panel.preview.tsx"
+  "entryPath": ".agent-gui/previews/search-panel.preview.tsx"
 }
 ```
 
@@ -130,9 +130,10 @@ Preview Runtime의 목표는 대상 프로젝트가 화면 entry만 주입하면
 기본 개념:
 
 - Preview Runtime Package: `@agent-gui/preview-runtime`
-- Preview Config: 대상 프로젝트의 `agent-gui.preview.config.ts`
-- Preview Entry: `src/agent-gui-previews/**/*.preview.tsx` 같은 TSX entry file
-- Virtual Preview Registry: config의 `entries` glob으로 Vite plugin이 생성하는 registry
+- Preview CLI: `agent-gui-preview dev`
+- Preview Config: 대상 프로젝트의 `.agent-gui/preview.config.ts`
+- Preview Entry: `.agent-gui/previews/**/*.preview.tsx` 같은 TSX entry file
+- Virtual Preview Registry: config의 `entries` glob으로 CLI 내부 Vite app이 생성하는 registry
 - Preview URL: Agent GUI node iframe에 등록되는 local HTTP URL
 
 현재 repo에는 package 경계를 검증하는 fixture가 있다.
@@ -142,9 +143,9 @@ packages/preview-runtime
 fixtures/preview-runtime-consumer
 ```
 
-대상 프로젝트는 preview entry file만 추가하면 되고, 사람이 별도 registry 파일을 수정하지 않는다. Runtime package의 Vite plugin이 config의 `entries` glob을 읽어 `virtual:agent-gui-preview-registry` module을 만든다.
+대상 프로젝트는 preview config와 preview entry file만 추가하면 되고, 사람이 `vite.config.ts`, `src/main.tsx`, `registry.ts`를 만들지 않는다. Runtime CLI가 config의 `entries` glob을 읽어 `virtual:agent-gui-preview-registry` module을 만든다.
 
-Preview Runtime의 상세 요구사항은 [preview-runtime-requirements.md](preview-runtime-requirements.md)를 따른다.
+Preview Runtime의 제품 방향은 [preview-runtime-prd.md](preview-runtime-prd.md), 상세 요구사항은 [preview-runtime-requirements.md](preview-runtime-requirements.md)를 따른다.
 
 ## Responsibility Boundary
 
@@ -161,7 +162,7 @@ Agent GUI repo
   preview runtime package 설치
   preview config
   실제 preview/prototype TSX entry
-  preview mock data / fixture state
+  preview mock data / fixture state / design system setup
   iframe URL / entryPath source
 
 에이전트

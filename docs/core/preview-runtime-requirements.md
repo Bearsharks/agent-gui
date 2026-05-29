@@ -13,15 +13,16 @@ Agent GUI는 plan review UI와 feedback/revision loop를 소유한다. Preview R
 Preview Runtime은 세 가지 개념으로 나뉜다.
 
 - Preview Runtime Package: `@agent-gui/preview-runtime`
-- Preview Config: 대상 프로젝트가 소유하는 `agent-gui.preview.config.ts`
+- Preview CLI: `agent-gui-preview dev`
+- Preview Config: 대상 프로젝트가 소유하는 `.agent-gui/preview.config.ts`
 - Preview Entry: 대상 프로젝트가 주입하는 TSX entry file
 
 Runtime package는 `node_modules`에 있고, 대상 프로젝트는 config와 entry file만 소유한다.
 
 ```txt
 node_modules/@agent-gui/preview-runtime
-target-project/agent-gui.preview.config.ts
-target-project/src/agent-gui-previews/**/*.preview.tsx
+target-project/.agent-gui/preview.config.ts
+target-project/.agent-gui/previews/**/*.preview.tsx
 ```
 
 제품 계약은 package runtime과 대상 프로젝트 config/entry의 분리다.
@@ -33,10 +34,10 @@ target-project/src/agent-gui-previews/**/*.preview.tsx
 대상 프로젝트는 TSX entry file만 추가해서 preview 화면을 만들 수 있어야 한다.
 
 ```txt
-src/agent-gui-previews/search-panel.preview.tsx
+.agent-gui/previews/search-panel.preview.tsx
 ```
 
-Preview Runtime package는 대상 프로젝트 파일을 하드코딩 import하지 않는다. 대상 프로젝트의 config가 entry glob을 선언하고, runtime Vite plugin이 그 glob으로 virtual registry를 생성한다.
+Preview Runtime package는 대상 프로젝트 파일을 하드코딩 import하지 않는다. 대상 프로젝트의 config가 entry glob을 선언하고, CLI의 내부 Vite app이 그 glob으로 virtual registry를 생성한다.
 
 설정 예시:
 
@@ -44,7 +45,7 @@ Preview Runtime package는 대상 프로젝트 파일을 하드코딩 import하�
 import { definePreviewConfig } from "@agent-gui/preview-runtime/config";
 
 export default definePreviewConfig({
-  entries: ["src/agent-gui-previews/**/*.preview.tsx"],
+  entries: [".agent-gui/previews/**/*.preview.tsx"],
   devServer: {
     host: "127.0.0.1",
     port: 5173,
@@ -74,10 +75,11 @@ export default definePreview({
 - preview id는 `definePreview()`의 `id`와 정확히 일치해야 한다.
 - entry는 `id`, `title`, 선택 `description`, `component`를 가져야 한다.
 - `component`는 Runtime이 제공하는 shell 안에 렌더링되는 React component다.
-- entry file은 대상 프로젝트의 컴포넌트, 디자인시스템, mock data를 import할 수 있어야 한다.
+- entry file은 대상 프로젝트의 디자인시스템, token, mock data를 import할 수 있어야 한다.
 - entry file path는 Agent GUI iframe entry의 `entryPath`에 기록할 수 있어야 한다.
 - 사람이 `registry.ts`를 직접 수정하지 않아야 한다.
-- Runtime Vite plugin은 `virtual:agent-gui-preview-registry`를 생성해야 한다.
+- 사람이 `vite.config.ts`, `index.html`, `src/main.tsx`를 직접 만들지 않아야 한다.
+- Runtime CLI는 `virtual:agent-gui-preview-registry`를 생성해야 한다.
 - Runtime은 registry에 없는 preview id를 fallback 화면으로 처리하고, 등록된 preview 목록을 보여줘야 한다.
 
 ### 2. Local HTTP URL
@@ -144,7 +146,7 @@ iframe entry 예시:
   "id": "iframe-project-preview",
   "description": "프로젝트 preview",
   "url": "http://127.0.0.1:5173/?preview=search-panel",
-  "entryPath": "src/agent-gui-previews/search-panel.preview.tsx"
+  "entryPath": ".agent-gui/previews/search-panel.preview.tsx"
 }
 ```
 
@@ -173,47 +175,43 @@ iframe entry 예시:
 - Preview Runtime이 production app routing을 대체하지 않는다.
 - Preview Runtime이 테스트 runner나 full visual regression system이 되지 않는다.
 - Runtime package가 대상 프로젝트 entry file 경로를 하드코딩하지 않는다.
+- Runtime package가 production `vite.config.ts`를 merge하지 않는다.
+- Runtime package가 production feature component reuse를 보장하지 않는다.
 
 ## Open Design Questions
 
 아직 더 정해야 하는 계약이다.
 
-1. 표준 설치 위치를 정할지
-   - `agent-gui-preview/`
-   - `.agent-gui/preview/`
-   - `tools/agent-gui-preview/`
-
-2. config의 `entries` glob 기본값을 정할지
-   - `src/agent-gui-previews/**/*.preview.tsx`
-   - `agent-gui/previews/**/*.preview.tsx`
+1. config의 `entries` glob 기본값을 정할지
    - `.agent-gui/previews/**/*.preview.tsx`
 
-3. preview state를 URL query로 표현할지
+2. preview state를 URL query로 표현할지
 
 ```txt
 ?preview=search-panel&state=empty
 ```
 
-4. 여러 preset을 어떤 API로 제공할지
+3. 여러 preset을 어떤 API로 제공할지
 
 ```tsx
 <BeforeAfterPreview before={<Before />} after={<After />} />
 ```
 
-5. 대상 프로젝트의 bundler alias, env, CSS, design system을 어떻게 연결할지
+4. 대상 프로젝트의 design system setup, CSS, asset을 어디까지 지원할지
 
-6. CLI가 config와 entry skeleton을 생성할지
+5. CLI가 config와 entry skeleton을 생성할지
 
 ## Minimum Next Implementation
 
 현재 최소 구현:
 
 1. `@agent-gui/preview-runtime` package를 제공한다.
-2. `definePreviewConfig()`로 대상 프로젝트 설정을 선언한다.
-3. `definePreview()`로 프로젝트-local entry contract를 선언한다.
-4. Vite plugin이 config의 `entries` glob으로 `virtual:agent-gui-preview-registry`를 생성한다.
-5. `PreviewHost`가 virtual registry에서 `?preview=<id>`를 찾아 렌더링한다.
-6. 기본 preset 2개를 제공한다.
+2. `agent-gui-preview` CLI를 제공한다.
+3. `definePreviewConfig()`로 대상 프로젝트 설정을 선언한다.
+4. `definePreview()`로 프로젝트-local entry contract를 선언한다.
+5. CLI 내부 Vite app이 config의 `entries` glob으로 `virtual:agent-gui-preview-registry`를 생성한다.
+6. `PreviewHost`가 virtual registry에서 `?preview=<id>`를 찾아 렌더링한다.
+7. 기본 preset 2개를 제공한다.
    - `SingleScreenPreview`
    - `BeforeAfterPreview`
-7. `fixtures/preview-runtime-consumer`로 npm-style package boundary를 검증한다.
+8. `fixtures/preview-runtime-consumer`로 npm-style package boundary를 검증한다.

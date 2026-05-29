@@ -26,11 +26,11 @@ function SearchPanel({ state }: { state: "empty" | "results" }) {
 export default definePreview({
   id: "search-panel",
   title: "Search Panel Preview",
-  description: "Project-local preview entry injected through the npm-style runtime package.",
+  description: "Prototype entry injected through the preview runtime CLI.",
   component() {
     return (
       <>
-        <SingleScreenPreview title="Project component">
+        <SingleScreenPreview title="Prototype component">
           <SearchPanel state="results" />
         </SingleScreenPreview>
         <BeforeAfterPreview

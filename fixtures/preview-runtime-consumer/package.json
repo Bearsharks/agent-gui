@@ -4,14 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "dev": "agent-gui-preview dev",
+    "build": "pnpm typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@agent-gui/preview-runtime": "workspace:*",
-    "@vitejs/plugin-react": "^6.0.2",
-    "vite": "^8.0.13",
     "typescript": "^6.0.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
