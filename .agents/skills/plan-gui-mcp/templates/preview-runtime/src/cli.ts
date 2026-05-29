@@ -32,10 +32,10 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`agent-gui-preview
+  console.log(`agent-gui preview runtime
 
 Commands:
-  agent-gui-preview dev   Start the local preview runtime server
+  dev                     Start the local preview runtime server
 
 Options:
   --project-root <path>   Target project root. Defaults to the current working directory.

@@ -99,15 +99,13 @@ Agent GUI를 사용할 대상 프로젝트
 설정 예시:
 
 ```ts
-import { definePreviewConfig } from "@agent-gui/preview-runtime/config";
-
-export default definePreviewConfig({
+export default {
   entries: [".agent-gui/previews/**/*.preview.tsx"],
   devServer: {
     host: "127.0.0.1",
     port: 5173,
   },
-});
+};
 ```
 
 iframe entry 예시:
@@ -129,21 +127,21 @@ Preview Runtime의 목표는 대상 프로젝트가 화면 entry만 주입하면
 
 기본 개념:
 
-- Preview Runtime Package: `@agent-gui/preview-runtime`
-- Preview CLI: `agent-gui-preview dev`
+- Skill Scaffold: `.agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs`
+- Generated Runtime: `.agent-gui/preview-runtime`
 - Preview Config: 대상 프로젝트의 `.agent-gui/preview.config.ts`
 - Preview Entry: `.agent-gui/previews/**/*.preview.tsx` 같은 TSX entry file
-- Virtual Preview Registry: config의 `entries` glob으로 CLI 내부 Vite app이 생성하는 registry
+- Virtual Preview Registry: config의 `entries` glob으로 generated runtime 내부 Vite app이 생성하는 registry
 - Preview URL: Agent GUI node iframe에 등록되는 local HTTP URL
 
-현재 repo에는 package 경계를 검증하는 fixture가 있다.
+현재 repo에는 runtime source와 scaffold template이 있다.
 
 ```txt
 packages/preview-runtime
-fixtures/preview-runtime-consumer
+.agents/skills/plan-gui-mcp/templates/preview-runtime
 ```
 
-대상 프로젝트는 preview config와 preview entry file만 추가하면 되고, 사람이 `vite.config.ts`, `src/main.tsx`, `registry.ts`를 만들지 않는다. Runtime CLI가 config의 `entries` glob을 읽어 `virtual:agent-gui-preview-registry` module을 만든다.
+대상 프로젝트는 `.agent-gui/preview.config.ts`와 `.agent-gui/previews/*.preview.tsx`를 관리하면 되고, 사람이 `vite.config.ts`, `src/main.tsx`, `registry.ts`를 만들지 않는다. Generated runtime이 config의 `entries` glob을 읽어 `virtual:agent-gui-preview-registry` module을 만든다.
 
 Preview Runtime의 제품 방향은 [preview-runtime-prd.md](preview-runtime-prd.md), 상세 요구사항은 [preview-runtime-requirements.md](preview-runtime-requirements.md)를 따른다.
 
@@ -155,11 +153,11 @@ Agent GUI repo
   review UI
   session/event 저장소
   MCP tool contract
-  preview runtime package
+  preview runtime source/template
 
 대상 프로젝트
   Agent GUI skill 설치
-  preview runtime package 설치
+  .agent-gui sandbox 생성
   preview config
   실제 preview/prototype TSX entry
   preview mock data / fixture state / design system setup

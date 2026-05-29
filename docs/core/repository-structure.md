@@ -13,13 +13,13 @@ packages/plan-schema
   GraphPlanDocument, GraphPlanTarget, PlanSession, PlanEvent schema
 
 packages/preview-runtime
-  npm-style iframe preview runtime package, CLI, internal Vite app, preview presets
+  skill scaffold template의 원본이 되는 iframe preview runtime source, internal Vite app, preview presets
 
 packages/design-system
   공용 디자인 시스템 컴포넌트와 토큰
 
 fixtures/preview-runtime-consumer
-  preview runtime package 주입 계약 검증용 fixture
+  preview runtime 주입 계약 검증용 fixture
 
 docs
   현재 제품 문서, core 사용자 문서, legacy 문서, prototype fixture

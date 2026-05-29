@@ -322,7 +322,8 @@ Minimal node with iframe:
 ## Local Commands
 
 - Start server: `pnpm dev`
-- Start target preview runtime: `agent-gui-preview dev` from the target project that has `.agent-gui/preview.config.ts`
+- Scaffold target preview runtime: `node .agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs`
+- Start target preview runtime: `npm --prefix .agent-gui/preview-runtime run dev` from the target project that has `.agent-gui/preview.config.ts`
 - Fixture sessions: `curl -s -X POST 'http://localhost:8787/api/fixture-session?scenario=linear'`, `prototype`, or `revision`
 - List HTTP tools: `curl -s http://localhost:8787/mcp/tools`
 - Notify agent after browser feedback: `pnpm planctl notify <sessionId>`
