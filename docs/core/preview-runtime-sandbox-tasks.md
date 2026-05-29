@@ -14,19 +14,19 @@
 
 작업 목록:
 
-- [ ] `.agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs` 추가
-- [ ] `.agents/skills/plan-gui-mcp/templates/preview-runtime/` template 추가
-- [ ] `.agent-gui/preview.config.ts` 기본 template 추가
-- [ ] `.agent-gui/previews/example.preview.tsx` 기본 template 추가
-- [ ] 기존 파일이 있을 때 덮어쓰지 않는 기본 정책 구현
-- [ ] `--force` 또는 `--upgrade-runtime` 같은 갱신 옵션 설계
+- [x] `.agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs` 추가
+- [x] `.agents/skills/plan-gui-mcp/templates/preview-runtime/` template 추가
+- [x] `.agent-gui/preview.config.ts` 기본 template 추가
+- [x] `.agent-gui/previews/example.preview.tsx` 기본 template 추가
+- [x] 기존 파일이 있을 때 덮어쓰지 않는 기본 정책 구현
+- [x] `--force` 또는 `--upgrade-runtime` 같은 갱신 옵션 설계
 
 검증:
 
-- [ ] 빈 대상 프로젝트에서 scaffold script 실행
-- [ ] `.agent-gui/preview.config.ts`가 생성되는지 확인
-- [ ] `.agent-gui/previews/example.preview.tsx`가 생성되는지 확인
-- [ ] 기존 preview entry가 있을 때 보존되는지 확인
+- [x] 빈 대상 프로젝트에서 scaffold script 실행
+- [x] `.agent-gui/preview.config.ts`가 생성되는지 확인
+- [x] `.agent-gui/previews/example.preview.tsx`가 생성되는지 확인
+- [x] 기존 preview entry가 있을 때 보존되는지 확인
 
 ## Phase 2: Isolated Runtime Server
 
