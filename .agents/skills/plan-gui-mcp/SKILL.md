@@ -78,23 +78,31 @@ Use stable readable IDs: `g-implementation`, `n-validation`, `e-review-fix`, `if
 
 ## Preview Runtime Usage
 
-When a node needs a visual prototype iframe, prefer the target project's `@agent-gui/preview-runtime` setup.
+When a node needs a visual prototype iframe, prefer the skill-scaffolded `.agent-gui` preview runtime in the target project.
 
 Responsibility boundary:
 
-- Preview runtime package owns the CLI, internal Vite app, `PreviewHost`, preview presets, and virtual registry wiring.
+- The `plan-gui-mcp` skill provides the scaffold script and runtime template.
+- Generated `.agent-gui/preview-runtime` owns the local Vite app, `PreviewHost`, preview presets, and virtual registry wiring.
 - Target project owns `.agent-gui/preview.config.ts`, `.agent-gui/previews/*.preview.tsx`, optional setup/CSS, mock data, and iframe URL/entryPath values.
 - Do not ask the target project to create `vite.config.ts`, `index.html`, `src/main.tsx`, or `registry.ts` for Agent GUI preview runtime usage.
 - Preview entries are independent prototype screens. They may use the target project's design system, tokens, CSS, icons, and mock data, but they are not expected to reuse production feature components, routing, auth, or API state.
+
+Scaffold or upgrade the target project runtime:
+
+```bash
+node .agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs
+npm --prefix .agent-gui/preview-runtime install
+npm --prefix .agent-gui/preview-runtime run dev
+```
 
 Target project config:
 
 ```ts
 // .agent-gui/preview.config.ts
-import { definePreviewConfig } from "@agent-gui/preview-runtime/config";
-
-export default definePreviewConfig({
+export default {
   entries: [".agent-gui/previews/**/*.preview.tsx"],
+  setup: ".agent-gui/preview.setup.tsx",
   styles: ["src/styles/tokens.css"],
   aliases: {
     "@": "./src",
@@ -103,7 +111,7 @@ export default definePreviewConfig({
     host: "127.0.0.1",
     port: 5174,
   },
-});
+};
 ```
 
 Preview entry:
@@ -129,7 +137,7 @@ export default definePreview({
 Run the preview runtime from the target project:
 
 ```bash
-agent-gui-preview dev
+npm --prefix .agent-gui/preview-runtime run dev
 ```
 
 Use the preview id as the iframe URL query:
@@ -143,7 +151,9 @@ Use the preview id as the iframe URL query:
 }
 ```
 
-If no `preview` query is provided, the runtime root page lists registered previews and source paths. If a new `.preview.tsx` file is added while the dev server is running, Vite glob HMR usually picks it up; in watcher-limited environments, refresh or restart `agent-gui-preview dev`.
+If no `preview` query is provided, the runtime root page lists registered previews and source paths. If a new `.preview.tsx` file is added while the dev server is running, Vite glob HMR usually picks it up; in watcher-limited environments, refresh or restart `npm --prefix .agent-gui/preview-runtime run dev`.
+
+When feedback targets an iframe preview, use the iframe target to find the node iframe, then edit the file named by `iframes[].entryPath`. Keep the preview URL stable; the running preview runtime should reflect entry changes through Vite HMR or browser refresh.
 
 ## Targets
 

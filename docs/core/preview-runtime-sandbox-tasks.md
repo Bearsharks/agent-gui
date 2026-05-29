@@ -101,18 +101,26 @@
 
 작업 목록:
 
-- [ ] skill의 iframe 작성 규칙을 `.agent-gui/previews/*.preview.tsx` 기준으로 정리
-- [ ] node iframe URL 예시를 `?preview=<id>` 기준으로 통일
-- [ ] `entryPath` 예시를 `.agent-gui/previews/<id>.preview.tsx`로 통일
-- [ ] preview runtime root 목록 화면에 source path를 표시
-- [ ] feedback 처리 시 iframe target과 preview entry 수정 흐름을 문서화
+- [x] skill의 iframe 작성 규칙을 `.agent-gui/previews/*.preview.tsx` 기준으로 정리
+- [x] node iframe URL 예시를 `?preview=<id>` 기준으로 통일
+- [x] `entryPath` 예시를 `.agent-gui/previews/<id>.preview.tsx`로 통일
+- [x] preview runtime root 목록 화면에 source path를 표시
+- [x] feedback 처리 시 iframe target과 preview entry 수정 흐름을 문서화
 
 검증:
 
-- [ ] Agent GUI session에 preview iframe 연결
-- [ ] browser review UI에서 iframe 렌더링 확인
-- [ ] iframe target feedback 생성 후 entryPath를 따라 source 수정
-- [ ] 수정 후 같은 preview URL에서 변경 확인
+- [x] Agent GUI session에 preview iframe 연결
+- [x] browser review UI에서 iframe 렌더링 확인
+- [x] iframe target feedback 생성 후 entryPath를 따라 source 수정
+- [x] 수정 후 같은 preview URL에서 변경 확인
+
+검증 기록:
+
+- 2026-05-29: MCP `create_graph_plan_session`으로 `plan_06be826d` 생성, iframe URL `http://127.0.0.1:5174/?preview=example`와 `entryPath: ".agent-gui/previews/example.preview.tsx"` 연결.
+- 2026-05-29: Agent Browser로 `http://localhost:8787/sessions/plan_06be826d`에서 iframe 내부 preview runtime 렌더링 확인.
+- 2026-05-29: iframe tab 선택 후 feedback target path가 `/ Example scaffolded preview`까지 내려가고 target type이 `iframe`으로 바뀌는 것 확인.
+- 2026-05-29: UI에서 feedback `Phase 4 iframe target feedback check` 제출 후 MCP `list_plan_events`에서 `target.type: "iframe"`, `iframeId: "iframe-example-preview"` 확인.
+- 2026-05-29: `.agent-gui/previews/example.preview.tsx` 수정 후 같은 `?preview=example` URL과 Agent GUI iframe에서 `Phase 4 source update active` 반영 확인.
 
 ## Phase 5: Documentation And Handoff
 
