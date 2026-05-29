@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "typeRoots": ["./preview-runtime/node_modules/@types"],
+    "paths": {
+      "@agent-gui/preview-runtime": ["./preview-runtime/src/index.ts"]
+    }
+  },
+  "include": ["preview-env.d.ts", "previews/**/*.preview.tsx", "preview.setup.tsx"]
+}

@@ -315,6 +315,9 @@ Minimal node with iframe:
 
 ## Runtime Gotchas
 
+- Preview entries are not the production app runtime. Router, auth, Electron bridge, React Query, and production app providers are not available unless the entry or `.agent-gui/preview.setup.tsx` provides them with mock data.
+- `npm --prefix .agent-gui/preview-runtime run typecheck` checks the generated runtime only. Use `npm --prefix .agent-gui/preview-runtime run typecheck:entries` for `.agent-gui/previews/**/*.preview.tsx` and `.agent-gui/preview.setup.tsx`.
+- The preview dev server uses `strictPort`; if `5174` is already in use, change `.agent-gui/preview.config.ts` `devServer.port` or stop the occupying process.
 - If iframe targets or iframe mutation ops are rejected, restart `pnpm dev` or the MCP server so it loads the current `@agent-gui/plan-schema`.
 - Existing stored sessions may contain old fields; create a new session for graph/html validation.
 - HTTP calls from Node may hit sandbox network restrictions. `curl` is usually approved in this repo.
@@ -323,6 +326,7 @@ Minimal node with iframe:
 
 - Start server: `pnpm dev`
 - Scaffold target preview runtime: `node .agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs`
+- Validate target preview entries: `npm --prefix .agent-gui/preview-runtime run typecheck:entries`
 - Start target preview runtime: `npm --prefix .agent-gui/preview-runtime run dev` from the target project that has `.agent-gui/preview.config.ts`
 - Fixture sessions: `curl -s -X POST 'http://localhost:8787/api/fixture-session?scenario=linear'`, `prototype`, or `revision`
 - List HTTP tools: `curl -s http://localhost:8787/mcp/tools`

@@ -45,9 +45,11 @@ Skill script는 대상 프로젝트에 `.agent-gui` 구조를 만들 수 있어�
 필수 조건:
 
 - `.agent-gui/preview.config.ts`를 생성한다.
+- `.agent-gui/tsconfig.preview.json`을 생성한다.
+- `.agent-gui/preview-env.d.ts`를 생성한다.
 - `.agent-gui/previews/example.preview.tsx`를 생성한다.
 - `.agent-gui/preview-runtime`에 local web server template을 생성한다.
-- 기존 user-authored config와 preview entry는 기본적으로 덮어쓰지 않는다.
+- 기존 user-authored config, preview tsconfig, preview entry는 기본적으로 덮어쓰지 않는다.
 - generated runtime만 갱신할 수 있는 `--upgrade-runtime` 경로를 제공한다.
 - 전체 overwrite가 필요할 때만 `--force`를 사용한다.
 
@@ -101,7 +103,20 @@ export default definePreview({
 - 사람이 `registry.ts`, `vite.config.ts`, `index.html`, `src/main.tsx`를 직접 만들지 않아야 한다.
 - Generated runtime은 `virtual:agent-gui-preview-registry`를 생성해야 한다.
 
-### 3. Local HTTP URL
+### 3. Entry Typecheck
+
+Preview entry typecheck는 generated runtime typecheck와 분리한다.
+
+필수 조건:
+
+- `npm --prefix .agent-gui/preview-runtime run typecheck`는 generated runtime source만 검사한다.
+- `npm --prefix .agent-gui/preview-runtime run typecheck:entries`는 `.agent-gui/tsconfig.preview.json`으로 project-owned preview entry를 검사한다.
+- `.agent-gui/tsconfig.preview.json`은 `.agent-gui/previews/**/*.preview.tsx`와 선택적 `.agent-gui/preview.setup.tsx`를 포함한다.
+- `.agent-gui/tsconfig.preview.json`은 `@agent-gui/preview-runtime` path를 `.agent-gui/preview-runtime/src/index.ts`로 연결한다.
+- 디자인시스템 alias를 사용하는 경우 `.agent-gui/preview.config.ts` `aliases`와 `.agent-gui/tsconfig.preview.json` `compilerOptions.paths`를 함께 맞춘다.
+- Preview entry typecheck가 production app 전체를 compile하는 계약이 되어서는 안 된다.
+
+### 4. Local HTTP URL
 
 Preview Runtime은 Agent GUI iframe이 열 수 있는 local HTTP URL을 제공해야 한다.
 
@@ -119,10 +134,12 @@ http://127.0.0.1:5174/?preview=<preview-id>
 필수 조건:
 
 - explicit port를 사용해야 한다.
+- 기본 dev server는 `strictPort`로 실행되어야 한다.
+- 기본 port가 점유되어 있으면 자동 fallback하지 않고 실패해야 한다.
 - `file://` URL을 사용하지 않는다.
 - preview id가 없거나 잘못되면 등록된 preview 목록과 source path를 보여줘야 한다.
 
-### 4. Design-System Prototype Support
+### 5. Design-System Prototype Support
 
 Preview Runtime은 production `vite.config.ts` merge 없이 필요한 고수준 설정만 지원한다.
 
@@ -135,7 +152,7 @@ Preview Runtime은 production `vite.config.ts` merge 없이 필요한 고수준 
 - `watch`: Docker, WSL, network volume용 polling 설정
 - `devServer`: host/port
 
-### 5. Runtime Shell And Presets
+### 6. Runtime Shell And Presets
 
 Generated runtime은 모든 preview entry가 공유하는 web shell을 제공해야 한다.
 
@@ -148,7 +165,7 @@ Generated runtime은 모든 preview entry가 공유하는 web shell을 제공해
 - Agent GUI review web UI와 React state를 공유하지 않아야 한다.
 - `SingleScreenPreview`, `BeforeAfterPreview` 같은 기본 preset을 제공한다.
 
-### 6. Source Traceability
+### 7. Source Traceability
 
 Agent GUI에서 iframe preview를 보고 에이전트가 source를 다시 읽을 수 있어야 한다.
 

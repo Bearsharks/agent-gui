@@ -26,6 +26,18 @@ copyFileIfNeeded(
 );
 
 copyFileIfNeeded(
+  path.join(templatesRoot, "tsconfig.preview.json"),
+  path.join(agentGuiRoot, "tsconfig.preview.json"),
+  { overwrite: args.force },
+);
+
+copyFileIfNeeded(
+  path.join(templatesRoot, "preview-env.d.ts"),
+  path.join(agentGuiRoot, "preview-env.d.ts"),
+  { overwrite: args.force },
+);
+
+copyFileIfNeeded(
   path.join(templatesRoot, "previews", "example.preview.tsx"),
   path.join(previewsRoot, "example.preview.tsx"),
   { overwrite: args.force },
@@ -128,6 +140,7 @@ function printSummary() {
   console.log("");
   console.log("Next commands:");
   console.log("  npm --prefix .agent-gui/preview-runtime install");
+  console.log("  npm --prefix .agent-gui/preview-runtime run typecheck:entries");
   console.log("  npm --prefix .agent-gui/preview-runtime run dev");
   console.log("");
   console.log("Preview URL:");

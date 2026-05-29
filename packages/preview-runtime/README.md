@@ -95,6 +95,7 @@ export default definePreview({
 ```bash
 node .agents/skills/plan-gui-mcp/scripts/init-preview-runtime.mjs
 npm --prefix .agent-gui/preview-runtime install
+npm --prefix .agent-gui/preview-runtime run typecheck:entries
 npm --prefix .agent-gui/preview-runtime run dev
 ```
 
@@ -113,6 +114,8 @@ preview id 없이 root URL을 열면 등록된 preview 목록과 source path를 
 `init-preview-runtime.mjs`는 다음을 생성합니다.
 
 - `.agent-gui/preview.config.ts`
+- `.agent-gui/tsconfig.preview.json`
+- `.agent-gui/preview-env.d.ts`
 - `.agent-gui/previews/example.preview.tsx`
 - `.agent-gui/preview-runtime`
 
@@ -133,6 +136,23 @@ preview id 없이 root URL을 열면 등록된 preview 목록과 source path를 
 - root 화면에서 preview 목록과 source path 표시
 
 대상 프로젝트는 production Vite config를 제공하지 않습니다.
+
+### Entry Typecheck
+
+`npm --prefix .agent-gui/preview-runtime run typecheck`는 generated runtime 자체만 확인합니다.
+
+프로젝트가 소유한 preview entry와 setup provider는 별도 명령으로 확인합니다.
+
+```bash
+npm --prefix .agent-gui/preview-runtime run typecheck:entries
+```
+
+이 명령은 `.agent-gui/tsconfig.preview.json`을 사용해 다음 파일을 검사합니다.
+
+- `.agent-gui/previews/**/*.preview.tsx`
+- `.agent-gui/preview.setup.tsx`
+
+디자인시스템 alias를 쓰는 경우 `.agent-gui/preview.config.ts`의 `aliases`와 `.agent-gui/tsconfig.preview.json`의 `compilerOptions.paths`를 함께 맞춰야 합니다.
 
 ### Setup Provider
 
@@ -176,7 +196,14 @@ iframe target feedback이 들어오면 해당 node iframe의 `entryPath`를 따�
 
 ```bash
 npm --prefix .agent-gui/preview-runtime install
+npm --prefix .agent-gui/preview-runtime run typecheck:entries
 npm --prefix .agent-gui/preview-runtime run dev
 ```
 
 대상 프로젝트 root `package.json`, root lockfile, workspace 설정은 수정하지 않습니다.
+
+### Runtime Gotchas
+
+- Preview entry는 production app runtime이 아닙니다. Router, auth, Electron bridge, React Query, production app provider가 필요하면 mock data와 `.agent-gui/preview.setup.tsx`로 명시적으로 제공합니다.
+- `typecheck`와 `typecheck:entries`는 다릅니다. Runtime 본체는 `typecheck`, 프로젝트 preview entry는 `typecheck:entries`로 확인합니다.
+- Dev server는 `strictPort`로 실행됩니다. `5174`가 이미 사용 중이면 `.agent-gui/preview.config.ts`의 `devServer.port`를 바꾸거나 점유 중인 프로세스를 종료합니다.
