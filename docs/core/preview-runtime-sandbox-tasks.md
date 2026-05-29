@@ -38,19 +38,27 @@
 
 작업 목록:
 
-- [ ] `.agent-gui/preview-runtime/package.json` template 구성
-- [ ] `.agent-gui/preview-runtime/pnpm-workspace.yaml` 또는 npm 고정 정책 결정
-- [ ] 내부 Vite app entry 구성
-- [ ] `PreviewHost`, `PreviewShell`, 기본 preset 포함
-- [ ] config loader가 project root 기준 path를 해석하도록 구현
-- [ ] `@agent-gui/preview-runtime` import alias를 sandbox Vite server에서 제공
+- [x] `.agent-gui/preview-runtime/package.json` template 구성
+- [x] `.agent-gui/preview-runtime/pnpm-workspace.yaml` 또는 npm 고정 정책 결정
+- [x] 내부 Vite app entry 구성
+- [x] `PreviewHost`, `PreviewShell`, 기본 preset 포함
+- [x] config loader가 project root 기준 path를 해석하도록 구현
+- [x] `@agent-gui/preview-runtime` import alias를 sandbox Vite server에서 제공
 
 검증:
 
-- [ ] `npm --prefix .agent-gui/preview-runtime install`
-- [ ] `npm --prefix .agent-gui/preview-runtime run dev`
-- [ ] `http://127.0.0.1:<port>/?preview=example` 렌더링 확인
-- [ ] root preview 목록에서 preview id와 entryPath 확인
+- [x] `npm --prefix .agent-gui/preview-runtime install`
+- [x] `npm --prefix .agent-gui/preview-runtime run dev`
+- [x] `http://127.0.0.1:<port>/?preview=example` 렌더링 확인
+- [x] root preview 목록에서 preview id와 entryPath 확인
+
+검증 기록:
+
+- 2026-05-29: `/private/tmp/agent-gui-phase2.ZBCrom`에 scaffold 후 `npm --prefix .agent-gui/preview-runtime install` 성공.
+- 2026-05-29: generated runtime `npm --prefix .agent-gui/preview-runtime run typecheck` 성공.
+- 2026-05-29: `npm --prefix .agent-gui/preview-runtime run dev`로 `http://127.0.0.1:5174/` 실행 확인.
+- 2026-05-29: Agent Browser로 root 목록의 `example`, `Example Prototype`, `.agent-gui/previews/example.preview.tsx` 표시 확인.
+- 2026-05-29: Agent Browser로 `http://127.0.0.1:5174/?preview=example` 렌더링 확인.
 
 ## Phase 3: Design-System Prototype Support
 
