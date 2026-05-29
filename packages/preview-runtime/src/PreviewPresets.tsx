@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { PreviewPanel } from "./PreviewShell";
+import { PreviewPanel } from "./PreviewShell.js";
 
 export type SingleScreenPreviewProps = {
   title: string;

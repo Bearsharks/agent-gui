@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["vite/client"]
   },
-  "include": ["agent-gui.preview.config.ts", "vite.config.ts", "src"]
+  "include": [".agent-gui/**/*.ts", ".agent-gui/**/*.tsx"]
 }

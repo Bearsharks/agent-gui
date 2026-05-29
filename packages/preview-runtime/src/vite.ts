@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Plugin, ResolvedConfig } from "vite";
-import type { PreviewRuntimeConfig } from "./config";
+import type { PreviewRuntimeConfig } from "./config.js";
 
 const virtualModuleId = "virtual:agent-gui-preview-registry";
 const resolvedVirtualModuleId = `\0${virtualModuleId}`;

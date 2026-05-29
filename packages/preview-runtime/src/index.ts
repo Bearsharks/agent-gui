@@ -1,15 +1,15 @@
-export { BeforeAfterPreview, SingleScreenPreview } from "./PreviewPresets";
-export { PreviewHost } from "./PreviewHost";
-export { PreviewPanel, PreviewShell } from "./PreviewShell";
-export { definePreview, definePreviewRegistry } from "./preview-entry";
+export { BeforeAfterPreview, SingleScreenPreview } from "./PreviewPresets.js";
+export { PreviewHost } from "./PreviewHost.js";
+export { PreviewPanel, PreviewShell } from "./PreviewShell.js";
+export { definePreview, definePreviewRegistry } from "./preview-entry.js";
 export type {
   BeforeAfterPreviewProps,
   SingleScreenPreviewProps,
-} from "./PreviewPresets";
-export type { PreviewPanelProps, PreviewShellProps } from "./PreviewShell";
+} from "./PreviewPresets.js";
+export type { PreviewPanelProps, PreviewShellProps } from "./PreviewShell.js";
 export type {
   PreviewComponent,
   PreviewEntry,
   PreviewRegistry,
   PreviewRegistryEntry,
-} from "./preview-entry";
+} from "./preview-entry.js";
