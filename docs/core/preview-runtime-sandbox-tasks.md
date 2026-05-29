@@ -131,17 +131,23 @@
 
 작업 목록:
 
-- [ ] `docs/core/preview-runtime-prd.md`와 구현 문서 동기화
-- [ ] `docs/core/system-parts.md`에서 skill/scaffold/.agent-gui 책임 경계 반영
-- [ ] `docs/core/preview-runtime-requirements.md`에서 최신 contract 반영
-- [ ] `.agents/skills/plan-gui-mcp/SKILL.md` 사용법 갱신
-- [ ] 완료된 phase마다 커밋
+- [x] `docs/core/preview-runtime-prd.md`와 구현 문서 동기화
+- [x] `docs/core/system-parts.md`에서 skill/scaffold/.agent-gui 책임 경계 반영
+- [x] `docs/core/preview-runtime-requirements.md`에서 최신 contract 반영
+- [x] `.agents/skills/plan-gui-mcp/SKILL.md` 사용법 갱신
+- [x] 완료된 phase마다 커밋
 
 검증:
 
-- [ ] 문서에서 npm package runtime과 skill-scaffold runtime 설명이 충돌하지 않는지 확인
-- [ ] `rg`로 오래된 `agent-gui.preview.config.ts`, manual `vite.config.ts`, `registry.ts` 안내가 남아있지 않은지 확인
-- [ ] 최종 검증 명령과 브라우저 확인 결과를 handoff에 남김
+- [x] 문서에서 npm package runtime과 skill-scaffold runtime 설명이 충돌하지 않는지 확인
+- [x] `rg`로 오래된 `agent-gui.preview.config.ts`, manual `vite.config.ts`, `registry.ts` 안내가 남아있지 않은지 확인
+- [x] 최종 검증 명령과 브라우저 확인 결과를 handoff에 남김
+
+검증 기록:
+
+- 2026-05-29: `rg -n "agent-gui\\.preview\\.config\\.ts|agent-gui-preview dev|@agent-gui/preview-runtime/config|node_modules/@agent-gui/preview-runtime|npm-style" docs/core .agents/skills/plan-gui-mcp packages/preview-runtime/README.md` 결과, task 문서의 검증 항목 외 오래된 안내 없음.
+- 2026-05-29: `pnpm --filter @agent-gui/preview-runtime typecheck` 성공.
+- 2026-05-29: Phase 2-4 브라우저 검증 결과를 각 phase 검증 기록에 남김.
 
 ## Commit Policy
 
