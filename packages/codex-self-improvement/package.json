@@ -6,7 +6,7 @@
   "scripts": {
     "install:codex": "python3 scripts/install.py",
     "uninstall:codex": "python3 scripts/uninstall.py",
-    "typecheck": "PYTHONPYCACHEPREFIX=/private/tmp/agent-gui-codex-si-pycache python3 -m py_compile src/codex_self_improvement.py scripts/install.py scripts/uninstall.py",
-    "test": "pnpm typecheck && CODEX_HOME=/private/tmp/agent-gui-codex-si-test python3 scripts/install.py --dry-run >/dev/null && CODEX_HOME=/private/tmp/agent-gui-codex-si-test python3 scripts/uninstall.py --dry-run >/dev/null"
+    "typecheck": "PYTHONPYCACHEPREFIX=/private/tmp/agent-gui-codex-si-pycache python3 -m py_compile src/codex_self_improvement.py src/codex_self_improvement_curation.py src/codex_self_improvement_curation_clusters.py src/codex_self_improvement_review.py scripts/install.py scripts/uninstall.py tests/test_runtime.py",
+    "test": "pnpm typecheck && CODEX_HOME=/private/tmp/agent-gui-codex-si-test python3 scripts/install.py --dry-run >/dev/null && CODEX_HOME=/private/tmp/agent-gui-codex-si-test python3 scripts/uninstall.py --dry-run >/dev/null && python3 -m unittest discover -s tests"
   }
 }

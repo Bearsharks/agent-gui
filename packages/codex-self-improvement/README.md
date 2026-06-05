@@ -4,6 +4,12 @@ Codex 전역에서 동작하는 수동 승인형 스킬 자가개선 런타임�
 
 목표는 Hermes의 백그라운드 리뷰와 큐레이션 아이디어를 Codex 단독 구조로 옮기되, 자동 post-turn 수정은 제거하는 것입니다. 스킬 변경은 사용자가 명시적으로 요청하고 승인한 경우에만 수행합니다.
 
+주요 사용 시나리오는 Codex 세션에서 작업을 끝낸 뒤 사용자가
+`codex-self-improvement` 스킬을 수동 실행하는 것입니다. 이 수동 리뷰는
+Hermes background review처럼 전체 세션 대화, 사용자 correction, 로드/조회한
+스킬, 실패 후 성공한 절차를 검토합니다. 차이는 Codex에서는 자동 fork가 아니라
+사용자 승인 후 MCP `skill_manage`로만 변경한다는 점입니다.
+
 ## 구성 요소
 
 설치 시 다음 항목을 등록합니다.
@@ -16,6 +22,11 @@ Codex 전역에서 동작하는 수동 승인형 스킬 자가개선 런타임�
 - Codex 훅:
   - `SessionStart`: 세션 시작 시 현재 사용 가능한 스킬 인덱스만 짧게 주입
   - `UserPromptSubmit`: 세션별 이전 스킬 인덱스와 현재 인덱스를 비교해 변경점만 주입
+- Review runtime:
+  - `codex_self_improvement.py review`: completed-session deterministic review report
+- Curation runtime:
+  - `codex_self_improvement.py curate`: 기본 dry-run curation report
+  - `codex_self_improvement.py curate --apply`: live stale/archive transition
 - Codex 스킬:
   - `codex-self-improvement`: 세션 리뷰 기반 스킬 생성/수정
   - `codex-skill-curation`: 스킬 병합, 통합, stale/archive 정리
@@ -35,6 +46,9 @@ pnpm --filter @agent-gui/codex-self-improvement install:codex
 - `~/.codex/config.toml`
 - `~/.codex/hooks.json`
 - `~/.codex/self-improvement/codex_self_improvement.py`
+- `~/.codex/self-improvement/codex_self_improvement_review.py`
+- `~/.codex/self-improvement/codex_self_improvement_curation.py`
+- `~/.codex/self-improvement/codex_self_improvement_curation_clusters.py`
 - `~/.codex/skills/codex-self-improvement/SKILL.md`
 - `~/.codex/skills/codex-skill-curation/SKILL.md`
 
@@ -72,7 +86,7 @@ MCP 런타임은 세 도구만 제공합니다.
 - `skill_view`: 스킬 본문 또는 연결 파일 조회, view/use telemetry 갱신
 - `skill_manage`: 스킬 생성, 전체 수정, 부분 패치, support file 작성
 
-`skill_manage`는 생성/수정 전용입니다. archive, restore, pin, unpin, delete, merge, curation은 MCP에서 하지 않습니다.
+`skill_manage`는 생성/수정 전용입니다. archive, restore, pin, unpin, delete, merge, curation은 MCP에서 하지 않습니다. Support file은 `references/`, `templates/`, `scripts/`, `assets/` 아래에만 쓸 수 있습니다.
 
 Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. MCP는 `skill_list`, `skill_view`, `skill_manage` 동작 중 사용량과 변경 정보를 계속 기록합니다.
 
@@ -102,24 +116,51 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 - 기존 스킬 전체 수정
 - references/templates/scripts 같은 support file 작성
 
+Transcript 파일이 있으면 먼저 deterministic review report를 만듭니다.
+
+```bash
+python3 ~/.codex/self-improvement/codex_self_improvement.py review --transcript <path>
+```
+
+파일이 없고 active conversation이 완전하면 같은 rubric을 수동으로 적용합니다. Report는 mutation을 하지 않으며, 항상 사용자 승인이 필요합니다.
+
+Hermes background review와 같은 우선순위를 따릅니다.
+
+1. 세션에서 로드하거나 조회한 스킬을 먼저 패치합니다.
+2. 맞는 loaded skill이 없으면 기존 broad/umbrella 스킬을 패치합니다.
+3. 상세한 세션 증거, 템플릿, 스크립트는 support file로 demotion합니다.
+4. 기존 스킬이 없을 때만 새 class-level umbrella 스킬을 만듭니다.
+
 병합, 통합, stale/archive 정리가 필요하면 직접 수행하지 않고 `codex-skill-curation` 사용을 제안합니다.
 
 ### `codex-skill-curation` 스킬
 
 사용자가 명시적으로 스킬 정리, 병합, 통합, archive를 요청했을 때 사용합니다.
 
-큐레이션은 MCP를 쓰지 않습니다. `~/.codex/self-improvement/skills` 아래 파일을 직접 다루며, `.usage.json` telemetry sidecar와 `changes.jsonl` 변경 이력을 함께 갱신합니다.
+큐레이션은 MCP를 쓰지 않습니다. 먼저 runtime dry-run report로 대상과 결과를 확인하고, 사용자가 승인한 경우에만 live apply를 수행합니다.
+
+```bash
+python3 ~/.codex/self-improvement/codex_self_improvement.py curate
+python3 ~/.codex/self-improvement/codex_self_improvement.py curate --apply
+```
+
+live apply는 실행 전 `reviews/curation/<run-id>/backup-skills` snapshot을 만들고, `.usage.json` telemetry sidecar와 `changes.jsonl` 변경 이력을 함께 갱신합니다.
 
 큐레이션 범위는 다음을 포함합니다.
 
 - agent-created 스킬의 stale/archive 판단
-- prefix/domain cluster 분석
+- prefix/domain cluster 분석을 `cluster_review`로 report
+- Codex self-improvement용 prefix/domain cluster 예시 기반 umbrella 후보 검토
+- source package의 support file/relative link integrity warning
 - 기존 umbrella 스킬로 병합
 - 새 umbrella 스킬 생성
 - narrow skill 내용을 references/templates/scripts로 demotion
 - source skill directory를 `.archive`로 이동
 - `absorbed_into` 기반 결과 분류
 - `run.json`과 `REPORT.md` 작성
+- live apply 전 skill store snapshot
+- pinned skill 자동 transition skip
+- `created_by=agent` skill만 curation 대상
 
 현재 Codex 구조에는 Hermes cron job이 없으므로 cron reference rewrite 단계는 포함하지 않습니다.
 
@@ -134,6 +175,7 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
   skills/.usage.json
   changes.jsonl
   logs/
+  reviews/curation/
   session-state/
 ```
 

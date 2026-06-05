@@ -4,3 +4,4 @@ dist
 data/sessions
 apps/server/data/sessions
 *.log
+.hermes-agent/*

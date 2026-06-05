@@ -149,6 +149,9 @@ def main(argv: list[str] | None = None) -> int:
 
     target_dir = args.codex_home / "self-improvement"
     target_script = target_dir / "codex_self_improvement.py"
+    target_curation = target_dir / "codex_self_improvement_curation.py"
+    target_curation_clusters = target_dir / "codex_self_improvement_curation_clusters.py"
+    target_review = target_dir / "codex_self_improvement_review.py"
     config_path = args.codex_home / "config.toml"
     hooks_path = args.codex_home / "hooks.json"
     block = managed_block(target_script)
@@ -169,6 +172,9 @@ def main(argv: list[str] | None = None) -> int:
     target_dir.mkdir(parents=True, exist_ok=True)
     (args.codex_home / "skills").mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_script, target_script)
+    shutil.copy2(args.source / "codex_self_improvement_curation.py", target_curation)
+    shutil.copy2(args.source / "codex_self_improvement_curation_clusters.py", target_curation_clusters)
+    shutil.copy2(args.source / "codex_self_improvement_review.py", target_review)
     target_script.chmod(0o755)
     install_skills(args.package_root, args.codex_home)
     config_path.write_text(updated, encoding="utf-8")

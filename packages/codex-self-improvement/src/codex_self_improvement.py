@@ -24,9 +24,14 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from codex_self_improvement_curation import run_curation
+from codex_self_improvement_review import run_review
+
 
 STATE_VERSION = 1
 MAX_CONTEXT_CHARS = 12000
+VALID_SKILL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+ALLOWED_SUPPORT_DIRS = {"references", "templates", "scripts", "assets"}
 
 
 def codex_home() -> Path:
@@ -121,6 +126,30 @@ def slugify(name: str) -> str:
     return slug or f"skill-{uuid.uuid4().hex[:8]}"
 
 
+def validate_skill_name(name: str) -> str | None:
+    if not name:
+        return "name is required"
+    if len(name) > 64:
+        return "name exceeds 64 characters"
+    if not VALID_SKILL_NAME_RE.match(name):
+        return "name must use lowercase letters, numbers, hyphens, underscores, or dots and start with a letter or digit"
+    return None
+
+
+def validate_support_file_path(file_path: str) -> str | None:
+    if not file_path:
+        return "file_path is required"
+    candidate = Path(file_path)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        return "file_path must be relative and may not contain '..'"
+    if not candidate.parts or candidate.parts[0] not in ALLOWED_SUPPORT_DIRS:
+        allowed = ", ".join(sorted(ALLOWED_SUPPORT_DIRS))
+        return f"file_path must be under one of: {allowed}"
+    if len(candidate.parts) < 2:
+        return "file_path must include a file name under the support directory"
+    return None
+
+
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     if not text.startswith("---\n"):
         return {}, text
@@ -136,6 +165,31 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
         key, value = line.split(":", 1)
         fm[key.strip()] = value.strip().strip("\"'")
     return fm, body
+
+
+def validate_skill_doc(text: str) -> str | None:
+    fm, body = parse_frontmatter(text)
+    if not fm:
+        return "SKILL.md must start with frontmatter"
+    if not fm.get("name"):
+        return "frontmatter must include name"
+    if validate_skill_name(fm.get("name", "")):
+        return f"invalid frontmatter name: {validate_skill_name(fm.get('name', ''))}"
+    if not fm.get("description"):
+        return "frontmatter must include description"
+    if not body.strip():
+        return "SKILL.md body must not be empty"
+    return None
+
+
+def validate_skill_doc_for_name(text: str, expected_name: str) -> str | None:
+    validation_error = validate_skill_doc(text)
+    if validation_error:
+        return validation_error
+    fm, _body = parse_frontmatter(text)
+    if fm.get("name") != expected_name:
+        return f"frontmatter name must match target skill name '{expected_name}'"
+    return None
 
 
 def render_skill_doc(
@@ -264,6 +318,11 @@ def set_agent_created(name: str) -> None:
     mutate_usage(name, lambda rec: rec.update({"created_by": "agent", "last_activity_at": now_iso()}))
 
 
+def set_created_by(name: str, created_by: str) -> None:
+    created_by = "user" if created_by == "user" else "agent"
+    mutate_usage(name, lambda rec: rec.update({"created_by": created_by, "last_activity_at": now_iso()}))
+
+
 def read_state() -> dict[str, Any]:
     ensure_layout()
     state = read_json(state_path(), {})
@@ -322,6 +381,7 @@ def skill_summary_from_file(path: Path) -> dict[str, Any]:
         "version": int(fm.get("version") or 1),
         "created_by": fm.get("created_by") or usage.get("created_by") or "agent",
         "state": "archived" if archived else usage.get("state", "active"),
+        "absorbed_into": fm.get("absorbed_into"),
         "pinned": bool(usage.get("pinned", False)),
         "path": str(path),
         "content_hash": hash_content(text),
@@ -337,16 +397,18 @@ def list_skills(*, include_archived: bool = False, agent_created_only: bool = Tr
         rec = usage.get(row["name"], {})
         if agent_created_only and not (row.get("created_by") == "agent" or rec.get("created_by") == "agent"):
             continue
-        row.update({
-            "use_count": int(rec.get("use_count") or 0),
-            "view_count": int(rec.get("view_count") or 0),
-            "patch_count": int(rec.get("patch_count") or 0),
-        "last_used_at": rec.get("last_used_at"),
-        "last_viewed_at": rec.get("last_viewed_at"),
-        "last_patched_at": rec.get("last_patched_at"),
-        "last_activity_at": rec.get("last_activity_at"),
-        "archived_at": rec.get("archived_at"),
-    })
+        row.update(
+            {
+                "use_count": int(rec.get("use_count") or 0),
+                "view_count": int(rec.get("view_count") or 0),
+                "patch_count": int(rec.get("patch_count") or 0),
+                "last_used_at": rec.get("last_used_at"),
+                "last_viewed_at": rec.get("last_viewed_at"),
+                "last_patched_at": rec.get("last_patched_at"),
+                "last_activity_at": rec.get("last_activity_at"),
+                "archived_at": rec.get("archived_at"),
+            }
+        )
         rows.append(row)
     return {"success": True, "skills": rows, "count": len(rows)}
 
@@ -424,6 +486,24 @@ def increment_version_in_text(text: str) -> tuple[str, int]:
     return "\n".join(lines), new_version
 
 
+def validate_expected_identity(path: Path, args: dict[str, Any]) -> str | None:
+    expected_version = args.get("expected_version")
+    expected_purpose_hash = args.get("expected_purpose_hash")
+    if expected_version is None and not expected_purpose_hash:
+        return None
+    fm, _body = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+    current_version = int(fm.get("version") or 1)
+    current_purpose_hash = fm.get("purpose_hash") or hash_purpose(fm.get("purpose", ""))
+    if expected_version is not None and int(expected_version) != current_version:
+        return f"version changed: expected {expected_version}, current {current_version}; reload with skill_view"
+    if expected_purpose_hash and str(expected_purpose_hash) != current_purpose_hash:
+        return (
+            f"purpose hash changed: expected {expected_purpose_hash}, "
+            f"current {current_purpose_hash}; reload with skill_view"
+        )
+    return None
+
+
 def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
     ensure_layout()
     action = str(args.get("action") or "").strip()
@@ -432,8 +512,9 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": "action is required"}
     if action not in {"create", "edit", "patch", "write_file"}:
         return {"success": False, "error": f"unsupported action: {action}"}
-    if not name:
-        return {"success": False, "error": "name is required"}
+    name_error = validate_skill_name(name)
+    if name_error:
+        return {"success": False, "error": name_error}
 
     if action == "create":
         if find_skill(name):
@@ -451,9 +532,12 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
             body=body,
             created_by=created_by,
         )
+        validation_error = validate_skill_doc_for_name(doc, name)
+        if validation_error:
+            return {"success": False, "error": validation_error}
         target = skills_dir() / slugify(name) / "SKILL.md"
         atomic_write_text(target, doc)
-        set_agent_created(name)
+        set_created_by(name, created_by)
         version = int(parse_frontmatter(doc)[0].get("version") or 1)
         change = record_change("create", name, summary=f"Created skill '{name}'.", version=version)
         return {"success": True, "message": "created", "path": str(target), "change": change}
@@ -461,6 +545,9 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
     path = find_skill(name)
     if path is None:
         return {"success": False, "error": f"skill '{name}' not found"}
+    identity_error = validate_expected_identity(path, args)
+    if identity_error:
+        return {"success": False, "error": identity_error}
 
     if action == "edit":
         content = str(args.get("content") or "").strip()
@@ -480,6 +567,9 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
             version = int(parse_frontmatter(content)[0].get("version") or 1)
         else:
             content, version = increment_version_in_text(content)
+        validation_error = validate_skill_doc_for_name(content, name)
+        if validation_error:
+            return {"success": False, "error": validation_error}
         atomic_write_text(path, content)
         bump(name, "patch")
         change = record_change("edit", name, summary=f"Edited skill '{name}'.", version=version)
@@ -495,6 +585,9 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
             return {"success": False, "error": "find text not present"}
         text = text.replace(find, replace, 1)
         text, version = increment_version_in_text(text)
+        validation_error = validate_skill_doc_for_name(text, name)
+        if validation_error:
+            return {"success": False, "error": validation_error}
         atomic_write_text(path, text)
         bump(name, "patch")
         change = record_change("patch", name, summary=f"Patched skill '{name}'.", version=version)
@@ -503,8 +596,9 @@ def manage_skill(args: dict[str, Any]) -> dict[str, Any]:
     if action == "write_file":
         file_path = str(args.get("file_path") or "").strip()
         content = str(args.get("file_content") or args.get("content") or "")
-        if not file_path:
-            return {"success": False, "error": "file_path is required for write_file"}
+        path_error = validate_support_file_path(file_path)
+        if path_error:
+            return {"success": False, "error": path_error}
         target = (path.parent / file_path).resolve()
         try:
             target.relative_to(path.parent.resolve())
@@ -534,6 +628,7 @@ def compact_skill_index(*, include_archived: bool = True) -> list[dict[str, Any]
             "version": row.get("version"),
             "purpose_hash": row.get("purpose_hash"),
             "state": row.get("state", "active"),
+            "absorbed_into": row.get("absorbed_into"),
             "pinned": bool(row.get("pinned", False)),
             "created_by": row.get("created_by", "agent"),
             "content_hash": row.get("content_hash"),
@@ -554,13 +649,15 @@ def summarize_index_diff(previous: list[dict[str, Any]], current: list[dict[str,
         )
 
     for name in sorted(prev.keys() - cur.keys()):
-        lines.append(f"- removed from index {name}; call skill_list(include_archived=true) before assuming it is gone.")
+        old = prev[name]
+        absorbed = f"; absorbed_into={old.get('absorbed_into')}" if old.get("absorbed_into") else ""
+        lines.append(f"- removed from index {name}{absorbed}; call skill_list(include_archived=true) before assuming it is gone.")
 
     for name in sorted(prev.keys() & cur.keys()):
         old = prev[name]
         new = cur[name]
         changes: list[str] = []
-        for key in ("version", "purpose_hash", "description", "state", "pinned", "content_hash"):
+        for key in ("version", "purpose_hash", "description", "state", "absorbed_into", "pinned", "content_hash"):
             if old.get(key) != new.get(key):
                 changes.append(f"{key}: {old.get(key)} -> {new.get(key)}")
         if changes:
@@ -704,6 +801,8 @@ TOOLS: list[dict[str, Any]] = [
                 "file_path": {"type": "string"},
                 "file_content": {"type": "string"},
                 "created_by": {"type": "string", "enum": ["agent", "user"]},
+                "expected_version": {"type": "integer"},
+                "expected_purpose_hash": {"type": "string"},
             },
             "required": ["action", "name"],
         },
@@ -727,6 +826,24 @@ def call_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "skill_manage":
         return manage_skill(args)
     return {"success": False, "error": f"unknown tool: {name}"}
+
+
+def run_curate_command(args: argparse.Namespace) -> None:
+    result = run_curation(
+        dry_run=not bool(args.apply),
+        stale_after_days=int(args.stale_after_days),
+        archive_after_days=int(args.archive_after_days),
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def run_review_command(args: argparse.Namespace) -> None:
+    if args.transcript:
+        transcript = Path(args.transcript).read_text(encoding="utf-8", errors="replace")
+    else:
+        transcript = sys.stdin.read()
+    result = run_review(transcript)
+    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def mcp_respond(req_id: Any, result: Any = None, error: Any = None) -> None:
@@ -799,12 +916,22 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("mcp")
     hook = sub.add_parser("hook")
     hook.add_argument("event", choices=["session-start", "user-prompt-submit"])
+    curate = sub.add_parser("curate")
+    curate.add_argument("--apply", action="store_true", help="perform live curation; default is dry-run")
+    curate.add_argument("--stale-after-days", type=int, default=30)
+    curate.add_argument("--archive-after-days", type=int, default=90)
+    review = sub.add_parser("review")
+    review.add_argument("--transcript", help="completed session transcript path; reads stdin when omitted")
     sub.add_parser("init")
     args = parser.parse_args(argv)
     if args.cmd == "mcp":
         run_mcp()
     elif args.cmd == "hook":
         run_hook(args.event)
+    elif args.cmd == "curate":
+        run_curate_command(args)
+    elif args.cmd == "review":
+        run_review_command(args)
     elif args.cmd == "init":
         ensure_layout()
         print(json.dumps({"success": True, "root": str(root_dir())}, ensure_ascii=False))
