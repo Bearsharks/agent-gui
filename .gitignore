@@ -5,3 +5,7 @@ data/sessions
 apps/server/data/sessions
 *.log
 .hermes-agent/*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/

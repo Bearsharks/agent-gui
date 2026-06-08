@@ -209,6 +209,20 @@ class TurnHistoryTestCase(unittest.TestCase):
         self.assertIn("api_key=[REDACTED_SECRET]", rendered)
         self.assertNotIn("secret-value", rendered)
 
+    def test_turn_history_uses_large_default_context_budget(self) -> None:
+        self.assertEqual(self.stop.MAX_CONTEXT_CHARS, 120000)
+
+    def test_turn_history_trims_long_context_with_head_and_tail(self) -> None:
+        text = "HEAD-" + ("A" * 100) + "-MIDDLE-" + ("B" * 100) + "-TAIL"
+
+        trimmed = self.stop.trim_middle(text, 160)
+
+        self.assertTrue(trimmed.startswith("HEAD-"))
+        self.assertTrue(trimmed.endswith("-TAIL"))
+        self.assertIn("omitted middle of last turn context", trimmed)
+        self.assertNotIn("-MIDDLE-", trimmed)
+        self.assertLessEqual(len(trimmed), 160)
+
     def test_install_managed_hooks_include_stop_turn_history(self) -> None:
         install = load_module("install_runtime", ROOT / "scripts" / "install.py")
 

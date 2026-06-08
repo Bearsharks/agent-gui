@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-MAX_CONTEXT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_CONTEXT_CHARS", "12000") or "12000")
+MAX_CONTEXT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_CONTEXT_CHARS", "120000") or "120000")
 MAX_ERROR_RESULT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_ERROR_RESULT_CHARS", "800") or "800")
 MAX_PREVIOUS_MEMOS = int(os.environ.get("AGENT_TURN_HISTORY_PREVIOUS_MEMOS", "10") or "10")
 DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
@@ -138,6 +138,18 @@ def truncate(value: Any, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "...(truncated)"
+
+
+def trim_middle(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    marker = f"\n[... omitted middle of last turn context, total_chars={len(text)}, max_chars={max_chars} ...]\n"
+    if max_chars <= len(marker) + 2:
+        return text[:max_chars]
+    remaining = max_chars - len(marker)
+    head_chars = remaining // 2
+    tail_chars = remaining - head_chars
+    return text[:head_chars] + marker + text[-tail_chars:]
 
 
 def redact(text: str) -> str:
@@ -395,7 +407,7 @@ def build_prompt(ctx: HookContext) -> str:
             "Previous turn-history memos from this session:",
             json.dumps(previous, ensure_ascii=False, indent=2),
             "Last turn context:",
-            ctx.last_turn[:MAX_CONTEXT_CHARS],
+            trim_middle(ctx.last_turn, MAX_CONTEXT_CHARS),
         ]
     )
 
@@ -511,7 +523,7 @@ def write_debug_log(ctx: HookContext, raw_output: str, helper_result: dict[str, 
     payload = {
         "ts": now_iso(),
         "turn_id": ctx.turn_id,
-        "last_turn_context": ctx.last_turn[:MAX_CONTEXT_CHARS],
+        "last_turn_context": trim_middle(ctx.last_turn, MAX_CONTEXT_CHARS),
         "llm_output": raw_output,
         "append_helper_result": helper_result,
     }
