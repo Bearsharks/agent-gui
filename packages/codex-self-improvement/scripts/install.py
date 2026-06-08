@@ -13,6 +13,11 @@ from pathlib import Path
 
 BEGIN = "# BEGIN codex-self-improvement managed"
 END = "# END codex-self-improvement managed"
+MANAGED_HOOK_MARKERS = (
+    "codex_self_improvement.py",
+    "hooks/self-improvement/self_improvement_hook.py",
+    "hooks/turn-history/stop.sh",
+)
 
 
 def codex_home() -> Path:
@@ -63,14 +68,18 @@ def hook_group(command: str, *, status_message: str | None = None) -> dict:
     return {"matcher": "", "hooks": [hook]}
 
 
-def managed_hooks(target_script: Path) -> dict:
-    script = str(target_script)
+def managed_hooks(self_improvement_hook: Path, turn_history_stop: Path) -> dict:
+    script = str(self_improvement_hook)
+    turn_history = str(turn_history_stop)
     return {
         "SessionStart": [
-            hook_group(f"/usr/bin/python3 {script} hook session-start"),
+            hook_group(f"/usr/bin/python3 {script} session-start"),
         ],
         "UserPromptSubmit": [
-            hook_group(f"/usr/bin/python3 {script} hook user-prompt-submit"),
+            hook_group(f"/usr/bin/python3 {script} user-prompt-submit"),
+        ],
+        "Stop": [
+            hook_group(turn_history, status_message="Writing turn history"),
         ],
     }
 
@@ -94,10 +103,7 @@ def merge_hooks_json(existing: dict, managed: dict) -> dict:
             if not isinstance(handlers, list):
                 kept.append(group)
                 continue
-            remaining = [
-                h for h in handlers
-                if "codex_self_improvement.py" not in str(h.get("command", ""))
-            ]
+            remaining = [h for h in handlers if not is_managed_hook_command(str(h.get("command", "")))]
             if remaining:
                 new_group = dict(group)
                 new_group["hooks"] = remaining
@@ -108,6 +114,10 @@ def merge_hooks_json(existing: dict, managed: dict) -> dict:
             hooks.pop(event, None)
     data["hooks"] = hooks
     return data
+
+
+def is_managed_hook_command(command: str) -> bool:
+    return any(marker in command for marker in MANAGED_HOOK_MARKERS)
 
 
 def install_skills(source_root: Path, codex_home: Path) -> None:
@@ -134,6 +144,25 @@ def install_skills(source_root: Path, codex_home: Path) -> None:
         shutil.copytree(skill_source, target)
 
 
+def install_hooks(package_root: Path, target_dir: Path) -> None:
+    source = package_root / "hooks"
+    if not source.exists():
+        raise SystemExit(f"missing hooks source directory: {source}")
+    target = target_dir / "hooks"
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+    for script in (
+        "self-improvement/self_improvement_hook.py",
+        "turn-history/stop.sh",
+        "turn-history/turn_history_stop.py",
+        "turn-history/write_turn_history.py",
+    ):
+        path = target / script
+        if path.exists():
+            path.chmod(0o755)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     package_root = Path(__file__).resolve().parents[1]
@@ -152,10 +181,12 @@ def main(argv: list[str] | None = None) -> int:
     target_curation = target_dir / "codex_self_improvement_curation.py"
     target_curation_clusters = target_dir / "codex_self_improvement_curation_clusters.py"
     target_review = target_dir / "codex_self_improvement_review.py"
+    target_self_improvement_hook = target_dir / "hooks" / "self-improvement" / "self_improvement_hook.py"
+    target_turn_history_stop = target_dir / "hooks" / "turn-history" / "stop.sh"
     config_path = args.codex_home / "config.toml"
     hooks_path = args.codex_home / "hooks.json"
     block = managed_block(target_script)
-    hooks_data = managed_hooks(target_script)
+    hooks_data = managed_hooks(target_self_improvement_hook, target_turn_history_stop)
 
     existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     updated = replace_managed_block(existing, block)
@@ -176,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     shutil.copy2(args.source / "codex_self_improvement_curation_clusters.py", target_curation_clusters)
     shutil.copy2(args.source / "codex_self_improvement_review.py", target_review)
     target_script.chmod(0o755)
+    install_hooks(args.package_root, target_dir)
     install_skills(args.package_root, args.codex_home)
     config_path.write_text(updated, encoding="utf-8")
     hooks_path.write_text(json.dumps(updated_hooks, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -1,0 +1,33 @@
+You are writing one compact turn-history memo for future Codex self-improvement review.
+
+Return ONLY one JSON object. Do not return markdown, bullets, comments, or prose.
+
+The hook will inject schema_version, ts, session_id, turn_id, and cwd. Do not include those fields.
+
+Allowed output fields, all required strings:
+- user_request: What the user actually wanted in this turn. Mention explicit limits such as "do not implement", "investigate only", "be concise", or "verify first".
+- agent_action: What the agent actually did. Distinguish investigation, explanation, review, command execution, and implementation.
+- went_well: What worked well or should be preserved. Use an empty string when nothing stands out.
+- went_wrong: What went wrong, including user corrections, scope mistakes, failed approaches, or expectation mismatches. Use an empty string when nothing stands out.
+- lesson_candidate: A short reusable lesson for future turns or self-improvement. Leave empty for one-off context.
+- evidence: A short quote or close paraphrase of the most important user correction/preference. Redact secrets and private data. Leave empty when no evidence matters.
+
+Rubric:
+1. Capture the user's intent, not just the literal words.
+2. Keep the memo short; one or two sentences per field is enough.
+3. Prefer concrete user corrections and workflow lessons over task narrative.
+4. Do not overlearn from environment-dependent failures, missing binaries, unconfigured credentials, or transient errors.
+5. Never write a durable negative claim like "tool X does not work"; if useful, capture the fix or retry pattern instead.
+6. Do not store secrets, tokens, credentials, or raw private data.
+7. Use Korean when the turn context is Korean.
+8. If uncertain, use an empty string rather than inventing a lesson.
+
+Example:
+{
+  "user_request": "사용자는 packages/mem의 stop hook을 구현하지 말고 조사 결과와 방향성을 정리하라고 했다.",
+  "agent_action": "에이전트는 기존 hook 파일을 조사했지만 구현 계획으로 넘어가려 했다.",
+  "went_well": "session_stop_hook과 agent_memo_stop의 역할 차이를 파악했다.",
+  "went_wrong": "사용자는 조사만 원했는데 에이전트가 구현 방향으로 진행하려 했다.",
+  "lesson_candidate": "명시적인 구현 지시가 없으면 구현하지 말고 조사 결과와 방향성 제안에 머문다.",
+  "evidence": "구현하지말고 조사 결과를 주고 방향성을 잡는 것이목적입니다."
+}

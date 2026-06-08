@@ -13,6 +13,11 @@ from pathlib import Path
 BEGIN = "# BEGIN codex-self-improvement managed"
 END = "# END codex-self-improvement managed"
 MANAGED_SKILLS = {"codex-self-improvement", "codex-skill-curation", "codex-manual-skill-update"}
+MANAGED_HOOK_MARKERS = (
+    "codex_self_improvement.py",
+    "hooks/self-improvement/self_improvement_hook.py",
+    "hooks/turn-history/stop.sh",
+)
 
 
 def codex_home() -> Path:
@@ -50,10 +55,7 @@ def remove_managed_hooks(existing: dict) -> dict:
             if not isinstance(handlers, list):
                 kept.append(group)
                 continue
-            remaining = [
-                h for h in handlers
-                if "codex_self_improvement.py" not in str(h.get("command", ""))
-            ]
+            remaining = [h for h in handlers if not is_managed_hook_command(str(h.get("command", "")))]
             if remaining:
                 new_group = dict(group)
                 new_group["hooks"] = remaining
@@ -66,6 +68,10 @@ def remove_managed_hooks(existing: dict) -> dict:
     return data
 
 
+def is_managed_hook_command(command: str) -> bool:
+    return any(marker in command for marker in MANAGED_HOOK_MARKERS)
+
+
 def remove_installed_skills(home: Path) -> list[str]:
     removed: list[str] = []
     for name in sorted(MANAGED_SKILLS):
@@ -74,6 +80,14 @@ def remove_installed_skills(home: Path) -> list[str]:
             shutil.rmtree(target)
             removed.append(str(target))
     return removed
+
+
+def remove_installed_hook_bundle(runtime_dir: Path) -> str | None:
+    target = runtime_dir / "hooks"
+    if target.exists():
+        shutil.rmtree(target)
+        return str(target)
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -119,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     if hooks_path.exists():
         hooks_path.write_text(json.dumps(updated_hooks, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     removed = remove_installed_skills(args.codex_home)
+    removed_hook_bundle = remove_installed_hook_bundle(runtime_dir)
     purged = False
     if args.purge and runtime_dir.exists():
         shutil.rmtree(runtime_dir)
@@ -126,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(json.dumps({
         "success": True,
+        "removed_hook_bundle": removed_hook_bundle,
         "removed_skills": removed,
         "purged_runtime": purged,
         "updated": [str(p) for p in (config_path, hooks_path) if p.exists()],

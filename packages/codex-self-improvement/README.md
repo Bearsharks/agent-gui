@@ -22,6 +22,7 @@ Hermes background review처럼 전체 세션 대화, 사용자 correction, 로�
 - Codex 훅:
   - `SessionStart`: 세션 시작 시 현재 사용 가능한 스킬 인덱스만 짧게 주입
   - `UserPromptSubmit`: 세션별 이전 스킬 인덱스와 현재 인덱스를 비교해 변경점만 주입
+  - `Stop`: 마지막 턴을 짧은 turn-history 메모로 저장
 - Review runtime:
   - `codex_self_improvement.py review`: completed-session deterministic review report
 - Curation runtime:
@@ -45,14 +46,19 @@ pnpm --filter @agent-gui/codex-self-improvement install:codex
 
 - `~/.codex/config.toml`
 - `~/.codex/hooks.json`
-- `~/.codex/self-improvement/codex_self_improvement.py`
-- `~/.codex/self-improvement/codex_self_improvement_review.py`
 - `~/.codex/self-improvement/codex_self_improvement_curation.py`
 - `~/.codex/self-improvement/codex_self_improvement_curation_clusters.py`
+- `~/.codex/self-improvement/codex_self_improvement.py`
+- `~/.codex/self-improvement/codex_self_improvement_review.py`
+- `~/.codex/self-improvement/hooks/self-improvement/`
+- `~/.codex/self-improvement/hooks/turn-history/`
 - `~/.codex/skills/codex-self-improvement/SKILL.md`
 - `~/.codex/skills/codex-skill-curation/SKILL.md`
 
-설치 스크립트는 `config.toml`의 관리 블록만 교체하고, `hooks.json`에서는 `codex_self_improvement.py`를 가리키는 기존 self-improvement 훅만 교체합니다. 이전 실험용 `codex-manual-skill-update` 스킬은 제거합니다.
+설치 스크립트는 `config.toml`의 관리 블록만 교체하고, `hooks.json`에서는
+`codex_self_improvement.py`, `hooks/self-improvement/self_improvement_hook.py`,
+`hooks/turn-history/stop.sh`를 가리키는 기존 self-improvement 훅만 교체합니다.
+이전 실험용 `codex-manual-skill-update` 스킬은 제거합니다.
 
 ## 설치 확인
 
@@ -92,7 +98,9 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 
 ### 훅
 
-`SessionStart` 훅은 세션 ID별 snapshot을 만들고 현재 스킬 인덱스만 주입합니다. 스킬 본문은 주입하지 않습니다.
+`SessionStart` 훅은 `hooks/self-improvement/self_improvement_hook.py`를 통해
+실행됩니다. 세션 ID별 snapshot을 만들고 현재 스킬 인덱스만 주입합니다. 스킬 본문은
+주입하지 않습니다.
 
 `UserPromptSubmit` 훅은 같은 세션의 이전 snapshot과 현재 스킬 인덱스를 비교합니다. 변경이 없으면 아무것도 주입하지 않고, 변경이 있으면 다음 항목만 짧게 주입합니다.
 
@@ -104,6 +112,37 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 - state/pinned/content hash 변경
 
 스킬이 변경된 같은 세션에서 사용자가 다음 질문을 하면, 이 훅이 변경점을 알려주고 Codex가 `skill_view`로 다시 확인하게 합니다.
+
+`Stop` 훅은 마지막 턴을 self-improvement 근거 메모로 저장합니다. 이 훅은 스킬을
+자동 수정하지 않고, 나중에 수동 review가 긴 세션의 중간 correction을 놓치지 않도록
+세션별 JSONL을 append합니다.
+
+기본 저장 위치:
+
+```text
+~/.codex/self-improvement/turn-history/sessions/<session_id>/turns.jsonl
+```
+
+각 record는 다음 고정 필드를 갖습니다.
+
+```json
+{
+  "schema_version": 1,
+  "ts": "...",
+  "session_id": "...",
+  "turn_id": "...",
+  "cwd": "...",
+  "user_request": "...",
+  "agent_action": "...",
+  "went_well": "...",
+  "went_wrong": "...",
+  "lesson_candidate": "...",
+  "evidence": "..."
+}
+```
+
+성공한 tool output 원문은 저장하지 않고 길이만 남깁니다. 실패/error 신호가 있는
+tool output만 짧은 excerpt로 포함하며, token/secret 계열은 redaction합니다.
 
 ### `codex-self-improvement` 스킬
 
@@ -177,6 +216,7 @@ live apply는 실행 전 `reviews/curation/<run-id>/backup-skills` snapshot을 �
   logs/
   reviews/curation/
   session-state/
+  turn-history/
 ```
 
 ## 제거
