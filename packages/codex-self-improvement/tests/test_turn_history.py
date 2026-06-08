@@ -125,6 +125,7 @@ class TurnHistoryTestCase(unittest.TestCase):
             history_root=self.tmp_path / "history",
             provider="none",
             codex_model="unused",
+            claude_model="unused",
             timeout_s=1,
             dry_run=False,
             record_json=json.dumps(
@@ -222,6 +223,38 @@ class TurnHistoryTestCase(unittest.TestCase):
         self.assertIn("omitted middle of last turn context", trimmed)
         self.assertNotIn("-MIDDLE-", trimmed)
         self.assertLessEqual(len(trimmed), 160)
+
+    def test_auto_provider_prefers_claude_then_falls_back_to_codex(self) -> None:
+        calls: list[str] = []
+        original_claude = self.stop.run_claude
+        original_codex = self.stop.run_codex
+        try:
+            self.stop.run_claude = lambda *_args: calls.append("claude") or ""
+            self.stop.run_codex = lambda *_args: calls.append("codex") or '{"user_request": ""}'
+
+            output = self.stop.run_llm("prompt", "auto", 1, "codex-model", "claude-model")
+        finally:
+            self.stop.run_claude = original_claude
+            self.stop.run_codex = original_codex
+
+        self.assertEqual(output, '{"user_request": ""}')
+        self.assertEqual(calls, ["claude", "codex"])
+
+    def test_claude_provider_does_not_call_codex(self) -> None:
+        calls: list[str] = []
+        original_claude = self.stop.run_claude
+        original_codex = self.stop.run_codex
+        try:
+            self.stop.run_claude = lambda *_args: calls.append("claude") or '{"user_request": ""}'
+            self.stop.run_codex = lambda *_args: calls.append("codex") or ""
+
+            output = self.stop.run_llm("prompt", "claude", 1, "codex-model", "claude-model")
+        finally:
+            self.stop.run_claude = original_claude
+            self.stop.run_codex = original_codex
+
+        self.assertEqual(output, '{"user_request": ""}')
+        self.assertEqual(calls, ["claude"])
 
     def test_install_managed_hooks_include_stop_turn_history(self) -> None:
         install = load_module("install_runtime", ROOT / "scripts" / "install.py")

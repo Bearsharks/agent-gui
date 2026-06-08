@@ -144,6 +144,22 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 성공한 tool output 원문은 저장하지 않고 길이만 남깁니다. 실패/error 신호가 있는
 tool output만 짧은 excerpt로 포함하며, token/secret 계열은 redaction합니다.
 
+요약 provider는 환경변수로 선택할 수 있습니다.
+
+```bash
+AGENT_TURN_HISTORY_LLM=auto    # 기본값: claude를 먼저 시도하고 실패하면 codex
+AGENT_TURN_HISTORY_LLM=claude
+AGENT_TURN_HISTORY_LLM=codex
+AGENT_TURN_HISTORY_LLM=none    # LLM 없이 deterministic fallback record 작성
+```
+
+모델도 환경변수로 바꿀 수 있습니다.
+
+```bash
+AGENT_TURN_HISTORY_CLAUDE_MODEL=haiku
+AGENT_TURN_HISTORY_CODEX_MODEL=gpt-5.4-mini
+```
+
 ### `codex-self-improvement` 스킬
 
 사용자가 “이번 세션을 스킬에 반영”처럼 명시적으로 요청했을 때 사용합니다.

@@ -22,7 +22,8 @@ MAX_CONTEXT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_CONTEXT_CHARS", "
 MAX_ERROR_RESULT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_ERROR_RESULT_CHARS", "800") or "800")
 MAX_PREVIOUS_MEMOS = int(os.environ.get("AGENT_TURN_HISTORY_PREVIOUS_MEMOS", "10") or "10")
 DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
-VALID_PROVIDERS = {"auto", "codex", "none"}
+DEFAULT_CLAUDE_MODEL = "haiku"
+VALID_PROVIDERS = {"auto", "claude", "codex", "none"}
 
 
 @dataclass
@@ -439,6 +440,38 @@ def run_codex(prompt: str, timeout_s: int, model: str) -> str:
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
+def run_claude(prompt: str, timeout_s: int, model: str) -> str:
+    if not shutil.which("claude"):
+        return ""
+    cmd = [
+        "claude",
+        "-p",
+        "--model",
+        model,
+        "--no-session-persistence",
+        "--no-chrome",
+        "--system-prompt",
+        "Return only the requested JSON object.",
+    ]
+    env = os.environ.copy()
+    env["AGENT_TURN_HISTORY_IN_STOP_WORKER"] = "1"
+    try:
+        proc = subprocess.run(cmd, input=prompt, text=True, capture_output=True, timeout=timeout_s, env=env)
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def run_llm(prompt: str, provider: str, timeout_s: int, codex_model: str, claude_model: str) -> str:
+    if provider == "none":
+        return ""
+    if provider == "claude":
+        return run_claude(prompt, timeout_s, claude_model)
+    if provider == "codex":
+        return run_codex(prompt, timeout_s, codex_model)
+    return run_claude(prompt, timeout_s, claude_model) or run_codex(prompt, timeout_s, codex_model)
+
+
 def strip_code_fence(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -536,6 +569,7 @@ def process_payload(
     history_root: Path,
     provider: str,
     codex_model: str,
+    claude_model: str,
     timeout_s: int,
     dry_run: bool,
     record_json: str,
@@ -555,7 +589,7 @@ def process_payload(
     elif provider == "none":
         raw_output = json.dumps(fallback_record(ctx), ensure_ascii=False)
     else:
-        raw_output = run_codex(build_prompt(ctx), timeout_s, codex_model) if provider in {"auto", "codex"} else ""
+        raw_output = run_llm(build_prompt(ctx), provider, timeout_s, codex_model, claude_model)
         if not raw_output:
             raw_output = json.dumps(fallback_record(ctx), ensure_ascii=False)
 
@@ -576,6 +610,7 @@ def launch_worker(args: argparse.Namespace, input_data: dict[str, Any], history_
                 "history_root": str(history_root),
                 "provider": args.provider,
                 "codex_model": args.codex_model,
+                "claude_model": args.claude_model,
                 "timeout": args.timeout,
                 "debug": args.debug,
             },
@@ -609,6 +644,7 @@ def run_worker(path: str) -> int:
         history_root=Path(str(payload.get("history_root"))),
         provider=str(payload.get("provider") or "auto"),
         codex_model=str(payload.get("codex_model") or DEFAULT_CODEX_MODEL),
+        claude_model=str(payload.get("claude_model") or DEFAULT_CLAUDE_MODEL),
         timeout_s=int(payload.get("timeout") or 30),
         dry_run=False,
         record_json="",
@@ -629,6 +665,7 @@ def main() -> int:
     parser.add_argument("--history-root", default="")
     parser.add_argument("--provider", choices=sorted(VALID_PROVIDERS), default=None)
     parser.add_argument("--codex-model", default=os.environ.get("AGENT_TURN_HISTORY_CODEX_MODEL", DEFAULT_CODEX_MODEL))
+    parser.add_argument("--claude-model", default=os.environ.get("AGENT_TURN_HISTORY_CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL))
     parser.add_argument("--timeout", type=int, default=int(os.environ.get("AGENT_TURN_HISTORY_TIMEOUT", "30") or "30"))
     parser.add_argument("--sync", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -650,6 +687,7 @@ def main() -> int:
             history_root=history_root,
             provider=args.provider,
             codex_model=args.codex_model,
+            claude_model=args.claude_model,
             timeout_s=args.timeout,
             dry_run=args.dry_run,
             record_json=args.record_json,
