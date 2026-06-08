@@ -12,18 +12,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_HISTORY_ROOT = "self-improvement/turn-history"
 HOOK_OWNED_FIELDS = {"schema_version", "ts", "session_id", "turn_id", "cwd"}
-CONTENT_FIELDS = {
-    "user_request",
-    "agent_action",
-    "went_well",
-    "went_wrong",
+CONTENT_FIELDS = (
+    "user_intent",
+    "user_decisions",
+    "user_corrections",
+    "memory_requests",
+    "agent_workflow",
+    "troubleshooting",
+    "agent_issues",
+    "successful_patterns",
     "lesson_candidate",
     "evidence",
-}
-ALLOWED_FIELDS = HOOK_OWNED_FIELDS | CONTENT_FIELDS
+)
+ALLOWED_FIELDS = HOOK_OWNED_FIELDS | set(CONTENT_FIELDS)
 
 
 def now_iso() -> str:
@@ -112,6 +116,7 @@ def append_turn_history(
     session_id: str,
     turn_id: str,
     cwd: str,
+    transcript_path: str,
     record: dict[str, Any],
     dry_run: bool,
 ) -> dict[str, Any]:
@@ -126,26 +131,30 @@ def append_turn_history(
         return response(False, errors=errors, repair_hint="Fix the reported fields and retry. No turn history was appended.")
 
     session_dir = history_root / "sessions" / safe_session
+    session_file = session_dir / "session.json"
     turns_file = session_dir / "turns.jsonl"
-    full_record: dict[str, Any] = {
+    ts = now_iso()
+    session_record: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "ts": now_iso(),
         "session_id": safe_session,
-        "turn_id": turn_id.strip(),
+        "created_at": ts,
         "cwd": cwd,
     }
-    for field in (
-        "user_request",
-        "agent_action",
-        "went_well",
-        "went_wrong",
-        "lesson_candidate",
-        "evidence",
-    ):
+    if transcript_path.strip():
+        session_record["transcript_path"] = transcript_path.strip()
+
+    full_record: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "ts": ts,
+        "turn_id": turn_id.strip(),
+    }
+    for field in CONTENT_FIELDS:
         full_record[field] = content[field]
 
     if not dry_run:
-        turns_file.parent.mkdir(parents=True, exist_ok=True)
+        session_dir.mkdir(parents=True, exist_ok=True)
+        if not session_file.exists():
+            session_file.write_text(json.dumps(session_record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         with turns_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps(full_record, ensure_ascii=False, separators=(",", ":")))
             f.write("\n")
@@ -154,6 +163,7 @@ def append_turn_history(
         True,
         appended=0 if dry_run else 1,
         record=full_record,
+        session_file=display_path(session_file),
         turns_file=display_path(turns_file),
         dry_run=dry_run,
     )
@@ -165,6 +175,7 @@ def main() -> int:
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--turn-id", required=True)
     parser.add_argument("--cwd", default="")
+    parser.add_argument("--transcript-path", default="")
     parser.add_argument("--record-json", default="")
     parser.add_argument("--record-file", default="")
     parser.add_argument("--dry-run", action="store_true")
@@ -187,6 +198,7 @@ def main() -> int:
         session_id=args.session_id,
         turn_id=args.turn_id,
         cwd=args.cwd,
+        transcript_path=args.transcript_path,
         record=record,
         dry_run=args.dry_run,
     )

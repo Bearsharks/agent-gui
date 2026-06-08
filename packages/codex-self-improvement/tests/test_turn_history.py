@@ -37,11 +37,16 @@ class TurnHistoryTestCase(unittest.TestCase):
             session_id="rollout-demo/session",
             turn_id="turn-1",
             cwd="/repo",
+            transcript_path="/tmp/transcript.jsonl",
             record={
-                "user_request": "조사해 달라고 요청했다.",
-                "agent_action": "관련 파일을 읽었다.",
-                "went_well": "범위를 좁혔다.",
-                "went_wrong": "",
+                "user_intent": "조사해 달라고 요청했다.",
+                "user_decisions": "",
+                "user_corrections": "",
+                "memory_requests": "",
+                "agent_workflow": "관련 파일을 읽었다.",
+                "troubleshooting": "",
+                "agent_issues": "",
+                "successful_patterns": "범위를 좁혔다.",
                 "lesson_candidate": "",
                 "evidence": "",
             },
@@ -49,14 +54,22 @@ class TurnHistoryTestCase(unittest.TestCase):
         )
 
         self.assertTrue(result["ok"])
+        session_file = self.tmp_path / "history" / "sessions" / "demo-session" / "session.json"
+        session = json.loads(session_file.read_text(encoding="utf-8"))
+        self.assertEqual(session["schema_version"], 2)
+        self.assertEqual(session["session_id"], "demo-session")
+        self.assertEqual(session["cwd"], "/repo")
+        self.assertEqual(session["transcript_path"], "/tmp/transcript.jsonl")
         turns_file = self.tmp_path / "history" / "sessions" / "demo-session" / "turns.jsonl"
         rows = [json.loads(line) for line in turns_file.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["schema_version"], 1)
-        self.assertEqual(rows[0]["session_id"], "demo-session")
+        self.assertEqual(rows[0]["schema_version"], 2)
+        self.assertNotIn("session_id", rows[0])
         self.assertEqual(rows[0]["turn_id"], "turn-1")
-        self.assertEqual(rows[0]["cwd"], "/repo")
-        self.assertEqual(rows[0]["user_request"], "조사해 달라고 요청했다.")
+        self.assertNotIn("cwd", rows[0])
+        self.assertEqual(rows[0]["user_intent"], "조사해 달라고 요청했다.")
+        self.assertEqual(rows[0]["agent_workflow"], "관련 파일을 읽었다.")
+        self.assertEqual(rows[0]["successful_patterns"], "범위를 좁혔다.")
 
     def test_append_turn_history_rejects_hook_owned_and_unknown_fields(self) -> None:
         result = self.writer.append_turn_history(
@@ -64,12 +77,17 @@ class TurnHistoryTestCase(unittest.TestCase):
             session_id="demo",
             turn_id="turn-1",
             cwd="/repo",
+            transcript_path="",
             record={
                 "session_id": "wrong",
-                "user_request": "request",
-                "agent_action": "action",
-                "went_well": "",
-                "went_wrong": "",
+                "user_intent": "request",
+                "user_decisions": "",
+                "user_corrections": "",
+                "memory_requests": "",
+                "agent_workflow": "action",
+                "troubleshooting": "",
+                "agent_issues": "",
+                "successful_patterns": "",
                 "lesson_candidate": "",
                 "evidence": "",
                 "extra": "nope",
@@ -130,10 +148,14 @@ class TurnHistoryTestCase(unittest.TestCase):
             dry_run=False,
             record_json=json.dumps(
                 {
-                    "user_request": "사용자는 조사만 요청했다.",
-                    "agent_action": "에이전트는 파일을 읽고 조사 결과를 답했다.",
-                    "went_well": "요청 범위를 확인했다.",
-                    "went_wrong": "",
+                    "user_intent": "사용자는 조사만 요청했다.",
+                    "user_decisions": "",
+                    "user_corrections": "",
+                    "memory_requests": "",
+                    "agent_workflow": "에이전트는 파일을 읽고 조사 결과를 답했다.",
+                    "troubleshooting": "",
+                    "agent_issues": "",
+                    "successful_patterns": "요청 범위를 확인했다.",
                     "lesson_candidate": "",
                     "evidence": "조사만 해주세요.",
                 },
@@ -143,10 +165,17 @@ class TurnHistoryTestCase(unittest.TestCase):
         )
 
         self.assertTrue(result["ok"])
+        session_file = self.tmp_path / "history" / "sessions" / "demo" / "session.json"
+        session = json.loads(session_file.read_text(encoding="utf-8"))
+        self.assertEqual(session["session_id"], "demo")
+        self.assertEqual(session["cwd"], str(self.tmp_path))
+        self.assertEqual(session["transcript_path"], str(transcript))
         turns_file = self.tmp_path / "history" / "sessions" / "demo" / "turns.jsonl"
         row = json.loads(turns_file.read_text(encoding="utf-8").strip())
-        self.assertEqual(row["user_request"], "사용자는 조사만 요청했다.")
-        self.assertEqual(row["agent_action"], "에이전트는 파일을 읽고 조사 결과를 답했다.")
+        self.assertNotIn("session_id", row)
+        self.assertNotIn("cwd", row)
+        self.assertEqual(row["user_intent"], "사용자는 조사만 요청했다.")
+        self.assertEqual(row["agent_workflow"], "에이전트는 파일을 읽고 조사 결과를 답했다.")
         self.assertEqual(row["evidence"], "조사만 해주세요.")
 
     def test_turn_history_omits_successful_tool_output(self) -> None:
@@ -230,14 +259,14 @@ class TurnHistoryTestCase(unittest.TestCase):
         original_codex = self.stop.run_codex
         try:
             self.stop.run_claude = lambda *_args: calls.append("claude") or ""
-            self.stop.run_codex = lambda *_args: calls.append("codex") or '{"user_request": ""}'
+            self.stop.run_codex = lambda *_args: calls.append("codex") or '{"user_intent": ""}'
 
             output = self.stop.run_llm("prompt", "auto", 1, "codex-model", "claude-model")
         finally:
             self.stop.run_claude = original_claude
             self.stop.run_codex = original_codex
 
-        self.assertEqual(output, '{"user_request": ""}')
+        self.assertEqual(output, '{"user_intent": ""}')
         self.assertEqual(calls, ["claude", "codex"])
 
     def test_claude_provider_does_not_call_codex(self) -> None:
@@ -245,7 +274,7 @@ class TurnHistoryTestCase(unittest.TestCase):
         original_claude = self.stop.run_claude
         original_codex = self.stop.run_codex
         try:
-            self.stop.run_claude = lambda *_args: calls.append("claude") or '{"user_request": ""}'
+            self.stop.run_claude = lambda *_args: calls.append("claude") or '{"user_intent": ""}'
             self.stop.run_codex = lambda *_args: calls.append("codex") or ""
 
             output = self.stop.run_llm("prompt", "claude", 1, "codex-model", "claude-model")
@@ -253,7 +282,7 @@ class TurnHistoryTestCase(unittest.TestCase):
             self.stop.run_claude = original_claude
             self.stop.run_codex = original_codex
 
-        self.assertEqual(output, '{"user_request": ""}')
+        self.assertEqual(output, '{"user_intent": ""}')
         self.assertEqual(calls, ["claude"])
 
     def test_install_managed_hooks_include_stop_turn_history(self) -> None:

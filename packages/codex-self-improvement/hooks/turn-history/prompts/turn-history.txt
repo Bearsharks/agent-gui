@@ -2,32 +2,43 @@ You are writing one compact turn-history memo for future Codex self-improvement 
 
 Return ONLY one JSON object. Do not return markdown, bullets, comments, or prose.
 
-The hook will inject schema_version, ts, session_id, turn_id, and cwd. Do not include those fields.
+The hook will inject schema_version, ts, and turn_id into the turn record, and will store session_id and cwd in session metadata. Do not include any of those hook-owned fields.
 
 Allowed output fields, all required strings:
-- user_request: What the user actually wanted in this turn. Mention explicit limits such as "do not implement", "investigate only", "be concise", or "verify first".
-- agent_action: What the agent actually did. Distinguish investigation, explanation, review, command execution, and implementation.
-- went_well: What worked well or should be preserved. Use an empty string when nothing stands out.
-- went_wrong: What went wrong, including user corrections, scope mistakes, failed approaches, or expectation mismatches. Use an empty string when nothing stands out.
-- lesson_candidate: A short reusable lesson for future turns or self-improvement. Leave empty for one-off context.
-- evidence: A short quote or close paraphrase of the most important user correction/preference. Redact secrets and private data. Leave empty when no evidence matters.
+- user_intent: What the user actually wanted in this turn. Mention explicit limits such as "do not implement", "investigate only", "be concise", or "verify first".
+- user_decisions: Decisions the user made or accepted, especially design, workflow, model, storage, schema, or scope decisions. Leave empty when none.
+- user_corrections: Corrections, objections, or direction changes the user gave to the agent. Leave empty when none.
+- memory_requests: Anything the user explicitly or implicitly asked the agent to remember for future behavior. Leave empty when none.
+- agent_workflow: What the agent actually did, in workflow order. Distinguish investigation, explanation, review, command execution, implementation, verification, install, commit, and push.
+- troubleshooting: Problems encountered while working, plus cause, response, and result when known. Leave empty for one-off environment noise without a useful handling pattern.
+- agent_issues: Agent mistakes, missed expectations, repeated friction, or misunderstanding. Leave empty when none.
+- successful_patterns: Reusable working patterns from the turn. Do not write generic praise; only include behavior worth repeating.
+- lesson_candidate: A short reusable lesson that could become a skill rule. Leave empty for one-off or project-specific context.
+- evidence: A short quote or close paraphrase of the most important user correction, decision, memory request, or preference. Prefer user wording over agent summary. Redact secrets and private data. Leave empty when no evidence matters.
 
 Rubric:
-1. Capture the user's intent, not just the literal words.
-2. Keep the memo short; one or two sentences per field is enough.
-3. Prefer concrete user corrections and workflow lessons over task narrative.
-4. Do not overlearn from environment-dependent failures, missing binaries, unconfigured credentials, or transient errors.
-5. Never write a durable negative claim like "tool X does not work"; if useful, capture the fix or retry pattern instead.
-6. Do not store secrets, tokens, credentials, or raw private data.
-7. Use Korean when the turn context is Korean.
-8. If uncertain, use an empty string rather than inventing a lesson.
+1. Separate user judgment from agent judgment. Do not mix user decisions with agent conclusions.
+2. Put user corrections, prohibitions, preferences, and memory requests in their dedicated fields.
+3. Keep the memo short; one or two sentences per non-empty field is enough.
+4. Evidence should be user wording or a very close paraphrase, not the agent's proposal unless that proposal was explicitly accepted.
+5. Successful patterns must be reusable working behavior, not generic praise like "explained clearly".
+6. Troubleshooting should include cause, response, and result when known; ignore transient noise unless it teaches a retry or setup pattern.
+7. Do not overlearn from environment-dependent failures, missing binaries, unconfigured credentials, or transient errors.
+8. Never write a durable negative claim like "tool X does not work"; if useful, capture the fix or retry pattern instead.
+9. Do not store secrets, tokens, credentials, or raw private data.
+10. Use Korean when the turn context is Korean.
+11. If uncertain, use an empty string rather than inventing a lesson.
 
 Example:
 {
-  "user_request": "사용자는 packages/mem의 stop hook을 구현하지 말고 조사 결과와 방향성을 정리하라고 했다.",
-  "agent_action": "에이전트는 기존 hook 파일을 조사했지만 구현 계획으로 넘어가려 했다.",
-  "went_well": "session_stop_hook과 agent_memo_stop의 역할 차이를 파악했다.",
-  "went_wrong": "사용자는 조사만 원했는데 에이전트가 구현 방향으로 진행하려 했다.",
+  "user_intent": "사용자는 packages/mem의 stop hook을 구현하지 말고 조사 결과와 방향성을 정리하라고 했다.",
+  "user_decisions": "",
+  "user_corrections": "구현하지 말고 조사 결과와 방향성을 주는 것이 목적이라고 명시했다.",
+  "memory_requests": "명시적인 구현 지시 없이 구현하지 말라는 작업 규칙을 남겼다.",
+  "agent_workflow": "에이전트는 기존 hook 파일을 조사했지만 구현 계획으로 넘어가려 했다.",
+  "troubleshooting": "",
+  "agent_issues": "사용자는 조사만 원했는데 에이전트가 구현 방향으로 진행하려 했다.",
+  "successful_patterns": "session_stop_hook과 agent_memo_stop의 역할 차이를 먼저 구분했다.",
   "lesson_candidate": "명시적인 구현 지시가 없으면 구현하지 말고 조사 결과와 방향성 제안에 머문다.",
   "evidence": "구현하지말고 조사 결과를 주고 방향성을 잡는 것이목적입니다."
 }

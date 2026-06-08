@@ -31,6 +31,7 @@ class HookContext:
     session_id: str
     turn_id: str
     cwd: str
+    transcript_path: str
     history_root: Path
     turns_file: Path
     last_turn: str
@@ -376,6 +377,7 @@ def build_context(input_data: dict[str, Any], history_root: Path) -> HookContext
         session_id=session_id,
         turn_id=turn_id,
         cwd=cwd,
+        transcript_path=transcript_path,
         history_root=history_root,
         turns_file=turns_file,
         last_turn=last_turn,
@@ -395,8 +397,12 @@ def build_prompt(ctx: HookContext) -> str:
     previous = [
         {
             "turn_id": item.get("turn_id"),
-            "user_request": item.get("user_request"),
-            "went_wrong": item.get("went_wrong"),
+            "user_intent": item.get("user_intent"),
+            "user_decisions": item.get("user_decisions"),
+            "user_corrections": item.get("user_corrections"),
+            "memory_requests": item.get("memory_requests"),
+            "agent_issues": item.get("agent_issues"),
+            "successful_patterns": item.get("successful_patterns"),
             "lesson_candidate": item.get("lesson_candidate"),
             "evidence": item.get("evidence"),
         }
@@ -504,10 +510,14 @@ def fallback_record(ctx: HookContext) -> dict[str, str]:
     agent_lines = [line.removeprefix("[Agent]: ").strip() for line in ctx.last_turn.splitlines() if line.startswith("[Agent]: ")]
     tool_calls = [line for line in ctx.last_turn.splitlines() if line.startswith("[Tool call]: ")]
     return {
-        "user_request": truncate(" ".join(user_lines), 600),
-        "agent_action": truncate(" ".join(agent_lines + tool_calls[:5]), 800),
-        "went_well": "",
-        "went_wrong": "",
+        "user_intent": truncate(" ".join(user_lines), 600),
+        "user_decisions": "",
+        "user_corrections": "",
+        "memory_requests": "",
+        "agent_workflow": truncate(" ".join(agent_lines + tool_calls[:5]), 800),
+        "troubleshooting": "",
+        "agent_issues": "",
+        "successful_patterns": "",
         "lesson_candidate": "",
         "evidence": "",
     }
@@ -533,6 +543,8 @@ def run_append_helper(ctx: HookContext, record: dict[str, Any], dry_run: bool) -
             ctx.turn_id,
             "--cwd",
             ctx.cwd,
+            "--transcript-path",
+            ctx.transcript_path,
             "--record-file",
             str(record_file),
         ]

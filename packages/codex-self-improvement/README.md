@@ -120,22 +120,38 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 기본 저장 위치:
 
 ```text
-~/.codex/self-improvement/turn-history/sessions/<session_id>/turns.jsonl
+~/.codex/self-improvement/turn-history/sessions/<session_id>/
+  session.json
+  turns.jsonl
 ```
 
-각 record는 다음 고정 필드를 갖습니다.
+`session.json`은 세션 단위 메타데이터를 한 번만 저장합니다.
 
 ```json
 {
-  "schema_version": 1,
-  "ts": "...",
+  "schema_version": 2,
   "session_id": "...",
-  "turn_id": "...",
+  "created_at": "...",
   "cwd": "...",
-  "user_request": "...",
-  "agent_action": "...",
-  "went_well": "...",
-  "went_wrong": "...",
+  "transcript_path": "..."
+}
+```
+
+`turns.jsonl`의 각 record는 다음 고정 필드를 갖습니다.
+
+```json
+{
+  "schema_version": 2,
+  "ts": "...",
+  "turn_id": "...",
+  "user_intent": "...",
+  "user_decisions": "...",
+  "user_corrections": "...",
+  "memory_requests": "...",
+  "agent_workflow": "...",
+  "troubleshooting": "...",
+  "agent_issues": "...",
+  "successful_patterns": "...",
   "lesson_candidate": "...",
   "evidence": "..."
 }
