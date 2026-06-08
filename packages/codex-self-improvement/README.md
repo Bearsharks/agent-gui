@@ -129,7 +129,7 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "session_id": "...",
   "created_at": "...",
   "cwd": "...",
@@ -141,9 +141,10 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ts": "...",
   "turn_id": "...",
+  "importance": "low|medium|high|critical",
   "user_intent": "...",
   "user_decisions": "...",
   "user_corrections": "...",
@@ -156,6 +157,13 @@ Telemetry는 `~/.codex/self-improvement/skills/.usage.json`에 저장됩니다. 
   "evidence": "..."
 }
 ```
+
+`importance` 기준:
+
+- `low`: 단순 질문, 경로 재확인, 상태 확인, 일회성 clarification
+- `medium`: 세션 흐름 복원에 유용한 작업 방식, 로컬 설계 결정, 작은 troubleshooting
+- `high`: 사용자 correction, 명시적 선호, 기억 요청, 중요한 사용자 결정, 재사용 가능한 성공/실패 패턴
+- `critical`: 세션을 넘어 future behavior를 바꿔야 하는 강한 지시, `항상/절대/기억` 류의 명시 지시, 심각한 반복 실패
 
 성공한 tool output 원문은 저장하지 않고 길이만 남깁니다. 실패/error 신호가 있는
 tool output만 짧은 excerpt로 포함하며, token/secret 계열은 redaction합니다.
@@ -190,10 +198,17 @@ AGENT_TURN_HISTORY_CODEX_MODEL=gpt-5.4-mini
 Transcript 파일이 있으면 먼저 deterministic review report를 만듭니다.
 
 ```bash
-python3 ~/.codex/self-improvement/codex_self_improvement.py review --transcript <path>
+python3 ~/.codex/self-improvement/codex_self_improvement.py review \
+  --transcript <path> \
+  --turn-history-session <session_id>
 ```
 
-파일이 없고 active conversation이 완전하면 같은 rubric을 수동으로 적용합니다. Report는 mutation을 하지 않으며, 항상 사용자 승인이 필요합니다.
+`--turn-history-file <path>`로 `turns.jsonl`을 직접 지정할 수도 있습니다.
+
+Review는 regex signal만으로 판단하지 않습니다. Regex signal은 attention hint로
+쓰고, turn-history의 `high`/`critical` memo와 전체 transcript 맥락을 함께
+사용해 `turn_history_signals`, `contextual_candidates`, `rejected_candidates`를
+report에 씁니다. Report는 mutation을 하지 않으며, 항상 사용자 승인이 필요합니다.
 
 Hermes background review와 같은 우선순위를 따릅니다.
 

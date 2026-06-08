@@ -842,7 +842,11 @@ def run_review_command(args: argparse.Namespace) -> None:
         transcript = Path(args.transcript).read_text(encoding="utf-8", errors="replace")
     else:
         transcript = sys.stdin.read()
-    result = run_review(transcript)
+    result = run_review(
+        transcript,
+        turn_history_file=args.turn_history_file,
+        turn_history_session=args.turn_history_session,
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
 
 
@@ -922,6 +926,8 @@ def main(argv: list[str] | None = None) -> int:
     curate.add_argument("--archive-after-days", type=int, default=90)
     review = sub.add_parser("review")
     review.add_argument("--transcript", help="completed session transcript path; reads stdin when omitted")
+    review.add_argument("--turn-history-file", help="turn-history turns.jsonl path to include in review")
+    review.add_argument("--turn-history-session", help="turn-history session id under self-improvement/turn-history/sessions")
     sub.add_parser("init")
     args = parser.parse_args(argv)
     if args.cmd == "mcp":

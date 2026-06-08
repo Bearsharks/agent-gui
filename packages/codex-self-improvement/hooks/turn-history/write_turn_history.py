@@ -12,10 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_HISTORY_ROOT = "self-improvement/turn-history"
 HOOK_OWNED_FIELDS = {"schema_version", "ts", "session_id", "turn_id", "cwd"}
+IMPORTANCE_VALUES = {"low", "medium", "high", "critical"}
 CONTENT_FIELDS = (
+    "importance",
     "user_intent",
     "user_decisions",
     "user_corrections",
@@ -106,6 +108,16 @@ def validate_content(record: dict[str, Any]) -> tuple[dict[str, str], list[dict[
             errors.append(error(field, "must be a string", f"Set `{field}` to a string or empty string."))
             value = ""
         normalized[field] = value.strip()
+    if not normalized["importance"]:
+        normalized["importance"] = "low"
+    if normalized["importance"] not in IMPORTANCE_VALUES:
+        errors.append(
+            error(
+                "importance",
+                "must be one of low, medium, high, critical",
+                "Set `importance` using the turn-history rubric.",
+            )
+        )
 
     return normalized, errors
 

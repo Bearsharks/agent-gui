@@ -11,6 +11,13 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from codex_self_improvement_review_turn_history import (
+    build_contextual_candidates,
+    build_rejected_candidates,
+    load_turn_history,
+    resolve_turn_history_file,
+    select_turn_history_signals,
+)
 
 SIGNAL_PATTERNS: dict[str, list[str]] = {
     "user_correction": [
@@ -200,21 +207,34 @@ def rank_targets(transcript: str, skill_index: list[dict[str, str]], loaded_name
     return sorted(ranked, key=lambda item: (-int(item["score"]), str(item["name"])))[:10]
 
 
-def build_rubric(signals: list[dict[str, Any]], ranked_targets: list[dict[str, Any]]) -> dict[str, Any]:
+def build_rubric(
+    signals: list[dict[str, Any]],
+    ranked_targets: list[dict[str, Any]],
+    turn_history_signals: list[dict[str, Any]] | None = None,
+    contextual_candidates: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     types = {signal["type"] for signal in signals}
     durable_types = {"user_correction", "workflow_correction", "reusable_fix", "loaded_or_consulted_skill"}
     has_durable = bool(types & durable_types)
+    has_turn_history_signal = bool(turn_history_signals)
+    has_contextual_candidate = any(
+        candidate.get("importance") in {"high", "critical"}
+        for candidate in (contextual_candidates or [])
+    )
     transient_only = bool(types & {"transient_failure_only"}) and not bool(types & (durable_types - {"reusable_fix"}))
     secret_risk = "secret_or_private_data_risk" in types
-    one_off = "one_off_task" in types and not has_durable
+    one_off = "one_off_task" in types and not (has_durable or has_turn_history_signal or has_contextual_candidate)
     recommended = "none"
-    if has_durable and not transient_only and not secret_risk and not one_off:
+    if (has_durable or has_turn_history_signal or has_contextual_candidate) and not transient_only and not secret_risk and not one_off:
         if ranked_targets:
             recommended = "patch"
         else:
             recommended = "needs_user_judgment"
     return {
-        "has_durable_signal": has_durable,
+        "has_durable_signal": has_durable or has_turn_history_signal or has_contextual_candidate,
+        "has_regex_signal": has_durable,
+        "has_turn_history_signal": has_turn_history_signal,
+        "has_contextual_candidate": has_contextual_candidate,
         "has_loaded_skill_candidate": any(target["reason"] == "loaded_or_consulted_skill" for target in ranked_targets),
         "has_existing_umbrella_candidate": bool(ranked_targets),
         "contains_transient_failure_only": transient_only,
@@ -225,16 +245,28 @@ def build_rubric(signals: list[dict[str, Any]], ranked_targets: list[dict[str, A
     }
 
 
-def review_session_text(transcript: str, *, skill_index: list[dict[str, str]] | None = None) -> dict[str, Any]:
+def review_session_text(
+    transcript: str,
+    *,
+    skill_index: list[dict[str, str]] | None = None,
+    turn_history_records: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     index = skill_index if skill_index is not None else iter_skill_index()
     signals = detect_signals(transcript)
+    history = turn_history_records or []
+    turn_history_signals = select_turn_history_signals(history)
+    contextual_candidates = build_contextual_candidates(transcript, history, signals)
     loaded = extract_loaded_skill_names(transcript, index)
     targets = rank_targets(transcript, index, loaded)
-    rubric = build_rubric(signals, targets)
+    rubric = build_rubric(signals, targets, turn_history_signals, contextual_candidates)
     return {
         "success": True,
         "started_at": now_iso(),
         "signals": signals,
+        "explicit_signals": signals,
+        "turn_history_signals": turn_history_signals,
+        "contextual_candidates": contextual_candidates,
+        "rejected_candidates": build_rejected_candidates(history, signals),
         "loaded_skills": loaded,
         "candidate_targets": targets,
         "rubric": rubric,
@@ -258,15 +290,36 @@ def write_review_report(review: dict[str, Any]) -> Path:
         f"- requires_approval: {review['rubric']['requires_approval']}",
         f"- signals: {len(review['signals'])}",
         f"- candidate_targets: {len(review['candidate_targets'])}",
+        f"- turn_history_signals: {len(review['turn_history_signals'])}",
+        f"- contextual_candidates: {len(review['contextual_candidates'])}",
     ]
     if review["candidate_targets"]:
         lines.extend(["", "## candidate_targets"])
         for target in review["candidate_targets"]:
             lines.append(f"- {target['name']}: score={target['score']} reason={target['reason']}")
     if review["signals"]:
-        lines.extend(["", "## signals"])
+        lines.extend(["", "## explicit_signals"])
         for signal in review["signals"]:
             lines.append(f"- {signal['type']}: {signal['evidence']}")
+    if review["turn_history_signals"]:
+        lines.extend(["", "## turn_history_signals"])
+        for signal in review["turn_history_signals"]:
+            lines.append(
+                f"- {signal['importance']} turn={signal.get('turn_id', '')}: "
+                f"{signal.get('lesson_candidate') or signal.get('evidence')}"
+            )
+    if review["contextual_candidates"]:
+        lines.extend(["", "## contextual_candidates"])
+        for candidate in review["contextual_candidates"]:
+            evidence = "; ".join(str(item) for item in candidate.get("evidence", []) if item)
+            lines.append(
+                f"- {candidate['importance']} source={candidate['source']}: "
+                f"{candidate.get('suggested_skill_rule') or candidate['reason']} evidence={evidence}"
+            )
+    if review["rejected_candidates"]:
+        lines.extend(["", "## rejected_candidates"])
+        for candidate in review["rejected_candidates"]:
+            lines.append(f"- {candidate['type']}: {candidate['reason']} evidence={candidate.get('evidence', '')}")
     if review["do_not_store"]:
         lines.extend(["", "## do_not_store"])
         for signal in review["do_not_store"]:
@@ -276,8 +329,20 @@ def write_review_report(review: dict[str, Any]) -> Path:
     return report_dir
 
 
-def run_review(transcript: str) -> dict[str, Any]:
-    review = review_session_text(transcript)
+def run_review(
+    transcript: str,
+    *,
+    turn_history_file: str | Path | None = None,
+    turn_history_session: str | None = None,
+) -> dict[str, Any]:
+    history = load_turn_history(session_id=turn_history_session, file_path=turn_history_file)
+    review = review_session_text(transcript, turn_history_records=history)
+    if turn_history_file or turn_history_session:
+        review["turn_history_input"] = {
+            "session_id": turn_history_session or "",
+            "file": str(resolve_turn_history_file(session_id=turn_history_session, file_path=turn_history_file) or ""),
+            "records": len(history),
+        }
     report_dir = write_review_report(review)
     review["report_path"] = str(report_dir)
     return review

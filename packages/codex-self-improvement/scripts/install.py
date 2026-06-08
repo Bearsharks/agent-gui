@@ -181,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     target_curation = target_dir / "codex_self_improvement_curation.py"
     target_curation_clusters = target_dir / "codex_self_improvement_curation_clusters.py"
     target_review = target_dir / "codex_self_improvement_review.py"
+    target_review_turn_history = target_dir / "codex_self_improvement_review_turn_history.py"
     target_self_improvement_hook = target_dir / "hooks" / "self-improvement" / "self_improvement_hook.py"
     target_turn_history_stop = target_dir / "hooks" / "turn-history" / "stop.sh"
     config_path = args.codex_home / "config.toml"
@@ -206,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     shutil.copy2(args.source / "codex_self_improvement_curation.py", target_curation)
     shutil.copy2(args.source / "codex_self_improvement_curation_clusters.py", target_curation_clusters)
     shutil.copy2(args.source / "codex_self_improvement_review.py", target_review)
+    shutil.copy2(args.source / "codex_self_improvement_review_turn_history.py", target_review_turn_history)
     target_script.chmod(0o755)
     install_hooks(args.package_root, target_dir)
     install_skills(args.package_root, args.codex_home)

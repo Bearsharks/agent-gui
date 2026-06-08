@@ -154,6 +154,93 @@ class RuntimeTestCase(unittest.TestCase):
         self.assertTrue(result["rubric"]["contains_secret_or_private_data_risk"])
         self.assertTrue(result["do_not_store"])
 
+    def test_review_uses_high_turn_history_without_regex_signal(self) -> None:
+        self.assertTrue(self.create_skill("workflow-review")["success"])
+        history = [
+            {
+                "schema_version": 3,
+                "turn_id": "turn-1",
+                "importance": "high",
+                "user_intent": "사용자는 workflow review 절차를 다듬고 싶어했다.",
+                "user_decisions": "",
+                "user_corrections": "시그널만으로 판단하지 말라고 했다.",
+                "memory_requests": "",
+                "agent_workflow": "",
+                "troubleshooting": "",
+                "agent_issues": "",
+                "successful_patterns": "",
+                "lesson_candidate": "시그널은 후보 탐지기로만 쓰고 전체 대화 맥락으로 검증한다.",
+                "evidence": "시그널로만 판단해서 에이전트가 거기에 끌려 다닐까봐",
+            }
+        ]
+
+        result = self.review.review_session_text("workflow review context", turn_history_records=history)
+
+        self.assertEqual(result["rubric"]["recommended_operation"], "patch")
+        self.assertTrue(result["rubric"]["has_turn_history_signal"])
+        self.assertEqual(result["turn_history_signals"][0]["importance"], "high")
+        self.assertEqual(result["contextual_candidates"][0]["source"], "turn_history_context")
+        self.assertEqual(result["candidate_targets"][0]["name"], "workflow-review")
+
+    def test_review_ignores_low_turn_history_as_skill_signal(self) -> None:
+        history = [
+            {
+                "schema_version": 3,
+                "turn_id": "turn-1",
+                "importance": "low",
+                "user_intent": "사용자는 저장 위치를 다시 물었다.",
+                "user_decisions": "",
+                "user_corrections": "",
+                "memory_requests": "",
+                "agent_workflow": "에이전트는 경로를 답했다.",
+                "troubleshooting": "",
+                "agent_issues": "",
+                "successful_patterns": "",
+                "lesson_candidate": "",
+                "evidence": "다시 메모 저장위치가 어디라구요?",
+            }
+        ]
+
+        result = self.review.review_session_text("simple path reminder", turn_history_records=history)
+
+        self.assertEqual(result["rubric"]["recommended_operation"], "none")
+        self.assertFalse(result["turn_history_signals"])
+        self.assertFalse(result["contextual_candidates"])
+
+    def test_run_review_loads_turn_history_file(self) -> None:
+        self.assertTrue(self.create_skill("workflow-review")["success"])
+        history_file = Path(self.tmp.name) / "turns.jsonl"
+        history_file.write_text(
+            json.dumps(
+                {
+                    "schema_version": 3,
+                    "turn_id": "turn-1",
+                    "importance": "critical",
+                    "user_intent": "사용자는 workflow review 판단 기준을 바꾸고 싶어했다.",
+                    "user_decisions": "",
+                    "user_corrections": "",
+                    "memory_requests": "시그널만 보지 말고 전체 대화이력도 보라고 했다.",
+                    "agent_workflow": "",
+                    "troubleshooting": "",
+                    "agent_issues": "",
+                    "successful_patterns": "",
+                    "lesson_candidate": "self-improvement review는 turn-history와 전체 transcript를 함께 검토한다.",
+                    "evidence": "전체 대화이력을 바탕으로 판단을 같이 활용해야할것같은데",
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = self.review.run_review("workflow review context", turn_history_file=history_file)
+
+        self.assertEqual(result["turn_history_input"]["records"], 1)
+        self.assertEqual(result["turn_history_signals"][0]["importance"], "critical")
+        report = (Path(result["report_path"]) / "REPORT.md").read_text(encoding="utf-8")
+        self.assertIn("turn_history_signals", report)
+        self.assertIn("contextual_candidates", report)
+
     def test_hook_tracks_changes_from_each_session_snapshot(self) -> None:
         start_a = self.runtime.handle_session_start({"session_id": "a"})
         self.assertIn("<codex_self_improvement>", start_a["hookSpecificOutput"]["additionalContext"])

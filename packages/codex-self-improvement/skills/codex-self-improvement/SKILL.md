@@ -36,16 +36,25 @@ If the available conversation is visibly truncated or missing the task context,
 do not invent a review. Ask for the missing transcript or artifact.
 
 When a transcript file or pasteable transcript is available, run the deterministic
-rubric before proposing a mutation:
+rubric before proposing a mutation. If turn-history exists for the same session,
+include it in the review; it is the compact memory index for user decisions,
+corrections, memory requests, agent issues, and successful working patterns.
 
 ```bash
-python3 ~/.codex/self-improvement/codex_self_improvement.py review --transcript <path>
+python3 ~/.codex/self-improvement/codex_self_improvement.py review \
+  --transcript <path> \
+  --turn-history-session <session-id>
 ```
 
 If no transcript file exists and the active conversation is complete in context,
 apply the same rubric manually and include the rubric fields in the proposal:
 durable signals, loaded/consulted skills, ranked targets, rejected transient
 failures, and `requires_approval=true`.
+
+Do not treat regex signals as the final decision. Use them as attention hints.
+A skill update candidate may exist even when no regex signal appears, and a
+regex signal may be rejected when full context shows it is one-off, disputed, or
+environment-specific. Review the full transcript and turn-history together.
 
 Ignore:
 
@@ -74,12 +83,15 @@ Ignore:
 
 2. Run or apply the deterministic review rubric.
    - Prefer the `review` command when transcript text is available.
+   - Include `--turn-history-session` or `--turn-history-file` when turn-history
+     exists for the session.
    - Treat its `run.json` and `REPORT.md` as the structured review artifact.
    - Do not mutate from the report alone; it is a proposal aid and always
      requires approval.
    - If reviewing manually from active context, reproduce the same fields:
-     `signals`, `loaded_skills`, `candidate_targets`, `do_not_store`, and
-     `rubric.recommended_operation`.
+     `explicit_signals`, `turn_history_signals`, `contextual_candidates`,
+     `rejected_candidates`, `loaded_skills`, `candidate_targets`,
+     `do_not_store`, and `rubric.recommended_operation`.
 
 3. Inspect the skill landscape.
    - Call `skill_list`.

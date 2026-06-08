@@ -397,6 +397,7 @@ def build_prompt(ctx: HookContext) -> str:
     previous = [
         {
             "turn_id": item.get("turn_id"),
+            "importance": item.get("importance"),
             "user_intent": item.get("user_intent"),
             "user_decisions": item.get("user_decisions"),
             "user_corrections": item.get("user_corrections"),
@@ -510,6 +511,7 @@ def fallback_record(ctx: HookContext) -> dict[str, str]:
     agent_lines = [line.removeprefix("[Agent]: ").strip() for line in ctx.last_turn.splitlines() if line.startswith("[Agent]: ")]
     tool_calls = [line for line in ctx.last_turn.splitlines() if line.startswith("[Tool call]: ")]
     return {
+        "importance": "low",
         "user_intent": truncate(" ".join(user_lines), 600),
         "user_decisions": "",
         "user_corrections": "",

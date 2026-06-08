@@ -39,6 +39,7 @@ class TurnHistoryTestCase(unittest.TestCase):
             cwd="/repo",
             transcript_path="/tmp/transcript.jsonl",
             record={
+                "importance": "low",
                 "user_intent": "조사해 달라고 요청했다.",
                 "user_decisions": "",
                 "user_corrections": "",
@@ -56,17 +57,18 @@ class TurnHistoryTestCase(unittest.TestCase):
         self.assertTrue(result["ok"])
         session_file = self.tmp_path / "history" / "sessions" / "demo-session" / "session.json"
         session = json.loads(session_file.read_text(encoding="utf-8"))
-        self.assertEqual(session["schema_version"], 2)
+        self.assertEqual(session["schema_version"], 3)
         self.assertEqual(session["session_id"], "demo-session")
         self.assertEqual(session["cwd"], "/repo")
         self.assertEqual(session["transcript_path"], "/tmp/transcript.jsonl")
         turns_file = self.tmp_path / "history" / "sessions" / "demo-session" / "turns.jsonl"
         rows = [json.loads(line) for line in turns_file.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["schema_version"], 2)
+        self.assertEqual(rows[0]["schema_version"], 3)
         self.assertNotIn("session_id", rows[0])
         self.assertEqual(rows[0]["turn_id"], "turn-1")
         self.assertNotIn("cwd", rows[0])
+        self.assertEqual(rows[0]["importance"], "low")
         self.assertEqual(rows[0]["user_intent"], "조사해 달라고 요청했다.")
         self.assertEqual(rows[0]["agent_workflow"], "관련 파일을 읽었다.")
         self.assertEqual(rows[0]["successful_patterns"], "범위를 좁혔다.")
@@ -80,6 +82,7 @@ class TurnHistoryTestCase(unittest.TestCase):
             transcript_path="",
             record={
                 "session_id": "wrong",
+                "importance": "low",
                 "user_intent": "request",
                 "user_decisions": "",
                 "user_corrections": "",
@@ -99,6 +102,34 @@ class TurnHistoryTestCase(unittest.TestCase):
         fields = {item["field"] for item in result["errors"]}
         self.assertIn("session_id", fields)
         self.assertIn("extra", fields)
+        self.assertFalse((self.tmp_path / "history" / "sessions" / "demo" / "turns.jsonl").exists())
+
+    def test_append_turn_history_rejects_invalid_importance(self) -> None:
+        result = self.writer.append_turn_history(
+            history_root=self.tmp_path / "history",
+            session_id="demo",
+            turn_id="turn-1",
+            cwd="/repo",
+            transcript_path="",
+            record={
+                "importance": "urgent",
+                "user_intent": "request",
+                "user_decisions": "",
+                "user_corrections": "",
+                "memory_requests": "",
+                "agent_workflow": "action",
+                "troubleshooting": "",
+                "agent_issues": "",
+                "successful_patterns": "",
+                "lesson_candidate": "",
+                "evidence": "",
+            },
+            dry_run=False,
+        )
+
+        self.assertFalse(result["ok"])
+        fields = {item["field"] for item in result["errors"]}
+        self.assertIn("importance", fields)
         self.assertFalse((self.tmp_path / "history" / "sessions" / "demo" / "turns.jsonl").exists())
 
     def test_turn_history_hook_appends_record_json_from_last_turn(self) -> None:
@@ -148,6 +179,7 @@ class TurnHistoryTestCase(unittest.TestCase):
             dry_run=False,
             record_json=json.dumps(
                 {
+                    "importance": "low",
                     "user_intent": "사용자는 조사만 요청했다.",
                     "user_decisions": "",
                     "user_corrections": "",
@@ -174,6 +206,7 @@ class TurnHistoryTestCase(unittest.TestCase):
         row = json.loads(turns_file.read_text(encoding="utf-8").strip())
         self.assertNotIn("session_id", row)
         self.assertNotIn("cwd", row)
+        self.assertEqual(row["importance"], "low")
         self.assertEqual(row["user_intent"], "사용자는 조사만 요청했다.")
         self.assertEqual(row["agent_workflow"], "에이전트는 파일을 읽고 조사 결과를 답했다.")
         self.assertEqual(row["evidence"], "조사만 해주세요.")

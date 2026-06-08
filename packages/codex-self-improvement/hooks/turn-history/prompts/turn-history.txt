@@ -5,6 +5,7 @@ Return ONLY one JSON object. Do not return markdown, bullets, comments, or prose
 The hook will inject schema_version, ts, and turn_id into the turn record, and will store session_id and cwd in session metadata. Do not include any of those hook-owned fields.
 
 Allowed output fields, all required strings:
+- importance: One of low, medium, high, critical. Use the importance rubric below.
 - user_intent: What the user actually wanted in this turn. Mention explicit limits such as "do not implement", "investigate only", "be concise", or "verify first".
 - user_decisions: Decisions the user made or accepted, especially design, workflow, model, storage, schema, or scope decisions. Leave empty when none.
 - user_corrections: Corrections, objections, or direction changes the user gave to the agent. Leave empty when none.
@@ -29,8 +30,15 @@ Rubric:
 10. Use Korean when the turn context is Korean.
 11. If uncertain, use an empty string rather than inventing a lesson.
 
+Importance rubric:
+- low: Simple question, simple answer, location/path reminder, status check, or one-off clarification with no reusable decision, correction, memory request, issue, or troubleshooting pattern.
+- medium: Useful workflow detail, accepted local design choice, minor reusable pattern, or troubleshooting result that helps reconstruct the session but is not a strong self-improvement signal.
+- high: User correction, explicit preference, memory request, repeated agent issue, important user decision, or reusable successful pattern that could plausibly become a skill rule.
+- critical: Strong instruction that should change future agent behavior across sessions, serious repeated failure, explicit "remember/always/never" direction, or a high-impact correction that should not be missed.
+
 Example:
 {
+  "importance": "critical",
   "user_intent": "사용자는 packages/mem의 stop hook을 구현하지 말고 조사 결과와 방향성을 정리하라고 했다.",
   "user_decisions": "",
   "user_corrections": "구현하지 말고 조사 결과와 방향성을 주는 것이 목적이라고 명시했다.",
