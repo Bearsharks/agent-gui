@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "top_k": 10,
+  "corpus": "docs_generated",
+  "provider": "local",
+  "model": "BAAI/bge-m3",
+  "milvus_uri": ".mem/index/p10_docgen.db",
+  "collection": "p10_docgen",
+  "queries": [
+    {
+      "query": "현재 문서 시스템은 어떻게 구성되어있나요",
+      "results": [
+        {"chunk_hash": "0cb535c3890086a4", "source": "docs_generated/architecture/auth/auth-architecture.md", "heading": "Review Notes", "start_line": 123, "end_line": 129},
+        {"chunk_hash": "c3d6d05bec09e805", "source": "docs_generated/domains/skills-system/prd.md", "heading": "Skills System PRD", "start_line": 1, "end_line": 4},
+        {"chunk_hash": "45cf250a94a7d971", "source": "docs_generated/domains/work-management-editor-sync/spec.md", "heading": "Data Model Direction", "start_line": 159, "end_line": 175},
+        {"chunk_hash": "4a0aa9e03e55bb05", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Product Definition", "start_line": 9, "end_line": 26},
+        {"chunk_hash": "e4a0807a652a6a3e", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Publish And Visibility", "start_line": 103, "end_line": 109},
+        {"chunk_hash": "f61cf158c01d3bc0", "source": "docs_generated/domains/daily-wrap-up/spec.md", "heading": "Status", "start_line": 22, "end_line": 27},
+        {"chunk_hash": "700a4edb2ec70453", "source": "docs_generated/domain/settings-panel/settings-panel-spec.md", "heading": "Terminology", "start_line": 21, "end_line": 34},
+        {"chunk_hash": "a6ff1378b6d386bf", "source": "docs_generated/README.md", "heading": "Relationship To Other Knowledge Layers", "start_line": 28, "end_line": 36},
+        {"chunk_hash": "9ac47f7d373678e2", "source": "docs_generated/domains/skills-system/prd.md", "heading": "Further Notes", "start_line": 49, "end_line": 57},
+        {"chunk_hash": "fbadd5a866336792", "source": "docs_generated/domains/daily-wrap-up/spec.md", "heading": "", "start_line": 1, "end_line": 19}
+      ]
+    },
+    {
+      "query": "스킬 시스템은 어떻게 구성되어있나요",
+      "results": [
+        {"chunk_hash": "4a0aa9e03e55bb05", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Product Definition", "start_line": 9, "end_line": 26},
+        {"chunk_hash": "10764e60925d081e", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Terminology", "start_line": 27, "end_line": 40},
+        {"chunk_hash": "c3d6d05bec09e805", "source": "docs_generated/domains/skills-system/prd.md", "heading": "Skills System PRD", "start_line": 1, "end_line": 4},
+        {"chunk_hash": "d86b0c24303f8eeb", "source": "docs_generated/domains/skills-system/prd.md", "heading": "Solution", "start_line": 13, "end_line": 22},
+        {"chunk_hash": "ad669a545ed189ed", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Scope", "start_line": 41, "end_line": 56},
+        {"chunk_hash": "82d42850df6f1b19", "source": "docs_generated/domains/skills-system/spec.md", "heading": "List", "start_line": 65, "end_line": 71},
+        {"chunk_hash": "d54f5fed3ece51fe", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Public Read Surface", "start_line": 110, "end_line": 116},
+        {"chunk_hash": "42799ad0bfb2a011", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Non-Goals", "start_line": 136, "end_line": 143},
+        {"chunk_hash": "45df9fa96fd2cbdf", "source": "docs_generated/domains/skills-system/prd.md", "heading": "User Stories", "start_line": 23, "end_line": 33},
+        {"chunk_hash": "e4a0807a652a6a3e", "source": "docs_generated/domains/skills-system/spec.md", "heading": "Publish And Visibility", "start_line": 103, "end_line": 109}
+      ]
+    },
+    {
+      "query": "업무노트의 목적은 무엇인가요",
+      "results": [
+        {"chunk_hash": "561f4c21b38aa5c1", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "List", "start_line": 58, "end_line": 64},
+        {"chunk_hash": "77cbae450749a4ff", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "Consistency Requirements", "start_line": 103, "end_line": 110},
+        {"chunk_hash": "9437c108edd3d9cc", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "Purpose", "start_line": 5, "end_line": 8},
+        {"chunk_hash": "78107451d6eec5b8", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "Product Definition", "start_line": 9, "end_line": 21},
+        {"chunk_hash": "80ea69eea1a04643", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "Terminology", "start_line": 22, "end_line": 32},
+        {"chunk_hash": "8f22fe4968972545", "source": "docs_generated/domain/task-note/task-note-prd.md", "heading": "User Stories", "start_line": 17, "end_line": 30},
+        {"chunk_hash": "7ffcd8d30e5d259c", "source": "docs_generated/domain/task-note/task-note-prd.md", "heading": "Solution", "start_line": 11, "end_line": 16},
+        {"chunk_hash": "96f31cfff6840f0f", "source": "docs_generated/domain/task-note/task-note-spec.md", "heading": "Scope", "start_line": 33, "end_line": 48},
+        {"chunk_hash": "d3fcda6c82064cae", "source": "docs_generated/domain/task-note/task-note-prd.md", "heading": "User Stories", "start_line": 29, "end_line": 40},
+        {"chunk_hash": "70f56e5a995a0431", "source": "docs_generated/domain/task-note/task-note-prd.md", "heading": "User Stories", "start_line": 39, "end_line": 47}
+      ]
+    },
+    {
+      "query": "settings panel layout",
+      "results": [
+        {"chunk_hash": "736c7fa1031c95ea", "source": "docs_generated/domain/settings-panel/settings-panel-prd.md", "heading": "Settings Panel PRD", "start_line": 1, "end_line": 4},
+        {"chunk_hash": "b69ca482f1bb6a63", "source": "docs_generated/domain/settings-panel/settings-panel-spec.md", "heading": "Settings Panel Spec", "start_line": 1, "end_line": 4},
+        {"chunk_hash": "c99eb3e522ce5456", "source": "docs_generated/domain/settings-panel/settings-panel-spec.md", "heading": "Layout", "start_line": 56, "end_line": 62},
+        {"chunk_hash": "01c8c397bd19d2d4", "source": "docs_generated/domain/settings-panel/settings-panel-prd.md", "heading": "User Stories", "start_line": 17, "end_line": 29},
+        {"chunk_hash": "0677fadbaeee8623", "source": "docs_generated/domain/settings-panel/settings-panel-prd.md", "heading": "Further Notes", "start_line": 71, "end_line": 76},
+        {"chunk_hash": "7b0f9507442fe258", "source": "docs_generated/domain/settings-panel/settings-panel-prd.md", "heading": "Implementation Decisions", "start_line": 34, "end_line": 47},
+        {"chunk_hash": "700a4edb2ec70453", "source": "docs_generated/domain/settings-panel/settings-panel-spec.md", "heading": "Terminology", "start_line": 21, "end_line": 34},
+        {"chunk_hash": "110274d77daca9de", "source": "docs_generated/domain/settings-panel/settings-panel-prd.md", "heading": "Solution", "start_line": 11, "end_line": 16},
+        {"chunk_hash": "add41fbe7d4ba816", "source": "docs_generated/domains/llm-chat-workspace/prd.md", "heading": "Mode Extensibility Requirements", "start_line": 81, "end_line": 90},
+        {"chunk_hash": "c938e98f32b64d06", "source": "docs_generated/domain/settings-panel/settings-panel-spec.md", "heading": "Product Definition", "start_line": 9, "end_line": 20}
+      ]
+    },
+    {
+      "query": "memo ingest generated docs",
+      "results": [
+        {"chunk_hash": "1010f7ed7bcfb1c2", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "Writable Targets", "start_line": 175, "end_line": 189},
+        {"chunk_hash": "1aaa0e52a946d789", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "Memo Ingest Workflow", "start_line": 26, "end_line": 36},
+        {"chunk_hash": "ad6c34664521bda3", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "", "start_line": 1, "end_line": 25},
+        {"chunk_hash": "052f131ff4be38e9", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "Memo-Ingest Responsibilities", "start_line": 107, "end_line": 126},
+        {"chunk_hash": "de6eee9a317f4f1b", "source": "docs_generated/foundations/doc-map/README.md", "heading": "Scope", "start_line": 54, "end_line": 67},
+        {"chunk_hash": "d11f1770c01a524b", "source": "docs_generated/README.md", "heading": "Rules", "start_line": 185, "end_line": 195},
+        {"chunk_hash": "0eb922cd31821cfc", "source": "docs_generated/foundations/documentation/canonical-promotion-report.md", "heading": "Documentation Canonical Promotion Report", "start_line": 15, "end_line": 23},
+        {"chunk_hash": "6b8c4e0dc02afa55", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "Compact Ingest Artifact", "start_line": 141, "end_line": 160},
+        {"chunk_hash": "78fd096ab42440d3", "source": "docs_generated/README.md", "heading": "Update Process", "start_line": 121, "end_line": 134},
+        {"chunk_hash": "bbf8958786bbad23", "source": "docs_generated/foundations/agent-memory/memo-ingest-workflow.md", "heading": "Durable Document Gates", "start_line": 127, "end_line": 140}
+      ]
+    }
+  ]
+}
