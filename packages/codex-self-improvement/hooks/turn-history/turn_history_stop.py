@@ -22,7 +22,7 @@ MAX_CONTEXT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_CONTEXT_CHARS", "
 MAX_ERROR_RESULT_CHARS = int(os.environ.get("AGENT_TURN_HISTORY_MAX_ERROR_RESULT_CHARS", "800") or "800")
 MAX_PREVIOUS_MEMOS = int(os.environ.get("AGENT_TURN_HISTORY_PREVIOUS_MEMOS", "10") or "10")
 DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
-DEFAULT_CLAUDE_MODEL = "haiku"
+DEFAULT_CLAUDE_MODEL = "sonnet"
 VALID_PROVIDERS = {"auto", "claude", "codex", "none"}
 
 
