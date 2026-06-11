@@ -1,16 +1,40 @@
 # Agent GUI
 
-Agent GUI는 에이전트가 만든 graph plan을 브라우저에서 검토하고, 사용자의 target별 피드백과 에이전트의 답변/수정 revision을 MCP tool로 주고받는 로컬 리뷰 시스템입니다.
+Agent GUI는 에이전트 작업을 시각화하고, 작업 이력을 기록하며, 그 기록을 장기기억과 스킬 개선으로 연결하는 로컬 에이전트 도구 셋입니다.
 
-## Why Agent GUI
+핵심 아이디어는 에이전트의 계획과 실행 과정을 채팅 로그에만 남기지 않는 것입니다. Graph UI로 작업 흐름을 검토하고, target별 피드백과 revision 이력을 session event로 저장한 뒤, 필요한 정보는 검색 가능한 memory와 수동 승인형 self-improvement workflow로 이어갑니다.
 
-긴 계획을 채팅으로만 검토하면 작업 흐름, 판단 지점, 피드백 위치, revision 변경점이 쉽게 흐려집니다.
+## What It Does
 
-Agent GUI는 에이전트와 사용자가 같은 브라우저 작업면을 보면서 계획을 검토하고, 피드백과 수정 이력을 구조화된 session event로 남기기 위해 존재합니다.
+- Graph review: 에이전트가 만든 graph plan을 브라우저에서 검토하고 node, edge, iframe 단위로 피드백을 남깁니다.
+- Work history: feedback, reply, revision, approval 상태를 session event로 기록합니다.
+- Preview runtime: 대상 프로젝트가 node별 HTML preview를 iframe으로 제공해 계획의 판단 지점을 더 구체적으로 보여줍니다.
+- Long-term memory: `mem` 패키지로 markdown 기반 지식을 chunking, embedding, hybrid search 가능한 형태로 관리합니다.
+- Self-improvement: Codex 세션 이력과 사용자 correction을 검토해, 명시적 승인 후 재사용 가능한 skill로 반영합니다.
+
+## Why This Exists
+
+에이전트와 협업할 때 어려운 부분은 단순히 코드를 생성하는 것이 아니라, 긴 작업의 맥락을 유지하고 피드백을 정확한 위치에 연결하는 것입니다.
+
+이 프로젝트는 다음 질문을 실험합니다.
+
+- 에이전트의 계획을 사람이 빠르게 검토할 수 있는 형태로 시각화할 수 있는가?
+- 사용자의 피드백을 graph, node, edge, iframe 같은 명확한 target에 연결할 수 있는가?
+- 작업 이력을 나중에 검색 가능한 장기기억으로 바꿀 수 있는가?
+- 반복되는 사용자 correction과 성공 패턴을 수동 승인형 skill 개선으로 전환할 수 있는가?
+
+## System Parts
+
+Agent GUI는 네 가지 구성요소로 이루어져 있습니다.
+
+- MCP/웹앱: graph plan session 저장소, review UI, API, SSE, MCP tool server
+- Preview Runtime: 대상 프로젝트가 node iframe preview 화면을 local HTTP URL로 제공하는 runtime
+- Memory: markdown 문서를 indexing하고 hybrid search로 검색하는 `mem` 패키지
+- Self-Improvement: Codex turn history를 저장하고, 세션 리뷰를 통해 skill 개선 후보를 만드는 runtime
 
 ## Quickstart
 
-Agent GUI는 세 가지 구성요소로 붙입니다.
+GUI workflow는 다음 구성요소로 붙입니다.
 
 - MCP/웹앱: graph plan session 저장소, review UI, API, SSE, MCP tool server
 - 스킬: 각 프로젝트의 에이전트가 Agent GUI MCP workflow를 올바르게 쓰도록 하는 지침
@@ -113,6 +137,22 @@ pnpm dev --host 127.0.0.1 --port 5173
 8. 사용자가 최신 revision을 검토하고 승인합니다.
 9. SEED 생성, 혹은 바로 작업 진행, 혹은 아티팩트 생성 등등 후속작업을 이어서 하면됩니다.
 
+## Memory And Self-Improvement Flow
+
+이 저장소에는 GUI 외에도 에이전트의 장기적인 작업 품질을 개선하기 위한 실험이 포함되어 있습니다.
+
+- `packages/mem`: markdown 문서를 heading 기반 chunk로 나누고, embedding + BM25 hybrid search로 검색하는 memory layer입니다.
+- `packages/codex-self-improvement`: Codex 세션의 turn history를 저장하고, completed session review를 통해 skill 개선 후보를 찾는 수동 승인형 runtime입니다.
+
+의도적으로 자동 수정을 피하고, 사용자가 명시적으로 요청하고 승인한 경우에만 skill을 생성하거나 수정합니다. 즉, 작업 이력은 먼저 관찰 가능한 기록으로 남기고, 반복적으로 유용한 패턴만 장기기억과 skill 개선으로 승격합니다.
+
+## Portfolio Highlights
+
+- GraphPlanDocument schema로 agent plan, subgraph, node iframe, validation rule을 명확하게 모델링했습니다.
+- feedback target을 graph, node, edge, iframe으로 분리해 agent reply와 revision이 원래 맥락을 잃지 않도록 했습니다.
+- local-first MCP server가 review UI, API, SSE, MCP stdio/http route를 함께 제공하도록 구성했습니다.
+- iframe preview를 React review UI 바깥에 두어 대상 프로젝트가 자체 HTML detail 화면을 제공할 수 있게 했습니다.
+- `mem`과 self-improvement runtime을 통해 시각화된 작업 이력을 장기기억과 skill 개선 workflow로 확장했습니다.
 
 ## Documentation
 
