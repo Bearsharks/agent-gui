@@ -250,6 +250,15 @@ live apply는 실행 전 `reviews/curation/<run-id>/backup-skills` snapshot을 �
 
 현재 Codex 구조에는 Hermes cron job이 없으므로 cron reference rewrite 단계는 포함하지 않습니다.
 
+## Attribution
+
+이 패키지는 [NousResearch/hermes-agent](https://github.com/nousresearch/hermes-agent)의
+self-improvement, background review, curation 아이디어를 Codex-local
+manual-approval workflow에 맞게 차용하고 수정한 것입니다.
+
+Upstream MIT license와 copyright notice는
+[LICENSE.upstream](LICENSE.upstream)에 보존합니다.
+
 ## 저장소
 
 설치 후 상태 파일은 다음 위치에 저장됩니다.

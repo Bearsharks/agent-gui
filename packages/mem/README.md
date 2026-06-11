@@ -145,4 +145,7 @@ spec은 패키지 바깥의 `../docs/mem/` 아래에 있습니다.
 
 ## 라이선스
 
-이 패키지는 upstream MIT license를 [LICENSE](LICENSE)에 보존합니다.
+이 패키지는 [zilliztech/memsearch](https://github.com/zilliztech/memsearch)를
+이 저장소의 local agent memory workflow에 맞게 수정한 것입니다.
+
+Upstream MIT license와 copyright notice는 [LICENSE](LICENSE)에 보존합니다.
